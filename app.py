@@ -36,6 +36,29 @@ CATEGORIES = ["Recording","Mixing & Mastering","Music Video","Marketing",
               "Sync/Licensing","Distribution","Legal","Merch","Tour/Live","Other"]
 PAYMENT_METHODS = ["ACH","Check","Wire","Credit Card","PayPal","Cash"]
 
+INVOICE_VALIDATE_PROMPT = """Examine this invoice or receipt carefully.
+Return ONLY valid JSON — no markdown, no extra text:
+{
+  "has_invoice_number": true or false,
+  "has_amount": true or false,
+  "has_date": true or false,
+  "has_payee_name": true or false,
+  "issues": ["list each specific missing or unclear field as a short plain-English sentence"]
+}
+Set a field to true ONLY if it is clearly present and legible. If the document is not an invoice or receipt at all, set all to false and note it in issues."""
+
+W9_VALIDATE_PROMPT = """Examine this tax form carefully.
+Return ONLY valid JSON — no markdown, no extra text:
+{
+  "is_w9_or_w8": true or false,
+  "has_name": true or false,
+  "has_tin_ssn_ein": true or false,
+  "has_signature": true or false,
+  "has_signed_date": true or false,
+  "issues": ["list each specific missing or incomplete field as a short plain-English sentence"]
+}
+Set a field to true ONLY if it is clearly present and completed. Look carefully for handwritten or typed signatures and dates in Part II of a W-9."""
+
 EXTRACT_PROMPT = """Extract the following fields from this invoice or receipt.
 Return ONLY valid JSON — no markdown, no extra text:
 {
@@ -772,6 +795,59 @@ def _build_excel(rows):
 
 
 # ── Vendor submission ─────────────────────────────────────────────────────────
+
+def _validate_file(file_bytes, mime, prompt):
+    """Run a validation prompt against a file and return parsed JSON or None."""
+    if not ANTHROPIC_KEY: return None
+    b64 = base64.standard_b64encode(file_bytes).decode()
+    content = ([{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":b64}},
+                {"type":"text","text":prompt}]
+               if mime == "application/pdf" else
+               [{"type":"image","source":{"type":"base64","media_type":mime,"data":b64}},
+                {"type":"text","text":prompt}])
+    try:
+        resp = anthropic.Anthropic(api_key=ANTHROPIC_KEY).messages.create(
+            model=MODEL, max_tokens=512, messages=[{"role":"user","content":content}])
+        raw = resp.content[0].text.strip()
+        if raw.startswith("```"): raw = raw.split("```")[1]; raw = raw[4:] if raw.startswith("json") else raw
+        return json.loads(raw.strip())
+    except Exception as e:
+        print(f"Validation error: {e}"); return None
+
+@app.route("/validate-files", methods=["POST"])
+def validate_files():
+    """Pre-submission AI check on invoice and W9 files. No login required (public form)."""
+    if not ANTHROPIC_KEY:
+        return jsonify({"ok": True, "skipped": True})
+
+    result = {"invoice": [], "w9": []}
+
+    if "invoice_file" in request.files and request.files["invoice_file"].filename:
+        f = request.files["invoice_file"]
+        fb = f.read(); mime = ext_mime(f.filename)
+        v = _validate_file(fb, mime, INVOICE_VALIDATE_PROMPT)
+        if v:
+            issues = list(v.get("issues") or [])
+            if not v.get("has_invoice_number"): issues.append("Invoice number is missing.")
+            if not v.get("has_amount"):         issues.append("Invoice amount is missing or unclear.")
+            if not v.get("has_date"):           issues.append("Invoice date is missing.")
+            if not v.get("has_payee_name"):     issues.append("Vendor / payee name is missing.")
+            result["invoice"] = list(dict.fromkeys(issues))  # dedupe, preserve order
+
+    if "w9_file" in request.files and request.files["w9_file"].filename:
+        f = request.files["w9_file"]
+        fb = f.read(); mime = ext_mime(f.filename)
+        v = _validate_file(fb, mime, W9_VALIDATE_PROMPT)
+        if v:
+            issues = list(v.get("issues") or [])
+            if not v.get("is_w9_or_w8"):      issues.append("This doesn't appear to be a W-9 or W-8 form.")
+            if not v.get("has_name"):          issues.append("Name field is blank or missing.")
+            if not v.get("has_tin_ssn_ein"):   issues.append("Tax ID (SSN / EIN) is missing.")
+            if not v.get("has_signature"):     issues.append("Signature is missing — the form must be signed.")
+            if not v.get("has_signed_date"):   issues.append("Signature date is missing.")
+            result["w9"] = list(dict.fromkeys(issues))
+
+    return jsonify({"ok": True, "issues": result})
 
 @app.route("/submit", methods=["GET"])
 def submit_form():
