@@ -21,8 +21,9 @@ RESEND_KEY     = os.environ.get("RESEND_API_KEY", "")
 NOTIFY_EMAIL   = os.environ.get("NOTIFY_EMAIL", "johns@boomrecords.co")
 APP_URL        = os.environ.get("APP_URL", "")
 
+# Cobrand is no longer a category — it's a separate yes/no flag on any expense
 CATEGORIES = ["Recording","Mixing & Mastering","Music Video","Marketing",
-              "Sync/Licensing","Distribution","Legal","Merch","Tour/Live","Cobrand","Other"]
+              "Sync/Licensing","Distribution","Legal","Merch","Tour/Live","Other"]
 PAYMENT_METHODS = ["ACH","Check","Wire","Credit Card","PayPal","Cash"]
 
 EXTRACT_PROMPT = """Extract the following fields from this invoice or receipt.
@@ -31,7 +32,7 @@ Return ONLY valid JSON — no markdown, no extra text:
   "invoice_date": "MM/DD/YYYY if found, else empty string",
   "payee": "vendor or company name",
   "description": "brief description of what was invoiced (1 sentence max)",
-  "category": "best match from: Recording, Mixing & Mastering, Music Video, Marketing, Sync/Licensing, Distribution, Legal, Merch, Tour/Live, Cobrand, Other",
+  "category": "best match from: Recording, Mixing & Mastering, Music Video, Marketing, Sync/Licensing, Distribution, Legal, Merch, Tour/Live, Other",
   "invoice_number": "invoice number if present, else empty string",
   "amount": <number, 2 decimal places, no symbols, 0 if not found>,
   "payment_method": "best match from: ACH, Check, Wire, Credit Card, PayPal, Cash — or empty string"
@@ -68,16 +69,18 @@ def init_db():
             invoice_filename TEXT, invoice_data TEXT,
             proof_filename TEXT, proof_data TEXT,
             status TEXT DEFAULT 'approved',
+            cobrand BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT NOW())""")
         for col in ["song TEXT","vendor_submitted BOOLEAN DEFAULT FALSE",
                     "vendor_name TEXT","vendor_email TEXT",
                     "w9_filename TEXT","w9_data TEXT",
                     "invoice_filename TEXT","invoice_data TEXT",
                     "proof_filename TEXT","proof_data TEXT",
-                    "status TEXT DEFAULT 'approved'"]:
+                    "status TEXT DEFAULT 'approved'",
+                    "cobrand BOOLEAN DEFAULT FALSE"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
-        # Backfill any NULL statuses from before this migration
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
+        cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
     else:
         cur.execute("""CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_date TEXT, payee TEXT,
@@ -92,16 +95,19 @@ def init_db():
             invoice_filename TEXT, invoice_data TEXT,
             proof_filename TEXT, proof_data TEXT,
             status TEXT DEFAULT 'approved',
+            cobrand INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now')))""")
         for col in ["song TEXT","vendor_submitted INTEGER DEFAULT 0",
                     "vendor_name TEXT","vendor_email TEXT",
                     "w9_filename TEXT","w9_data TEXT",
                     "invoice_filename TEXT","invoice_data TEXT",
                     "proof_filename TEXT","proof_data TEXT",
-                    "status TEXT DEFAULT 'approved'"]:
+                    "status TEXT DEFAULT 'approved'",
+                    "cobrand INTEGER DEFAULT 0"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
+        cur.execute("UPDATE expenses SET cobrand = 0 WHERE cobrand IS NULL")
     conn.commit(); conn.close()
 
 
@@ -128,7 +134,6 @@ def is_admin():
 
 @app.context_processor
 def inject_pending_count():
-    """Inject pending approval count into every template automatically."""
     if session.get("authenticated"):
         try:
             conn, kind = get_db(); cur = conn.cursor()
@@ -212,6 +217,12 @@ def serve_file(data_b64, filename, inline=True):
     resp.headers["Content-Disposition"] = f'{disposition}; filename="{filename}"'
     return resp
 
+def fmt_qbo_date(d):
+    if d is None: return datetime.now().strftime("%Y%m%d") + "120000"
+    if hasattr(d, 'strftime'): return d.strftime("%Y%m%d") + "120000"
+    s = str(d).replace("-","")[:8]
+    return s + "120000" if len(s) >= 8 else datetime.now().strftime("%Y%m%d") + "120000"
+
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 
@@ -219,7 +230,6 @@ def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=N
     if not RESEND_KEY: return
     try:
         import resend; resend.api_key = RESEND_KEY
-        # Link to approvals queue, not ledger
         review_url = f"{APP_URL}/approvals" if APP_URL else "#"
         amt = fields.get("amount",0)
         amt_str = f"${float(amt):,.2f}" if amt else "Unknown"
@@ -293,18 +303,19 @@ def parse_invoice():
 def add_expense():
     d = request.json
     v = lambda k,df="": (d.get(k,df) or df)
+    cobrand = 1 if d.get("cobrand") else 0
     row = (parse_date(v("invoice_date")), v("payee"), v("description"), v("category"),
            v("artist"), v("song"), v("invoice_number"), parse_amount(v("amount",0)),
            v("payment_method"), parse_date(v("payment_date")), v("in_quickbooks","No"),
            parse_date(v("qb_entry_date")), v("uploaded_to_stem","No"),
            parse_date(v("stem_upload_date")), v("notes"),
-           v("invoice_filename") or None, v("invoice_b64") or None)
+           v("invoice_filename") or None, v("invoice_b64") or None, cobrand)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
-            qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data)
-            VALUES ({','.join([ph]*17)})""", row)
+            qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data,cobrand)
+            VALUES ({','.join([ph]*18)})""", row)
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         return jsonify({"ok":True,"id":new_id,"payee":v("payee"),"amount":v("amount")})
@@ -315,13 +326,15 @@ def add_expense():
 @login_required
 def update_entry(eid):
     allowed = {"in_quickbooks","uploaded_to_stem","artist","song","notes",
-               "category","payment_method","qb_entry_date","stem_upload_date"}
+               "category","payment_method","qb_entry_date","stem_upload_date","cobrand"}
     updates = {k:v for k,v in request.json.items() if k in allowed}
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         for field, val in updates.items():
-            cur.execute(f"UPDATE expenses SET {field}={ph} WHERE id={ph}", (val or None, eid))
+            if field == "cobrand":
+                val = 1 if val else 0
+            cur.execute(f"UPDATE expenses SET {field}={ph} WHERE id={ph}", (val if val != "" else None, eid))
         conn.commit(); conn.close()
         return jsonify({"ok":True})
     except Exception as e:
@@ -369,7 +382,7 @@ def approvals_page():
         cur.execute("""SELECT id, created_at, vendor_name, vendor_email,
                               invoice_date, payee, description, category,
                               invoice_number, amount, notes,
-                              invoice_filename, w9_filename
+                              invoice_filename, w9_filename, artist, song, cobrand
                        FROM expenses WHERE status = 'pending'
                        ORDER BY created_at ASC""")
         rows = cur.fetchall(); conn.close()
@@ -378,7 +391,9 @@ def approvals_page():
                   "payee":str(r[5] or ""),"description":str(r[6] or ""),
                   "category":str(r[7] or ""),"invoice_number":str(r[8] or ""),
                   "amount":r[9],"notes":str(r[10] or ""),
-                  "invoice_filename":str(r[11] or ""),"w9_filename":str(r[12] or "")} for r in rows]
+                  "invoice_filename":str(r[11] or ""),"w9_filename":str(r[12] or ""),
+                  "artist":str(r[13] or ""),"song":str(r[14] or ""),
+                  "cobrand":bool(r[15])} for r in rows]
     except Exception as e:
         items = []
     return render_template("approvals.html", items=items, is_admin=is_admin())
@@ -475,7 +490,7 @@ def entries():
                               invoice_number,amount,payment_method,payment_date,
                               in_quickbooks,uploaded_to_stem,notes,
                               vendor_submitted,vendor_name,w9_filename,
-                              invoice_filename,proof_filename
+                              invoice_filename,proof_filename,cobrand
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date DESC, id DESC""")
@@ -488,7 +503,8 @@ def entries():
                          "in_quickbooks":str(r[11] or ""),"uploaded_to_stem":str(r[12] or ""),
                          "notes":str(r[13] or ""),"vendor_submitted":bool(r[14]),
                          "vendor_name":str(r[15] or ""),"w9_filename":str(r[16] or ""),
-                         "has_invoice":bool(r[17]),"has_proof":bool(r[18])} for r in rows])
+                         "has_invoice":bool(r[17]),"has_proof":bool(r[18]),
+                         "cobrand":bool(r[19]) if r[19] else False} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
@@ -538,6 +554,9 @@ def w9s_page():
         items = []
     return render_template("w9s.html", items=items, is_admin=is_admin())
 
+
+# ── Export routes ─────────────────────────────────────────────────────────────
+
 @app.route("/export")
 @login_required
 def export_excel():
@@ -545,7 +564,8 @@ def export_excel():
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT invoice_date,payee,description,category,artist,song,
                               invoice_number,amount,payment_method,payment_date,
-                              in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,notes
+                              in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,
+                              notes,cobrand
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date ASC, id ASC""")
@@ -556,13 +576,125 @@ def export_excel():
                      download_name=f"BoomRecords_Expenses_{date.today():%Y-%m-%d}.xlsx",
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+@app.route("/export-qbo")
+@login_required
+def export_qbo():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("""SELECT id,invoice_date,payee,description,category,amount,
+                              invoice_number,cobrand,artist,song
+                       FROM expenses
+                       WHERE status = 'approved' OR status IS NULL
+                       ORDER BY invoice_date ASC, id ASC""")
+        rows = cur.fetchall(); conn.close()
+    except Exception as e: return jsonify({"error":str(e)}), 500
+    qbo_content = _build_qbo(rows)
+    buf = io.BytesIO(qbo_content.encode("ascii","replace"))
+    buf.seek(0)
+    return send_file(buf, as_attachment=True,
+                     download_name=f"BoomRecords_Expenses_{date.today():%Y-%m-%d}.qbo",
+                     mimetype="application/x-ofx")
+
+def _build_qbo(rows):
+    now = datetime.now().strftime("%Y%m%d%H%M%S")
+    dates = []
+    for r in rows:
+        d = r[1]
+        if d:
+            try:
+                if hasattr(d,'strftime'): dates.append(d)
+                else:
+                    parsed = datetime.strptime(str(d)[:10], "%Y-%m-%d").date()
+                    dates.append(parsed)
+            except: pass
+    dt_start = fmt_qbo_date(min(dates) if dates else None)
+    dt_end   = fmt_qbo_date(max(dates) if dates else None)
+
+    transactions = []
+    for r in rows:
+        eid, inv_date, payee, desc, category, amount, inv_num, cobrand, artist, song = r
+        amount = float(amount or 0)
+        dt_posted = fmt_qbo_date(inv_date)
+        name = (payee or "Unknown")[:32]
+        memo_parts = []
+        if category: memo_parts.append(category)
+        if cobrand: memo_parts.append("COBRAND")
+        if artist: memo_parts.append(artist)
+        if desc: memo_parts.append(desc[:40])
+        memo = " | ".join(memo_parts)[:255]
+        fitid = f"{eid:08d}"
+        transactions.append(
+            f"<STMTTRN>\n"
+            f"<TRNTYPE>DEBIT\n"
+            f"<DTPOSTED>{dt_posted}\n"
+            f"<TRNAMT>-{amount:.2f}\n"
+            f"<FITID>{fitid}\n"
+            f"<NAME>{name}\n"
+            f"<MEMO>{memo}\n"
+            f"</STMTTRN>"
+        )
+
+    total = -sum(float(r[5] or 0) for r in rows)
+    trn_block = "\n".join(transactions)
+
+    return (
+        "OFXHEADER:100\n"
+        "DATA:OFXSGML\n"
+        "VERSION:102\n"
+        "SECURITY:NONE\n"
+        "ENCODING:USASCII\n"
+        "CHARSET:1252\n"
+        "COMPRESSION:NONE\n"
+        "OLDFILEUID:NONE\n"
+        "NEWFILEUID:NONE\n"
+        "\n"
+        "<OFX>\n"
+        "<SIGNONMSGSRSV1>\n"
+        "<SONRS>\n"
+        "<STATUS>\n"
+        "<CODE>0\n"
+        "<SEVERITY>INFO\n"
+        "</STATUS>\n"
+        f"<DTSERVER>{now}\n"
+        "<LANGUAGE>ENG\n"
+        "</SONRS>\n"
+        "</SIGNONMSGSRSV1>\n"
+        "<BANKMSGSRSV1>\n"
+        "<STMTTRNRS>\n"
+        "<TRNUID>1001\n"
+        "<STATUS>\n"
+        "<CODE>0\n"
+        "<SEVERITY>INFO\n"
+        "</STATUS>\n"
+        "<STMTRS>\n"
+        "<CURDEF>USD\n"
+        "<BANKACCTFROM>\n"
+        "<BANKID>000000000\n"
+        "<ACCTID>BOOM-RECORDS-EXPENSES\n"
+        "<ACCTTYPE>CHECKING\n"
+        "</BANKACCTFROM>\n"
+        "<BANKTRANLIST>\n"
+        f"<DTSTART>{dt_start}\n"
+        f"<DTEND>{dt_end}\n"
+        f"{trn_block}\n"
+        "</BANKTRANLIST>\n"
+        "<LEDGERBAL>\n"
+        f"<BALAMT>{total:.2f}\n"
+        f"<DTASOF>{now}\n"
+        "</LEDGERBAL>\n"
+        "</STMTRS>\n"
+        "</STMTTRNRS>\n"
+        "</BANKMSGSRSV1>\n"
+        "</OFX>"
+    )
+
 def _build_excel(rows):
     def fill(c): return PatternFill("solid",start_color=c,end_color=c)
     def bdr():
         s=Side(style="thin",color="FFE2E2E2"); return Border(left=s,right=s,top=s,bottom=s)
     wb=Workbook(); ws=wb.active; ws.title="Expense Tracker"
     ws.sheet_view.showGridLines=False; ws.freeze_panes="A3"
-    ws.merge_cells("A1:O1"); ws["A1"]="BOOM RECORDS — EXPENSE & RECOUPMENT TRACKER"
+    ws.merge_cells("A1:P1"); ws["A1"]="BOOM RECORDS — EXPENSE & RECOUPMENT TRACKER"
     ws["A1"].font=Font(name="Arial",bold=True,size=13,color="FFFFFFFF")
     ws["A1"].fill=fill("FFE31E24"); ws["A1"].alignment=Alignment(horizontal="center",vertical="center")
     ws.row_dimensions[1].height=28
@@ -570,7 +702,8 @@ def _build_excel(rows):
           ("D","Category",20),("E","Artist / Project",20),("F","Song",20),
           ("G","Invoice #",14),("H","Amount ($)",13),("I","Payment Method",16),
           ("J","Payment Date",14),("K","In QuickBooks?",16),("L","QB Entry Date",14),
-          ("M","Uploaded to Stem?",18),("N","Stem Upload Date",16),("O","Notes",30)]
+          ("M","Uploaded to Stem?",18),("N","Stem Upload Date",16),
+          ("O","Cobrand",10),("P","Notes",30)]
     for col,label,w in hdrs:
         c=ws[f"{col}2"]; c.value=label
         c.font=Font(name="Arial",bold=True,size=10,color="FFFFFFFF")
@@ -593,7 +726,9 @@ def _build_excel(rows):
         dc("H",v[7],'$#,##0.00;($#,##0.00);"-"',"right")
         dc("I",v[8],"","center"); dc("J",v[9],"MM/DD/YYYY","center"); dc("K",v[10],"","center")
         dc("L",v[11],"MM/DD/YYYY","center"); dc("M",v[12],"","center")
-        dc("N",v[13],"MM/DD/YYYY","center"); dc("O",v[14])
+        dc("N",v[13],"MM/DD/YYYY","center")
+        dc("O","Yes" if v[15] else "No","","center")
+        dc("P",v[14])
     return wb
 
 
@@ -601,28 +736,37 @@ def _build_excel(rows):
 
 @app.route("/submit", methods=["GET"])
 def submit_form():
-    return render_template("submit.html")
+    return render_template("submit.html", categories=CATEGORIES)
 
 @app.route("/submit", methods=["POST"])
 def submit_invoice():
-    vendor_name  = request.form.get("vendor_name","").strip()
-    vendor_email = request.form.get("vendor_email","").strip()
-    notes        = request.form.get("notes","").strip()
+    vendor_name    = request.form.get("vendor_name","").strip()
+    vendor_email   = request.form.get("vendor_email","").strip()
+    vendor_artist  = request.form.get("artist","").strip()
+    vendor_song    = request.form.get("song","").strip()
+    vendor_category= request.form.get("category","").strip()
+    cobrand        = 1 if request.form.get("cobrand") == "yes" else 0
+    notes          = request.form.get("notes","").strip()
 
-    if not vendor_name:
-        return render_template("submit.html", error="Please enter your company or name.")
-    if not vendor_email:
-        return render_template("submit.html", error="Please enter your email address.")
+    def err(msg):
+        return render_template("submit.html", error=msg, categories=CATEGORIES)
+
+    if not vendor_name:   return err("Please enter your company or name.")
+    if not vendor_email:  return err("Please enter your email address.")
+    if not vendor_artist: return err("Please enter the artist or project name.")
+    if not vendor_category: return err("Please select a category.")
     if "file" not in request.files or not request.files["file"].filename:
-        return render_template("submit.html", error="Please upload your invoice file.")
+        return err("Please upload your invoice file.")
     if "w9_file" not in request.files or not request.files["w9_file"].filename:
-        return render_template("submit.html", error="Please upload your W9 or W8 form.")
+        return err("Please upload your W9 or W8 form.")
 
     file = request.files["file"]; file_bytes = file.read()
     inv_fname = file.filename
     mime = ext_mime(inv_fname)
     fields = extract_fields(file_bytes, mime)
     if not fields.get("payee"): fields["payee"] = vendor_name
+    # Use vendor-provided category and artist (override AI extraction)
+    fields["category"] = vendor_category
     inv_b64 = base64.b64encode(file_bytes).decode()
 
     w9_file = request.files["w9_file"]
@@ -631,21 +775,23 @@ def submit_invoice():
 
     unknowns = get_unknowns(fields)
     row = (parse_date(fields.get("invoice_date")), fields.get("payee",""),
-           fields.get("description",""), fields.get("category","Other"),
-           "","", fields.get("invoice_number",""), parse_amount(fields.get("amount",0)),
+           fields.get("description",""), vendor_category,
+           vendor_artist, vendor_song, fields.get("invoice_number",""),
+           parse_amount(fields.get("amount",0)),
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
            True if DATABASE_URL else 1, vendor_name, vendor_email,
-           w9_fname, w9_b64, inv_fname, inv_b64, "pending")
+           w9_fname, w9_b64, inv_fname, inv_b64, "pending", cobrand)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
-            vendor_name,vendor_email,w9_filename,w9_data,invoice_filename,invoice_data,status)
-            VALUES ({','.join([ph]*23)})""", row)
+            vendor_name,vendor_email,w9_filename,w9_data,invoice_filename,invoice_data,
+            status,cobrand)
+            VALUES ({','.join([ph]*24)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
-        return render_template("submit.html", error=f"Submission failed: {e}")
+        return err(f"Submission failed: {e}")
 
     send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_fname)
     return render_template("submit_success.html", vendor_name=vendor_name)

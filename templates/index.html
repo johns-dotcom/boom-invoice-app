@@ -77,7 +77,8 @@
     {% if is_admin %}
     <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
     {% endif %}
-    <a href="/export" class="btn-ghost">⬇ Export</a>
+    <a href="/export" class="btn-ghost">⬇ Excel</a>
+    <a href="/export-qbo" class="btn-ghost">⬇ QB</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
@@ -131,6 +132,13 @@
           <select id="uploaded_to_stem"><option value="No">No</option><option value="Yes">Yes</option><option value="N/A">N/A</option></select>
         </div>
         <div class="form-group full"><label>Notes <span class="optional">(optional)</span></label><textarea id="notes" placeholder="Any additional notes…"></textarea></div>
+        <div class="form-group full">
+          <label>Cobrand Expense?</label>
+          <div id="cobrand-row" onclick="toggleCobrand()" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f9f9f9;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;user-select:none;">
+            <div id="cobrand-switch" style="width:36px;height:20px;background:#e2e2e2;border-radius:10px;position:relative;transition:background .2s;flex-shrink:0;"><div id="cobrand-knob" style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></div></div>
+            <span id="cobrand-label" style="font-size:13px;font-weight:600;color:#555">No — not a cobrand expense</span>
+          </div>
+        </div>
       </div>
       <button class="btn-submit" id="btn-submit" onclick="submitForm()">Save Invoice</button>
     </div>
@@ -147,6 +155,24 @@
 <script>
 const API_CONFIGURED = {{ api_configured | tojson }};
 let storedFileB64 = null, storedFileMime = null, storedFileName = null;
+let cobrandValue = false;
+
+function toggleCobrand() {
+  cobrandValue = !cobrandValue;
+  const row = document.getElementById('cobrand-row');
+  const sw = document.getElementById('cobrand-switch');
+  const knob = document.getElementById('cobrand-knob');
+  const label = document.getElementById('cobrand-label');
+  if (cobrandValue) {
+    sw.style.background = '#e31e24'; knob.style.left = '18px';
+    row.style.borderColor = '#e31e24'; row.style.background = '#fef2f2';
+    label.textContent = 'Yes — cobrand expense';
+  } else {
+    sw.style.background = '#e2e2e2'; knob.style.left = '2px';
+    row.style.borderColor = 'var(--border)'; row.style.background = '#f9f9f9';
+    label.textContent = 'No — not a cobrand expense';
+  }
+}
 
 const dz = document.getElementById('drop-zone');
 const fi = document.getElementById('file-input');
@@ -206,7 +232,8 @@ async function submitForm() {
     payment_method:g('payment_method'), payment_date:g('payment_date'),
     in_quickbooks:g('in_quickbooks'), uploaded_to_stem:g('uploaded_to_stem'), notes:g('notes'),
     invoice_filename: storedFileName || null,
-    invoice_b64: storedFileB64 || null
+    invoice_b64: storedFileB64 || null,
+    cobrand: cobrandValue
   };
   try {
     const res = await fetch('/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
@@ -226,6 +253,12 @@ function resetForm() {
   document.getElementById('payment_method').value='';
   document.getElementById('in_quickbooks').value='No';
   document.getElementById('uploaded_to_stem').value='No';
+  cobrandValue = false;
+  const sw = document.getElementById('cobrand-switch');
+  const knob = document.getElementById('cobrand-knob');
+  if (sw) { sw.style.background='#e2e2e2'; knob.style.left='2px'; }
+  const row = document.getElementById('cobrand-row');
+  if (row) { row.style.borderColor='var(--border)'; row.style.background='#f9f9f9'; document.getElementById('cobrand-label').textContent='No — not a cobrand expense'; }
   document.getElementById('drop-filename').textContent='';
   dz.classList.remove('has-file');
   document.getElementById('preview-box').style.display='none';

@@ -19,6 +19,8 @@
   a.btn-approvals { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s; position:relative; }
   a.btn-approvals:hover { border-color:var(--red); color:var(--red); }
   .approval-badge { background:var(--red); color:#fff; font-size:10px; font-weight:900; padding:1px 6px; border-radius:10px; line-height:1.5; }
+  .badge-cobrand { background:#fce7f3; color:#9d174d; }
+  .badge-cobrand-no { background:#f3f4f6; color:#6b7280; }
   .toolbar { padding:12px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:#fff; }
   .search-input, .filter-select { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; color:var(--text); font-size:13px; font-family:inherit; }
   .search-input { width:220px; }
@@ -88,7 +90,8 @@
       {% if pending_count > 0 %}<span class="approval-badge">{{ pending_count }}</span>{% endif %}
     </a>
     {% endif %}
-    <a href="/export" class="btn-export">⬇ Export</a>
+    <a href="/export" class="btn-export">⬇ Excel</a>
+    <a href="/export-qbo" class="btn-export">⬇ QB</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
@@ -119,7 +122,7 @@
         <th>Date</th><th>Payee</th><th>Description</th><th>Category</th>
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
-        <th>In QB?</th><th>Stem?</th><th>Notes</th>
+        <th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Notes</th>
         <th>Files</th>
         {% if is_admin %}<th></th>{% endif %}
       </tr>
@@ -220,6 +223,7 @@ function renderRows(entries) {
       <td class="td-amount">${fmt(e.amount)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
+      <td id="cb-${e.id}">${cobrandBadge(e.id, e.cobrand)}</td>
       <td class="td-trunc">
         <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${e.notes||'—'}</span>
       </td>
@@ -229,6 +233,23 @@ function renderRows(entries) {
 }
 
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+function cobrandBadge(id, val) {
+  const cls = val ? 'badge-cobrand' : 'badge-cobrand-no';
+  const label = val ? 'Yes' : 'No';
+  return `<span class="badge ${cls}" onclick="toggleCobrand(${id}, ${val})" title="Toggle cobrand">${label} <span class="edit-icon">▾</span></span>`;
+}
+
+async function toggleCobrand(id, current) {
+  const newVal = current ? 0 : 1;
+  const res = await fetch(`/update/${id}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({cobrand: newVal})});
+  if (res.ok) {
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) entry.cobrand = !!newVal;
+    document.getElementById(`cb-${id}`).innerHTML = cobrandBadge(id, !!newVal);
+    flashRow(id); toast('Saved');
+  } else toast('Save failed', true);
+}
 
 function statusBadge(id, field, val) {
   const cls = val==='Yes'?'badge-yes':val==='No'?'badge-no':'badge-na';

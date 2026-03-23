@@ -83,7 +83,8 @@
       Approvals
       {% if pending_count > 0 %}<span class="badge-count">{{ pending_count }}</span>{% endif %}
     </a>
-    <a href="/export" class="btn-export">⬇ Export</a>
+    <a href="/export" class="btn-export">⬇ Excel</a>
+    <a href="/export-qbo" class="btn-export">⬇ QB</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
@@ -133,6 +134,18 @@
           <div class="field-label">Description</div>
           <div class="field-value {% if not item.description %}muted{% endif %}">{{ item.description or 'Not extracted' }}</div>
         </div>
+        {% if item.artist %}
+        <div class="field">
+          <div class="field-label">Artist / Project</div>
+          <div class="field-value">{{ item.artist }}{% if item.song %} — {{ item.song }}{% endif %}</div>
+        </div>
+        {% endif %}
+        {% if item.cobrand %}
+        <div class="field">
+          <div class="field-label">Cobrand</div>
+          <div class="field-value" style="color:#9d174d">✓ Cobrand expense</div>
+        </div>
+        {% endif %}
         {% if item.notes %}
         <div class="field notes-row">
           <div class="field-label">Vendor Notes</div>
