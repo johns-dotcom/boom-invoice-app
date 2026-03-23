@@ -232,13 +232,18 @@ function statusBadge(id, field, val) {
 
 function openStatusEdit(id, field, badgeEl) {
   const sel = document.createElement('select'); sel.className='status-select';
+  const currentVal = badgeEl.textContent.trim().split(' ')[0];
   ['Yes','No','N/A'].forEach(v => {
     const o=document.createElement('option'); o.value=v; o.textContent=v;
-    if (v===(badgeEl.textContent.trim().split(' ')[0])) o.selected=true;
+    if (v===currentVal) o.selected=true;
     sel.appendChild(o);
   });
   badgeEl.replaceWith(sel); sel.focus();
+
+  let committed = false;
+
   const save = async () => {
+    if (committed) return; committed = true;
     const newVal=sel.value; sel.classList.add('saving');
     const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
     const cid=field==='in_quickbooks'?`qb-${id}`:`stem-${id}`;
@@ -246,8 +251,19 @@ function openStatusEdit(id, field, badgeEl) {
     const entry=allEntries.find(e=>e.id===id); if(entry) entry[field]=newVal;
     if(res.ok){flashRow(id);toast('Saved');}else toast('Save failed',true);
   };
-  sel.addEventListener('change',save);
-  sel.addEventListener('blur',()=>{ if(sel.parentNode){ const entry=allEntries.find(e=>e.id===id); const val=entry?entry[field]:'—'; const cid=field==='in_quickbooks'?`qb-${id}`:`stem-${id}`; document.getElementById(cid).innerHTML=statusBadge(id,field,val); } });
+
+  const cancel = () => {
+    if (committed) return; committed = true;
+    const cid=field==='in_quickbooks'?`qb-${id}`:`stem-${id}`;
+    const entry=allEntries.find(e=>e.id===id);
+    const val=entry?entry[field]:'—';
+    document.getElementById(cid).innerHTML=statusBadge(id,field,val);
+  };
+
+  sel.addEventListener('change', save);
+  sel.addEventListener('keydown', e=>{ if(e.key==='Escape') cancel(); });
+  // Delay blur so 'change' fires first when clicking an option
+  sel.addEventListener('blur', ()=>setTimeout(()=>{ if(!committed) cancel(); }, 200));
 }
 
 function editText(id, field, spanEl, currentVal) {
