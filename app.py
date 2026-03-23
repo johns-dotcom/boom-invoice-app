@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pathlib import Path
 from functools import wraps
 
-from flask import Flask, request, jsonify, render_template, session, redirect, send_file
+from flask import Flask, request, jsonify, render_template, session, redirect, send_file, Response
 import anthropic
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -13,8 +13,8 @@ app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 DATABASE_URL   = os.environ.get("DATABASE_URL", "")
-APP_PASSWORD   = os.environ.get("APP_PASSWORD", "")    # regular user password
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")  # admin password (full access)
+APP_PASSWORD   = os.environ.get("APP_PASSWORD", "")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL          = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 RESEND_KEY     = os.environ.get("RESEND_API_KEY", "")
@@ -61,10 +61,18 @@ def init_db():
             invoice_number TEXT, amount NUMERIC(12,2), payment_method TEXT,
             payment_date DATE, in_quickbooks TEXT DEFAULT 'No',
             qb_entry_date DATE, uploaded_to_stem TEXT DEFAULT 'No',
-            stem_upload_date DATE, notes TEXT, vendor_submitted BOOLEAN DEFAULT FALSE,
-            vendor_name TEXT, vendor_email TEXT, created_at TIMESTAMP DEFAULT NOW())""")
+            stem_upload_date DATE, notes TEXT,
+            vendor_submitted BOOLEAN DEFAULT FALSE,
+            vendor_name TEXT, vendor_email TEXT,
+            w9_filename TEXT, w9_data TEXT,
+            invoice_filename TEXT, invoice_data TEXT,
+            proof_filename TEXT, proof_data TEXT,
+            created_at TIMESTAMP DEFAULT NOW())""")
         for col in ["song TEXT","vendor_submitted BOOLEAN DEFAULT FALSE",
-                    "vendor_name TEXT","vendor_email TEXT"]:
+                    "vendor_name TEXT","vendor_email TEXT",
+                    "w9_filename TEXT","w9_data TEXT",
+                    "invoice_filename TEXT","invoice_data TEXT",
+                    "proof_filename TEXT","proof_data TEXT"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
     else:
         cur.execute("""CREATE TABLE IF NOT EXISTS expenses (
@@ -73,10 +81,18 @@ def init_db():
             invoice_number TEXT, amount REAL, payment_method TEXT,
             payment_date TEXT, in_quickbooks TEXT DEFAULT 'No',
             qb_entry_date TEXT, uploaded_to_stem TEXT DEFAULT 'No',
-            stem_upload_date TEXT, notes TEXT, vendor_submitted INTEGER DEFAULT 0,
+            stem_upload_date TEXT, notes TEXT,
+            vendor_submitted INTEGER DEFAULT 0,
             vendor_name TEXT, vendor_email TEXT,
+            w9_filename TEXT, w9_data TEXT,
+            invoice_filename TEXT, invoice_data TEXT,
+            proof_filename TEXT, proof_data TEXT,
             created_at TEXT DEFAULT (datetime('now')))""")
-        for col in ["song TEXT","vendor_submitted INTEGER DEFAULT 0","vendor_name TEXT","vendor_email TEXT"]:
+        for col in ["song TEXT","vendor_submitted INTEGER DEFAULT 0",
+                    "vendor_name TEXT","vendor_email TEXT",
+                    "w9_filename TEXT","w9_data TEXT",
+                    "invoice_filename TEXT","invoice_data TEXT",
+                    "proof_filename TEXT","proof_data TEXT"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
     conn.commit(); conn.close()
@@ -109,17 +125,11 @@ def login():
     if request.method == "POST":
         pw = request.form.get("password","")
         if ADMIN_PASSWORD and pw == ADMIN_PASSWORD:
-            session["authenticated"] = True
-            session["role"] = "admin"
-            return redirect("/")
+            session["authenticated"] = True; session["role"] = "admin"; return redirect("/")
         elif APP_PASSWORD and pw == APP_PASSWORD:
-            session["authenticated"] = True
-            session["role"] = "user"
-            return redirect("/")
+            session["authenticated"] = True; session["role"] = "user"; return redirect("/")
         elif not APP_PASSWORD and not ADMIN_PASSWORD:
-            session["authenticated"] = True
-            session["role"] = "admin"
-            return redirect("/")
+            session["authenticated"] = True; session["role"] = "admin"; return redirect("/")
         else:
             err = "Incorrect password."
     return render_template("login.html", error=err)
@@ -141,6 +151,11 @@ def parse_date(s):
 def parse_amount(v):
     try: return float(str(v).replace("$","").replace(",","").strip()) if v else None
     except: return None
+
+def ext_mime(filename):
+    ext = Path(filename).suffix.lower() if filename else ""
+    return {".pdf":"application/pdf",".jpg":"image/jpeg",".jpeg":"image/jpeg",
+            ".png":"image/png",".webp":"image/webp"}.get(ext,"application/octet-stream")
 
 def extract_fields(file_bytes, mime):
     if not ANTHROPIC_KEY: return {}
@@ -168,22 +183,32 @@ def get_unknowns(fields):
     if not fields.get("description"): u.append("Description missing")
     return u
 
+def serve_file(data_b64, filename, inline=True):
+    if not data_b64: return "File not found", 404
+    file_bytes = base64.b64decode(data_b64)
+    mime = ext_mime(filename)
+    disposition = "inline" if inline and mime in ("application/pdf","image/jpeg","image/png","image/webp") else "attachment"
+    resp = Response(file_bytes, mimetype=mime)
+    resp.headers["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+    return resp
+
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 
-def send_vendor_email(vendor_name, vendor_email, fields, unknowns):
+def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=None):
     if not RESEND_KEY: return
     try:
         import resend; resend.api_key = RESEND_KEY
         review_url = f"{APP_URL}/ledger" if APP_URL else "#"
         amt = fields.get("amount",0)
         amt_str = f"${float(amt):,.2f}" if amt else "Unknown"
-        warn = ("".join(f"<li style='color:#d97706'>⚠ {u}</li>" for u in unknowns)
-                if unknowns else "")
-        warn_block = (f"<div style='background:#fef3c7;border:1px solid #fcd34d;"
-                      f"border-radius:8px;padding:12px 16px;margin:14px 0'>"
-                      f"<strong style='color:#92400e'>Needs review:</strong>"
+        warn = ("".join(f"<li style='color:#d97706'>⚠ {u}</li>" for u in unknowns) if unknowns else "")
+        warn_block = (f"<div style='background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;"
+                      f"padding:12px 16px;margin:14px 0'><strong style='color:#92400e'>Needs review:</strong>"
                       f"<ul style='margin:6px 0 0 16px;color:#92400e'>{warn}</ul></div>") if warn else ""
+        w9_block = (f"<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:8px;"
+                    f"padding:10px 14px;margin:14px 0;font-size:13px;color:#166534'>"
+                    f"📋 W9/W8 submitted: <strong>{w9_filename}</strong></div>") if w9_filename else ""
         def row(bg, label, val):
             bg_s = "background:#f9f9f9;" if bg else ""
             return (f"<tr><td style='padding:7px 12px;{bg_s}color:#666;width:150px'>{label}</td>"
@@ -191,20 +216,19 @@ def send_vendor_email(vendor_name, vendor_email, fields, unknowns):
         html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
 border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
   <div style='background:#e31e24;padding:18px 24px'>
-    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900;letter-spacing:-0.3px'>boom. — New Invoice Submission</h2>
+    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — New Invoice Submission</h2>
   </div>
   <div style='padding:22px;color:#111'>
     <p style='margin:0 0 14px'>A vendor submitted an invoice through your portal.</p>
     <table style='width:100%;border-collapse:collapse;font-size:13px'>
-      {row(True,'Vendor',f"<strong>{vendor_name}</strong>{f' ({vendor_email})' if vendor_email else ''}")}
+      {row(True,'Vendor',f"<strong>{vendor_name}</strong> ({vendor_email})")}
       {row(False,'Invoice Date',fields.get('invoice_date') or '—')}
       {row(True,'Invoice #',fields.get('invoice_number') or '—')}
       {row(False,'Amount',f"<strong style='color:#e31e24'>{amt_str}</strong>")}
       {row(True,'Description',fields.get('description') or '—')}
       {row(False,'Category',fields.get('category') or '—')}
-      {row(True,'Payment Method',fields.get('payment_method') or '—')}
     </table>
-    {warn_block}
+    {w9_block}{warn_block}
     <div style='margin-top:20px'>
       <a href='{review_url}' style='background:#e31e24;color:#fff;padding:9px 18px;
 border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review in Ledger →</a>
@@ -225,7 +249,8 @@ border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review in
 @login_required
 def index():
     return render_template("index.html", categories=CATEGORIES,
-                           payment_methods=PAYMENT_METHODS, api_configured=bool(ANTHROPIC_KEY),
+                           payment_methods=PAYMENT_METHODS,
+                           api_configured=bool(ANTHROPIC_KEY),
                            is_admin=is_admin())
 
 @app.route("/parse", methods=["POST"])
@@ -234,13 +259,13 @@ def parse_invoice():
     if not ANTHROPIC_KEY: return jsonify({"error":"ANTHROPIC_API_KEY not set"}), 400
     if "file" not in request.files: return jsonify({"error":"No file"}), 400
     file = request.files["file"]; file_bytes = file.read()
-    ext = Path(file.filename).suffix.lower()
-    mime = {".pdf":"application/pdf",".jpg":"image/jpeg",".jpeg":"image/jpeg",
-            ".png":"image/png",".webp":"image/webp"}.get(ext,"image/jpeg")
+    fname = file.filename
+    mime = ext_mime(fname)
     fields = extract_fields(file_bytes, mime)
     b64 = base64.standard_b64encode(file_bytes).decode()
     preview = f"data:{mime};base64,{b64}" if mime != "application/pdf" else None
-    return jsonify({"fields":fields,"preview":preview,"is_pdf":mime=="application/pdf"})
+    return jsonify({"fields":fields,"preview":preview,"is_pdf":mime=="application/pdf",
+                    "file_b64":b64,"file_mime":mime,"file_name":fname})
 
 @app.route("/add", methods=["POST"])
 @login_required
@@ -251,13 +276,14 @@ def add_expense():
            v("artist"), v("song"), v("invoice_number"), parse_amount(v("amount",0)),
            v("payment_method"), parse_date(v("payment_date")), v("in_quickbooks","No"),
            parse_date(v("qb_entry_date")), v("uploaded_to_stem","No"),
-           parse_date(v("stem_upload_date")), v("notes"))
+           parse_date(v("stem_upload_date")), v("notes"),
+           v("invoice_filename") or None, v("invoice_b64") or None)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
-            qb_entry_date,uploaded_to_stem,stem_upload_date,notes)
-            VALUES ({','.join([ph]*15)})""", row)
+            qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data)
+            VALUES ({','.join([ph]*17)})""", row)
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         return jsonify({"ok":True,"id":new_id,"payee":v("payee"),"amount":v("amount")})
@@ -280,6 +306,23 @@ def update_entry(eid):
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
+@app.route("/add-proof/<int:eid>", methods=["POST"])
+@login_required
+def add_proof(eid):
+    if "file" not in request.files or not request.files["file"].filename:
+        return jsonify({"error":"No file"}), 400
+    f = request.files["file"]
+    fname = f.filename
+    data = base64.b64encode(f.read()).decode()
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET proof_filename={ph}, proof_data={ph} WHERE id={ph}",
+                    (fname, data, eid))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True,"filename":fname})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
 @app.route("/delete/<int:eid>", methods=["POST"])
 @login_required
 @admin_required
@@ -292,13 +335,43 @@ def delete_entry(eid):
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
+# ── File viewer routes ────────────────────────────────────────────────────────
+
+@app.route("/invoice/<int:eid>")
+@login_required
+def view_invoice(eid):
+    conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+    cur.execute(f"SELECT invoice_filename, invoice_data FROM expenses WHERE id={ph}", (eid,))
+    row = cur.fetchone(); conn.close()
+    if not row or not row[1]: return "No invoice file on record.", 404
+    return serve_file(row[1], row[0] or f"invoice_{eid}.pdf")
+
+@app.route("/proof/<int:eid>")
+@login_required
+def view_proof(eid):
+    conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+    cur.execute(f"SELECT proof_filename, proof_data FROM expenses WHERE id={ph}", (eid,))
+    row = cur.fetchone(); conn.close()
+    if not row or not row[1]: return "No proof of payment on record.", 404
+    return serve_file(row[1], row[0] or f"proof_{eid}.pdf")
+
+@app.route("/w9/<int:eid>")
+@login_required
+def view_w9(eid):
+    conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+    cur.execute(f"SELECT w9_filename, w9_data FROM expenses WHERE id={ph}", (eid,))
+    row = cur.fetchone(); conn.close()
+    if not row or not row[1]: return "No W9 on record.", 404
+    return serve_file(row[1], row[0] or f"w9_{eid}.pdf")
+
+# ── Listing routes ────────────────────────────────────────────────────────────
+
 @app.route("/recent")
 @login_required
 def recent():
     try:
         conn, kind = get_db(); cur = conn.cursor()
-        cur.execute("""SELECT invoice_date,payee,amount,artist,song,
-                              in_quickbooks,uploaded_to_stem
+        cur.execute("""SELECT invoice_date,payee,amount,artist,song,in_quickbooks,uploaded_to_stem
                        FROM expenses ORDER BY id DESC LIMIT 10""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"date":str(r[0] or ""),"payee":str(r[1] or ""),
@@ -314,7 +387,8 @@ def entries():
         cur.execute("""SELECT id,invoice_date,payee,description,category,artist,song,
                               invoice_number,amount,payment_method,payment_date,
                               in_quickbooks,uploaded_to_stem,notes,
-                              vendor_submitted,vendor_name
+                              vendor_submitted,vendor_name,w9_filename,
+                              invoice_filename,proof_filename
                        FROM expenses ORDER BY invoice_date DESC, id DESC""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
@@ -324,7 +398,8 @@ def entries():
                          "payment_method":str(r[9] or ""),"payment_date":str(r[10] or ""),
                          "in_quickbooks":str(r[11] or ""),"uploaded_to_stem":str(r[12] or ""),
                          "notes":str(r[13] or ""),"vendor_submitted":bool(r[14]),
-                         "vendor_name":str(r[15] or "")} for r in rows])
+                         "vendor_name":str(r[15] or ""),"w9_filename":str(r[16] or ""),
+                         "has_invoice":bool(r[17]),"has_proof":bool(r[18])} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
@@ -333,6 +408,42 @@ def entries():
 def ledger():
     return render_template("ledger.html", categories=CATEGORIES,
                            payment_methods=PAYMENT_METHODS, is_admin=is_admin())
+
+@app.route("/invoices")
+@login_required
+def invoices_page():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("""SELECT id,invoice_date,payee,invoice_number,amount,category,
+                              artist,invoice_filename,vendor_submitted,vendor_name
+                       FROM expenses WHERE invoice_filename IS NOT NULL AND invoice_data IS NOT NULL
+                       ORDER BY invoice_date DESC, id DESC""")
+        rows = cur.fetchall(); conn.close()
+        items = [{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
+                  "invoice_number":str(r[3] or ""),"amount":r[4],"category":str(r[5] or ""),
+                  "artist":str(r[6] or ""),"invoice_filename":str(r[7] or ""),
+                  "vendor_submitted":bool(r[8]),"vendor_name":str(r[9] or "")} for r in rows]
+    except Exception as e:
+        items = []
+    return render_template("invoices.html", items=items, is_admin=is_admin())
+
+@app.route("/w9s")
+@login_required
+def w9s_page():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("""SELECT id,created_at,vendor_name,vendor_email,w9_filename,
+                              payee,invoice_date,amount
+                       FROM expenses WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
+                       ORDER BY id DESC""")
+        rows = cur.fetchall(); conn.close()
+        items = [{"id":r[0],"created_at":str(r[1] or ""),"vendor_name":str(r[2] or ""),
+                  "vendor_email":str(r[3] or ""),"w9_filename":str(r[4] or ""),
+                  "payee":str(r[5] or ""),"invoice_date":str(r[6] or ""),
+                  "amount":r[7]} for r in rows]
+    except Exception as e:
+        items = []
+    return render_template("w9s.html", items=items, is_admin=is_admin())
 
 @app.route("/export")
 @login_required
@@ -376,9 +487,8 @@ def _build_excel(rows):
         qb=str(v[10] or ""); stem=str(v[12] or "")
         rf=fill("FFD9EAD3" if (qb=="Yes" and stem=="Yes") else "FFFFF2CC" if qb=="No" else "FFFCE5CD" if stem=="No" else ("FFF5F5F5" if r%2==0 else "FFFFFFFF"))
         for col,_,_ in hdrs:
-            c=ws[f"{col}{r}"]; c.fill=rf
-            c.font=Font(name="Arial",size=10); c.border=bdr()
-            c.alignment=Alignment(horizontal="left",vertical="center")
+            c=ws[f"{col}{r}"]; c.fill=rf; c.font=Font(name="Arial",size=10)
+            c.border=bdr(); c.alignment=Alignment(horizontal="left",vertical="center")
         def dc(col,val,fmt=None,align="left"):
             c=ws[f"{col}{r}"]; c.value=val
             if fmt: c.number_format=fmt
@@ -403,32 +513,46 @@ def submit_invoice():
     vendor_name  = request.form.get("vendor_name","").strip()
     vendor_email = request.form.get("vendor_email","").strip()
     notes        = request.form.get("notes","").strip()
+
     if not vendor_name:
         return render_template("submit.html", error="Please enter your company or name.")
+    if not vendor_email:
+        return render_template("submit.html", error="Please enter your email address.")
     if "file" not in request.files or not request.files["file"].filename:
         return render_template("submit.html", error="Please upload your invoice file.")
-    file=request.files["file"]; file_bytes=file.read()
-    ext=Path(file.filename).suffix.lower()
-    mime={".pdf":"application/pdf",".jpg":"image/jpeg",".jpeg":"image/jpeg",
-          ".png":"image/png",".webp":"image/webp"}.get(ext,"image/jpeg")
-    fields=extract_fields(file_bytes, mime)
-    if not fields.get("payee"): fields["payee"]=vendor_name
-    unknowns=get_unknowns(fields)
-    row=(parse_date(fields.get("invoice_date")),fields.get("payee",""),
-         fields.get("description",""),fields.get("category","Other"),
-         "","",fields.get("invoice_number",""),parse_amount(fields.get("amount",0)),
-         fields.get("payment_method",""),None,"No",None,"No",None,notes,
-         True if DATABASE_URL else 1, vendor_name, vendor_email)
+    if "w9_file" not in request.files or not request.files["w9_file"].filename:
+        return render_template("submit.html", error="Please upload your W9 or W8 form.")
+
+    file = request.files["file"]; file_bytes = file.read()
+    inv_fname = file.filename
+    mime = ext_mime(inv_fname)
+    fields = extract_fields(file_bytes, mime)
+    if not fields.get("payee"): fields["payee"] = vendor_name
+    inv_b64 = base64.b64encode(file_bytes).decode()
+
+    w9_file = request.files["w9_file"]
+    w9_fname = w9_file.filename
+    w9_b64 = base64.b64encode(w9_file.read()).decode()
+
+    unknowns = get_unknowns(fields)
+    row = (parse_date(fields.get("invoice_date")), fields.get("payee",""),
+           fields.get("description",""), fields.get("category","Other"),
+           "","", fields.get("invoice_number",""), parse_amount(fields.get("amount",0)),
+           fields.get("payment_method",""), None, "No", None, "No", None, notes,
+           True if DATABASE_URL else 1, vendor_name, vendor_email,
+           w9_fname, w9_b64, inv_fname, inv_b64)
     try:
-        conn,kind=get_db(); cur=conn.cursor(); ph="%s" if kind=="pg" else "?"
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
-            vendor_name,vendor_email) VALUES ({','.join([ph]*18)})""", row)
+            vendor_name,vendor_email,w9_filename,w9_data,invoice_filename,invoice_data)
+            VALUES ({','.join([ph]*22)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
         return render_template("submit.html", error=f"Submission failed: {e}")
-    send_vendor_email(vendor_name, vendor_email, fields, unknowns)
+
+    send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_fname)
     return render_template("submit_success.html", vendor_name=vendor_name)
 
 @app.route("/status")
@@ -436,6 +560,6 @@ def status(): return jsonify({"ok":True})
 
 if __name__ == "__main__":
     init_db()
-    port=int(os.environ.get("PORT",5100))
+    port = int(os.environ.get("PORT", 5100))
     print(f"\n  Boom Records  →  http://localhost:{port}\n")
     app.run(debug=False, host="0.0.0.0", port=port)

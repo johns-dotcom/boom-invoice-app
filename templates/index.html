@@ -9,66 +9,48 @@
   :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
-
-  /* Header */
   header { background:#fff; border-bottom:1px solid var(--border); padding:0 28px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
   .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
   .header-right { display:flex; gap:8px; align-items:center; }
-  a.btn-ghost, button.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; font-family:inherit; text-decoration:none; display:inline-block; transition:all .15s; }
-  a.btn-ghost:hover, button.btn-ghost:hover { border-color:var(--red); color:var(--red); }
-  a.btn-ledger { background:var(--red); color:#fff; border:none; padding:7px 14px; border-radius:7px; font-size:13px; font-weight:700; font-family:inherit; text-decoration:none; display:inline-block; transition:background .15s; }
-  a.btn-ledger:hover { background:var(--red-dark); }
-
-  /* Stats bar */
+  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
+  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
+  a.btn-red { background:var(--red); color:#fff; border:none; padding:7px 14px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:background .15s; }
+  a.btn-red:hover { background:var(--red-dark); }
   .stats { background:#fff; border-bottom:1px solid var(--border); padding:10px 28px; display:flex; gap:28px; }
   .stat { font-size:12px; color:var(--muted); }
   .stat strong { color:var(--text); font-size:15px; font-weight:700; display:block; }
-
-  /* Layout */
   .layout { display:flex; gap:20px; padding:24px 28px; max-width:1280px; }
   .main-col { flex:1; min-width:0; }
   .side-col { width:300px; flex-shrink:0; }
-
-  /* Drop zone */
   .drop-zone { border:2px dashed var(--border); border-radius:var(--radius); padding:36px 24px; text-align:center; cursor:pointer; transition:all .2s; background:#fff; margin-bottom:20px; }
-  .drop-zone.drag-over { border-color:var(--red); background:#fef2f2; }
+  .drop-zone.drag-over { border-color:var(--red); background:#fef9f9; }
   .drop-zone.has-file { border-color:var(--green); border-style:solid; background:#f0fdf4; }
   .drop-icon { font-size:32px; margin-bottom:10px; }
-  .drop-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px; }
+  .drop-title { font-size:15px; font-weight:700; margin-bottom:4px; }
   .drop-sub { font-size:12px; color:var(--muted); }
   .drop-filename { font-size:13px; font-weight:700; color:var(--green); margin-top:8px; }
-
-  /* Parsing state */
   .parsing-bar { display:none; align-items:center; gap:10px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; font-weight:600; color:var(--red); }
   .parsing-bar.show { display:flex; }
   .spinner-sm { width:16px; height:16px; border:2px solid #fca5a5; border-top-color:var(--red); border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
   @keyframes spin { to { transform:rotate(360deg); } }
-
-  /* Preview */
   #preview-box { display:none; margin-bottom:16px; border-radius:var(--radius); overflow:hidden; border:1px solid var(--border); }
   #preview-img { width:100%; max-height:220px; object-fit:contain; background:#f9f9f9; }
   .pdf-indicator { background:#f9f9f9; padding:14px; text-align:center; font-size:13px; color:var(--muted); }
-
-  /* Form card */
   .form-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:24px; }
-  .form-card h2 { font-size:14px; font-weight:700; color:var(--text); margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .form-card h2 { font-size:14px; font-weight:700; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid var(--border); }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .form-group { display:flex; flex-direction:column; gap:5px; }
   .form-group.full { grid-column:1/-1; }
   label { font-size:11px; font-weight:700; color:#555; letter-spacing:.06em; text-transform:uppercase; }
+  .optional { color:var(--muted); font-weight:400; font-size:10px; text-transform:none; letter-spacing:0; }
   input, select, textarea { border:1.5px solid var(--border); border-radius:7px; padding:9px 12px; font-size:13px; font-family:inherit; color:var(--text); background:#fff; outline:none; transition:border-color .15s; width:100%; }
   input:focus, select:focus, textarea:focus { border-color:var(--red); }
   textarea { resize:vertical; min-height:64px; }
-  .optional { color:var(--muted); font-weight:400; font-size:10px; text-transform:none; letter-spacing:0; }
   .btn-submit { width:100%; background:var(--red); color:#fff; border:none; border-radius:8px; padding:13px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; margin-top:20px; transition:background .15s; }
   .btn-submit:hover { background:var(--red-dark); }
   .btn-submit:disabled { background:#ccc; cursor:not-allowed; }
-
-  /* Success banner */
   #success-banner { display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:14px 18px; margin-bottom:16px; font-size:13px; font-weight:600; color:var(--green); }
   #success-banner.show { display:block; }
-
-  /* Recently added sidebar */
   .side-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
   .side-card-header { padding:14px 16px; border-bottom:1px solid var(--border); font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:space-between; }
   .side-card-header a { font-size:11px; color:var(--red); text-decoration:none; font-weight:600; }
@@ -89,13 +71,15 @@
 <header>
   <div class="logo">boom.</div>
   <div class="header-right">
-    <a href="/ledger" class="btn-ledger">📋 View All</a>
+    <a href="/ledger" class="btn-red">📋 Ledger</a>
+    <a href="/invoices" class="btn-ghost">📄 Invoices</a>
+    <a href="/w9s" class="btn-ghost">W9 / W8</a>
     <a href="/export" class="btn-ghost">⬇ Export</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
 
-<div class="stats" id="stats-bar">
+<div class="stats">
   <div class="stat"><strong id="stat-total">—</strong>Total logged</div>
   <div class="stat"><strong id="stat-qb">—</strong>Pending QB</div>
   <div class="stat"><strong id="stat-stem">—</strong>Pending Stem</div>
@@ -103,7 +87,6 @@
 
 <div class="layout">
   <div class="main-col">
-
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
       <div class="drop-icon">📄</div>
       <div class="drop-title">Drop invoice or click to upload</div>
@@ -111,100 +94,48 @@
       <div class="drop-filename" id="drop-filename"></div>
     </div>
     <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
-
-    <div class="parsing-bar" id="parsing-bar">
-      <div class="spinner-sm"></div>
-      Reading invoice with AI…
-    </div>
-
+    <div class="parsing-bar" id="parsing-bar"><div class="spinner-sm"></div>Reading invoice with AI…</div>
     <div id="success-banner"></div>
-
     <div id="preview-box">
       <img id="preview-img" src="" alt="Invoice preview"/>
       <div class="pdf-indicator" id="pdf-indicator" style="display:none">📄 PDF uploaded — fields extracted above</div>
     </div>
-
-    <div class="form-card" id="form-card">
+    <div class="form-card">
       <h2>Invoice Details</h2>
       <div class="form-grid">
-        <div class="form-group">
-          <label>Invoice Date</label>
-          <input type="text" id="invoice_date" placeholder="MM/DD/YYYY"/>
-        </div>
-        <div class="form-group">
-          <label>Invoice #</label>
-          <input type="text" id="invoice_number" placeholder="INV-001"/>
-        </div>
-        <div class="form-group full">
-          <label>Payee / Vendor</label>
-          <input type="text" id="payee" placeholder="Vendor name"/>
-        </div>
-        <div class="form-group full">
-          <label>Description</label>
-          <input type="text" id="description" placeholder="Brief description"/>
-        </div>
+        <div class="form-group"><label>Invoice Date</label><input type="text" id="invoice_date" placeholder="MM/DD/YYYY"/></div>
+        <div class="form-group"><label>Invoice #</label><input type="text" id="invoice_number" placeholder="INV-001"/></div>
+        <div class="form-group full"><label>Payee / Vendor</label><input type="text" id="payee" placeholder="Vendor name"/></div>
+        <div class="form-group full"><label>Description</label><input type="text" id="description" placeholder="Brief description"/></div>
         <div class="form-group">
           <label>Category</label>
-          <select id="category">
-            <option value="">— Select —</option>
-            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-          </select>
+          <select id="category"><option value="">— Select —</option>{% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
         </div>
-        <div class="form-group">
-          <label>Amount ($)</label>
-          <input type="number" id="amount" step="0.01" placeholder="0.00"/>
-        </div>
-        <div class="form-group">
-          <label>Artist / Project</label>
-          <input type="text" id="artist" placeholder="Artist or project name"/>
-        </div>
-        <div class="form-group">
-          <label>Song <span class="optional">(optional)</span></label>
-          <input type="text" id="song" placeholder="Specific song if applicable"/>
-        </div>
+        <div class="form-group"><label>Amount ($)</label><input type="number" id="amount" step="0.01" placeholder="0.00"/></div>
+        <div class="form-group"><label>Artist / Project</label><input type="text" id="artist" placeholder="Artist or project name"/></div>
+        <div class="form-group"><label>Song <span class="optional">(optional)</span></label><input type="text" id="song" placeholder="Specific song if applicable"/></div>
         <div class="form-group">
           <label>Payment Method</label>
-          <select id="payment_method">
-            <option value="">— Select —</option>
-            {% for m in payment_methods %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
-          </select>
+          <select id="payment_method"><option value="">— Select —</option>{% for m in payment_methods %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select>
         </div>
-        <div class="form-group">
-          <label>Payment Date</label>
-          <input type="text" id="payment_date" placeholder="MM/DD/YYYY"/>
-        </div>
+        <div class="form-group"><label>Payment Date</label><input type="text" id="payment_date" placeholder="MM/DD/YYYY"/></div>
         <div class="form-group">
           <label>In QuickBooks?</label>
-          <select id="in_quickbooks">
-            <option value="No">No</option>
-            <option value="Yes">Yes</option>
-            <option value="N/A">N/A</option>
-          </select>
+          <select id="in_quickbooks"><option value="No">No</option><option value="Yes">Yes</option><option value="N/A">N/A</option></select>
         </div>
         <div class="form-group">
           <label>Uploaded to Stem?</label>
-          <select id="uploaded_to_stem">
-            <option value="No">No</option>
-            <option value="Yes">Yes</option>
-            <option value="N/A">N/A</option>
-          </select>
+          <select id="uploaded_to_stem"><option value="No">No</option><option value="Yes">Yes</option><option value="N/A">N/A</option></select>
         </div>
-        <div class="form-group full">
-          <label>Notes <span class="optional">(optional)</span></label>
-          <textarea id="notes" placeholder="Any additional notes…"></textarea>
-        </div>
+        <div class="form-group full"><label>Notes <span class="optional">(optional)</span></label><textarea id="notes" placeholder="Any additional notes…"></textarea></div>
       </div>
       <button class="btn-submit" id="btn-submit" onclick="submitForm()">Save Invoice</button>
     </div>
-
   </div>
 
   <div class="side-col">
     <div class="side-card">
-      <div class="side-card-header">
-        Recently Added
-        <a href="/ledger">View all →</a>
-      </div>
+      <div class="side-card-header">Recently Added<a href="/ledger">View all →</a></div>
       <div id="recent-list"><div class="recent-empty">Loading…</div></div>
     </div>
   </div>
@@ -212,12 +143,10 @@
 
 <script>
 const API_CONFIGURED = {{ api_configured | tojson }};
-let storedFile = null;
+let storedFileB64 = null, storedFileMime = null, storedFileName = null;
 
-// ── Drop zone ─────────────────────────────────────────────────────────────────
 const dz = document.getElementById('drop-zone');
 const fi = document.getElementById('file-input');
-
 dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
 dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
@@ -225,19 +154,20 @@ fi.addEventListener('change', () => handleFile(fi.files[0]));
 
 async function handleFile(file) {
   if (!file) return;
-  storedFile = file;
   dz.classList.add('has-file');
   document.getElementById('drop-filename').textContent = file.name;
-
   if (!API_CONFIGURED) return;
   document.getElementById('parsing-bar').classList.add('show');
   clearSuccess();
-
   const fd = new FormData(); fd.append('file', file);
   try {
     const res = await fetch('/parse', {method:'POST', body:fd});
     const data = await res.json();
     if (data.fields) populateForm(data.fields);
+    // Store file for submission
+    storedFileB64 = data.file_b64 || null;
+    storedFileMime = data.file_mime || null;
+    storedFileName = data.file_name || file.name;
     if (data.preview) {
       document.getElementById('preview-img').src = data.preview;
       document.getElementById('preview-img').style.display = 'block';
@@ -257,46 +187,38 @@ function populateForm(f) {
   set('invoice_date', f.invoice_date); set('invoice_number', f.invoice_number);
   set('payee', f.payee); set('description', f.description);
   set('amount', f.amount); set('payment_method', f.payment_method);
-  // Category
   const catEl = document.getElementById('category');
   if (f.category) { for (let o of catEl.options) { if (o.value === f.category) { o.selected=true; break; } } }
 }
 
-// ── Submit ────────────────────────────────────────────────────────────────────
 async function submitForm() {
   const g = id => document.getElementById(id).value.trim();
   if (!g('payee')) { alert('Payee is required.'); return; }
-
   const btn = document.getElementById('btn-submit');
   btn.disabled = true; btn.textContent = 'Saving…';
-
   const payload = {
     invoice_date:g('invoice_date'), invoice_number:g('invoice_number'),
     payee:g('payee'), description:g('description'), category:g('category'),
     amount:g('amount'), artist:g('artist'), song:g('song'),
     payment_method:g('payment_method'), payment_date:g('payment_date'),
-    in_quickbooks:g('in_quickbooks'), uploaded_to_stem:g('uploaded_to_stem'), notes:g('notes')
+    in_quickbooks:g('in_quickbooks'), uploaded_to_stem:g('uploaded_to_stem'), notes:g('notes'),
+    invoice_filename: storedFileName || null,
+    invoice_b64: storedFileB64 || null
   };
-
   try {
-    const res = await fetch('/add', {method:'POST',
-      headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    const res = await fetch('/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     const data = await res.json();
     if (data.ok) {
       showSuccess(`✓ Saved — ${data.payee || 'Invoice'}${data.amount ? ' ($'+Number(data.amount).toFixed(2)+')' : ''}`);
-      resetForm();
-      loadRecent();
-      loadStats();
-    } else {
-      alert('Error: ' + (data.error || 'Unknown'));
-    }
+      resetForm(); loadRecent(); loadStats();
+    } else alert('Error: ' + (data.error || 'Unknown'));
   } catch(e) { alert('Network error'); }
   btn.disabled = false; btn.textContent = 'Save Invoice';
 }
 
 function resetForm() {
-  ['invoice_date','invoice_number','payee','description','amount','artist',
-   'song','payment_date','notes'].forEach(id => document.getElementById(id).value='');
+  ['invoice_date','invoice_number','payee','description','amount','artist','song','payment_date','notes']
+    .forEach(id => document.getElementById(id).value='');
   document.getElementById('category').value='';
   document.getElementById('payment_method').value='';
   document.getElementById('in_quickbooks').value='No';
@@ -304,21 +226,18 @@ function resetForm() {
   document.getElementById('drop-filename').textContent='';
   dz.classList.remove('has-file');
   document.getElementById('preview-box').style.display='none';
-  storedFile=null;
+  storedFileB64=null; storedFileMime=null; storedFileName=null;
 }
 
 function showSuccess(msg) {
-  const el = document.getElementById('success-banner');
-  el.textContent = msg; el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 4000);
+  const el=document.getElementById('success-banner'); el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),4000);
 }
 function clearSuccess() { document.getElementById('success-banner').classList.remove('show'); }
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
-    const res = await fetch('/entries');
-    const entries = await res.json();
+    const res = await fetch('/entries'); const entries = await res.json();
     if (!Array.isArray(entries)) return;
     document.getElementById('stat-total').textContent = entries.length;
     document.getElementById('stat-qb').textContent = entries.filter(e=>e.in_quickbooks==='No').length;
@@ -326,11 +245,9 @@ async function loadStats() {
   } catch(e) {}
 }
 
-// ── Recently added ────────────────────────────────────────────────────────────
 async function loadRecent() {
   try {
-    const res = await fetch('/recent');
-    const items = await res.json();
+    const res = await fetch('/recent'); const items = await res.json();
     const el = document.getElementById('recent-list');
     if (!items.length) { el.innerHTML='<div class="recent-empty">No entries yet.</div>'; return; }
     el.innerHTML = items.map(i => `
@@ -348,8 +265,7 @@ async function loadRecent() {
   } catch(e) {}
 }
 
-loadStats();
-loadRecent();
+loadStats(); loadRecent();
 </script>
 </body>
 </html>

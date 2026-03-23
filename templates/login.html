@@ -10,7 +10,6 @@
   body { background:#f4f4f4; font-family:'Nunito',system-ui,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; }
   .card { background:#fff; border-radius:14px; box-shadow:0 4px 24px rgba(0,0,0,.08); padding:48px 44px; width:100%; max-width:400px; text-align:center; }
   .logo { font-size:40px; font-weight:900; color:#e31e24; letter-spacing:-1px; margin-bottom:6px; }
-  .logo span { color:#111; }
   .subtitle { font-size:13px; color:#888; margin-bottom:32px; }
   label { display:block; text-align:left; font-size:12px; font-weight:700; color:#555; letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; }
   input[type=password] { width:100%; border:1.5px solid #e0e0e0; border-radius:8px; padding:11px 14px; font-size:15px; font-family:inherit; color:#111; outline:none; transition:border-color .2s; }
@@ -22,7 +21,7 @@
 </head>
 <body>
 <div class="card">
-  <div class="logo">boom<span>.</span></div>
+  <div class="logo">boom.</div>
   <div class="subtitle">Expense &amp; Recoupment Tracker</div>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="POST">

@@ -6,23 +6,21 @@
 <title>Boom Records — Ledger</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
 <style>
-  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --yellow:#d97706; --red-err:#dc2626; --radius:10px; }
+  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --yellow:#d97706; --radius:10px; }
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
   header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
   .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
   .header-right { display:flex; gap:8px; align-items:center; }
-  a.btn-ghost, button.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; font-family:inherit; text-decoration:none; display:inline-block; transition:all .15s; }
-  a.btn-ghost:hover, button.btn-ghost:hover { border-color:var(--red); color:var(--red); }
+  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
+  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
   a.btn-export { background:#f0fdf4; border:1.5px solid #86efac; color:var(--green); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:all .15s; }
   a.btn-export:hover { background:#dcfce7; }
-
   .toolbar { padding:12px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:#fff; }
   .search-input, .filter-select { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; color:var(--text); font-size:13px; font-family:inherit; }
   .search-input { width:220px; }
   .search-input:focus, .filter-select:focus { outline:none; border-color:var(--red); }
   .count { color:var(--muted); font-size:13px; margin-left:auto; }
-
   .table-wrap { overflow-x:auto; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   thead th { background:#fff; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:1; }
@@ -31,53 +29,49 @@
   tbody td { padding:9px 12px; vertical-align:middle; }
   .td-date { white-space:nowrap; color:var(--muted); font-size:12px; }
   .td-payee { font-weight:700; }
-  .td-trunc { color:var(--muted); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-trunc { color:var(--muted); max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .td-amount { text-align:right; font-weight:700; color:var(--red); white-space:nowrap; }
-
-  /* Badges */
   .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; transition:opacity .15s; user-select:none; }
   .badge:hover { opacity:.75; }
   .badge-yes { background:#dcfce7; color:#15803d; }
   .badge-no  { background:#fef3c7; color:#b45309; }
   .badge-na  { background:#f3f4f6; color:#6b7280; }
   .badge .edit-icon { font-size:9px; opacity:.5; }
-
-  /* Inline dropdowns */
   .status-select { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:3px 7px; cursor:pointer; font-family:inherit; }
   .status-select:focus { outline:none; }
-
-  /* Editable text cells */
   .editable-cell { cursor:pointer; border-radius:4px; padding:2px 4px; transition:background .15s; }
   .editable-cell:hover { background:rgba(227,30,36,.08); }
   .editable-cell:hover::after { content:" ✎"; font-size:10px; color:var(--muted); }
   .inline-input { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:4px 8px; width:130px; font-family:inherit; }
   .inline-input:focus { outline:none; }
-
   .vendor-badge { background:#fef2f2; color:var(--red); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; border:1px solid #fca5a5; }
 
+  /* File attachment icons */
+  .file-icons { display:flex; gap:4px; align-items:center; white-space:nowrap; }
+  a.file-icon { font-size:14px; text-decoration:none; opacity:.7; transition:opacity .15s; }
+  a.file-icon:hover { opacity:1; }
+  .attach-btn { background:none; border:1.5px dashed var(--border); border-radius:5px; color:var(--muted); font-size:11px; padding:3px 7px; cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap; }
+  .attach-btn:hover { border-color:var(--red); color:var(--red); }
+
   .btn-delete { background:none; border:1.5px solid transparent; color:#ccc; border-radius:5px; padding:4px 8px; cursor:pointer; font-size:12px; transition:all .15s; }
-  .btn-delete:hover { border-color:var(--red-err); color:var(--red-err); background:#fef2f2; }
-
+  .btn-delete:hover { border-color:#dc2626; color:#dc2626; background:#fef2f2; }
   .saving { opacity:.4; pointer-events:none; }
-  .saved-flash { animation: flash .4s ease; }
+  .saved-flash { animation:flash .4s ease; }
   @keyframes flash { 0%{background:#dcfce7} 100%{background:transparent} }
-
   .empty { text-align:center; padding:60px; color:var(--muted); }
   .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
   @keyframes spin { to { transform:rotate(360deg); } }
-
   #confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; align-items:center; justify-content:center; }
   #confirm-overlay.open { display:flex; }
   #confirm-box { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:28px; width:360px; box-shadow:0 8px 32px rgba(0,0,0,.12); }
   #confirm-box h3 { font-size:15px; margin-bottom:8px; }
   #confirm-box p { color:var(--muted); font-size:13px; margin-bottom:20px; line-height:1.5; }
   .confirm-actions { display:flex; gap:10px; }
-  .btn-del-confirm { background:var(--red-err); color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .btn-del-confirm { background:#dc2626; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
   .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
-
   #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:12px 20px; border-radius:8px; font-weight:700; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
   #toast.show { opacity:1; transform:translateY(0); }
-  #toast.error { background:var(--red-err); }
+  #toast.error { background:#dc2626; }
 </style>
 </head>
 <body>
@@ -86,7 +80,9 @@
   <div class="logo">boom.</div>
   <div class="header-right">
     <a href="/" class="btn-ghost">+ Add Invoice</a>
-    <a href="/export" class="btn-export">⬇ Export Excel</a>
+    <a href="/invoices" class="btn-ghost">📄 Invoices</a>
+    <a href="/w9s" class="btn-ghost">W9 / W8</a>
+    <a href="/export" class="btn-export">⬇ Export</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
@@ -118,6 +114,7 @@
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
         <th>In QB?</th><th>Stem?</th><th>Notes</th>
+        <th>Files</th>
         {% if is_admin %}<th></th>{% endif %}
       </tr>
     </thead>
@@ -178,6 +175,22 @@ function fmt(v) {
   return '$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
+function fileIcons(e) {
+  let html = '<div class="file-icons">';
+  if (e.has_invoice)
+    html += `<a href="/invoice/${e.id}" target="_blank" class="file-icon" title="View invoice">📄</a>`;
+  if (e.has_proof)
+    html += `<a href="/proof/${e.id}" target="_blank" class="file-icon" title="View proof of payment">💳</a>`;
+  if (e.w9_filename)
+    html += `<a href="/w9/${e.id}" target="_blank" class="file-icon" title="View W9/W8">📋</a>`;
+  // Proof upload button if no proof yet
+  if (!e.has_proof)
+    html += `<button class="attach-btn" onclick="triggerProofUpload(${e.id})" title="Attach proof of payment">+ Proof</button>
+             <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadProof(${e.id},this)"/>`;
+  html += '</div>';
+  return html;
+}
+
 function renderRows(entries) {
   const tbody = document.getElementById('tbody');
   if (!entries.length) {
@@ -196,12 +209,8 @@ function renderRows(entries) {
       </td>
       <td class="td-trunc" title="${esc(e.description)}">${e.description||'—'}</td>
       <td>${e.category||'—'}</td>
-      <td>
-        <span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span>
-      </td>
-      <td>
-        <span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span>
-      </td>
+      <td><span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span></td>
+      <td><span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
       <td class="td-amount">${fmt(e.amount)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
@@ -209,6 +218,7 @@ function renderRows(entries) {
       <td class="td-trunc">
         <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${e.notes||'—'}</span>
       </td>
+      <td id="files-${e.id}">${fileIcons(e)}</td>
       ${IS_ADMIN ? `<td><button class="btn-delete" onclick="askDelete(${e.id},'${esc(e.payee)}')">✕</button></td>` : ''}
     </tr>`).join('');
 }
@@ -221,73 +231,62 @@ function statusBadge(id, field, val) {
 }
 
 function openStatusEdit(id, field, badgeEl) {
-  const sel = document.createElement('select');
-  sel.className = 'status-select';
+  const sel = document.createElement('select'); sel.className='status-select';
   ['Yes','No','N/A'].forEach(v => {
     const o=document.createElement('option'); o.value=v; o.textContent=v;
-    if (v === (badgeEl.textContent.trim().split(' ')[0])) o.selected=true;
+    if (v===(badgeEl.textContent.trim().split(' ')[0])) o.selected=true;
     sel.appendChild(o);
   });
   badgeEl.replaceWith(sel); sel.focus();
-
   const save = async () => {
-    const newVal = sel.value;
-    sel.classList.add('saving');
-    const res = await fetch(`/update/${id}`, {method:'POST',
-      headers:{'Content-Type':'application/json'}, body:JSON.stringify({[field]:newVal})});
-    const containerId = field==='in_quickbooks' ? `qb-${id}` : `stem-${id}`;
-    document.getElementById(containerId).innerHTML = statusBadge(id, field, newVal);
-    const entry = allEntries.find(e=>e.id===id);
-    if (entry) entry[field] = newVal;
-    if (res.ok) { flashRow(id); toast('Saved'); }
-    else toast('Save failed', true);
+    const newVal=sel.value; sel.classList.add('saving');
+    const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
+    const cid=field==='in_quickbooks'?`qb-${id}`:`stem-${id}`;
+    document.getElementById(cid).innerHTML=statusBadge(id,field,newVal);
+    const entry=allEntries.find(e=>e.id===id); if(entry) entry[field]=newVal;
+    if(res.ok){flashRow(id);toast('Saved');}else toast('Save failed',true);
   };
-
-  sel.addEventListener('change', save);
-  sel.addEventListener('blur', () => {
-    if (sel.parentNode) {
-      const entry = allEntries.find(e=>e.id===id);
-      const val = entry ? entry[field] : '—';
-      const containerId = field==='in_quickbooks' ? `qb-${id}` : `stem-${id}`;
-      document.getElementById(containerId).innerHTML = statusBadge(id, field, val);
-    }
-  });
+  sel.addEventListener('change',save);
+  sel.addEventListener('blur',()=>{ if(sel.parentNode){ const entry=allEntries.find(e=>e.id===id); const val=entry?entry[field]:'—'; const cid=field==='in_quickbooks'?`qb-${id}`:`stem-${id}`; document.getElementById(cid).innerHTML=statusBadge(id,field,val); } });
 }
 
 function editText(id, field, spanEl, currentVal) {
-  const input = document.createElement('input');
-  input.className = 'inline-input';
-  input.value = currentVal === '—' ? '' : currentVal;
-  spanEl.replaceWith(input);
-  input.focus(); input.select();
-
-  const save = async () => {
-    const newVal = input.value.trim();
-    input.classList.add('saving');
-    const res = await fetch(`/update/${id}`, {method:'POST',
-      headers:{'Content-Type':'application/json'}, body:JSON.stringify({[field]:newVal})});
-    const entry = allEntries.find(e=>e.id===id);
-    if (entry) entry[field] = newVal;
-    const span = document.createElement('span');
-    span.className = 'editable-cell';
-    span.textContent = newVal || '—';
-    span.title = newVal || '';
-    span.onclick = () => editText(id, field, span, newVal);
-    input.replaceWith(span);
-    if (res.ok) { flashRow(id); toast('Saved'); }
-    else toast('Save failed', true);
+  const input=document.createElement('input'); input.className='inline-input';
+  input.value=currentVal==='—'?'':currentVal;
+  spanEl.replaceWith(input); input.focus(); input.select();
+  const save=async()=>{
+    const newVal=input.value.trim(); input.classList.add('saving');
+    const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
+    const entry=allEntries.find(e=>e.id===id); if(entry) entry[field]=newVal;
+    const span=document.createElement('span'); span.className='editable-cell';
+    span.textContent=newVal||'—'; span.title=newVal||'';
+    span.onclick=()=>editText(id,field,span,newVal); input.replaceWith(span);
+    if(res.ok){flashRow(id);toast('Saved');}else toast('Save failed',true);
   };
+  input.addEventListener('blur',save);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=currentVal;input.blur();}});
+}
 
-  input.addEventListener('blur', save);
-  input.addEventListener('keydown', e => {
-    if (e.key==='Enter') input.blur();
-    if (e.key==='Escape') { input.value=currentVal; input.blur(); }
-  });
+// ── Proof of payment ──────────────────────────────────────────────────────────
+function triggerProofUpload(id) {
+  document.getElementById(`proof-input-${id}`).click();
+}
+
+async function uploadProof(id, input) {
+  const file = input.files[0]; if (!file) return;
+  const fd = new FormData(); fd.append('file', file);
+  const res = await fetch(`/add-proof/${id}`, {method:'POST', body:fd});
+  if (res.ok) {
+    const entry = allEntries.find(e=>e.id===id);
+    if (entry) entry.has_proof = true;
+    document.getElementById(`files-${id}`).innerHTML = fileIcons(entry || {id,has_proof:true,has_invoice:false,w9_filename:''});
+    flashRow(id); toast('Proof attached');
+  } else toast('Upload failed', true);
 }
 
 function flashRow(id) {
-  const row = document.getElementById(`row-${id}`);
-  if (row) { row.classList.add('saved-flash'); setTimeout(()=>row.classList.remove('saved-flash'),400); }
+  const row=document.getElementById(`row-${id}`);
+  if(row){row.classList.add('saved-flash');setTimeout(()=>row.classList.remove('saved-flash'),400);}
 }
 
 function askDelete(id, payee) {
@@ -300,21 +299,14 @@ async function confirmDelete() {
   if (!pendingDeleteId) return;
   const id=pendingDeleteId; closeConfirm();
   const res=await fetch(`/delete/${id}`,{method:'POST'});
-  if (res.ok) {
-    allEntries=allEntries.filter(e=>e.id!==id);
-    const row=document.getElementById(`row-${id}`);
-    if(row) row.remove();
-    filterTable();
-    toast('Entry deleted');
-  } else toast('Delete failed',true);
+  if(res.ok){allEntries=allEntries.filter(e=>e.id!==id);const row=document.getElementById(`row-${id}`);if(row)row.remove();filterTable();toast('Entry deleted');}
+  else toast('Delete failed',true);
 }
-document.getElementById('confirm-overlay').addEventListener('click',e=>{
-  if(e.target===document.getElementById('confirm-overlay')) closeConfirm();
-});
+document.getElementById('confirm-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('confirm-overlay'))closeConfirm();});
 
 function toast(msg,isError=false) {
   const el=document.getElementById('toast');
-  el.textContent=msg; el.className='show'+(isError?' error':'');
+  el.textContent=msg;el.className='show'+(isError?' error':'');
   setTimeout(()=>el.className='',2500);
 }
 

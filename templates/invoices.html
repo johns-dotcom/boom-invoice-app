@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom Records — Invoices</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root { --red:#e31e24; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+  header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
+  .header-right { display:flex; gap:8px; align-items:center; }
+  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
+  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
+  .nav-pill { background:var(--red); color:#fff; padding:7px 14px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; }
+
+  .page { padding:28px 24px; max-width:1200px; }
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .page-header h1 { font-size:20px; font-weight:900; }
+  .page-header h1 span { color:var(--muted); font-weight:600; font-size:14px; margin-left:8px; }
+
+  .search-input { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 12px; font-size:13px; font-family:inherit; color:var(--text); outline:none; width:240px; }
+  .search-input:focus { border-color:var(--red); }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-top:20px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:box-shadow .15s; }
+  .card:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); }
+
+  .card-preview { height:160px; background:#f9f9f9; display:flex; align-items:center; justify-content:center; border-bottom:1px solid var(--border); overflow:hidden; position:relative; }
+  .card-preview img { width:100%; height:100%; object-fit:cover; }
+  .card-preview .pdf-icon { font-size:48px; }
+  .card-preview .vendor-tag { position:absolute; top:8px; right:8px; background:var(--red); color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+
+  .card-body { padding:14px; }
+  .card-payee { font-weight:700; font-size:14px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-meta { font-size:12px; color:var(--muted); margin-bottom:10px; }
+  .card-amount { font-size:15px; font-weight:900; color:var(--red); margin-bottom:10px; }
+  .card-footer { display:flex; gap:8px; }
+  a.btn-view { flex:1; background:var(--red); color:#fff; text-align:center; padding:8px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; transition:background .15s; }
+  a.btn-view:hover { background:#c41a1f; }
+  a.btn-dl { background:#f4f4f4; color:var(--text); text-align:center; padding:8px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; border:1.5px solid var(--border); transition:all .15s; }
+  a.btn-dl:hover { border-color:var(--red); color:var(--red); }
+
+  .empty { text-align:center; padding:80px; color:var(--muted); }
+  .empty-icon { font-size:48px; margin-bottom:12px; }
+  .empty p { font-size:14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">boom.</div>
+  <div class="header-right">
+    <a href="/" class="btn-ghost">+ Add Invoice</a>
+    <a href="/ledger" class="btn-ghost">Ledger</a>
+    <span class="nav-pill">📄 Invoices</span>
+    <a href="/w9s" class="btn-ghost">W9 / W8</a>
+    <a href="/logout" class="btn-ghost">Sign out</a>
+  </div>
+</header>
+
+<div class="page">
+  <div class="page-header">
+    <h1>Invoice Files <span id="count-label"></span></h1>
+    <input class="search-input" id="search" placeholder="Search payee, artist…" oninput="filterCards()"/>
+  </div>
+
+  <div class="grid" id="grid">
+    {% if not items %}
+    <div class="empty" style="grid-column:1/-1">
+      <div class="empty-icon">📄</div>
+      <p>No invoice files stored yet.</p>
+      <p style="margin-top:6px;font-size:12px">Invoice files are saved when you upload them on the Add Invoice page.</p>
+    </div>
+    {% else %}
+    {% for item in items %}
+    <div class="card" data-search="{{ (item.payee + ' ' + item.artist + ' ' + item.invoice_number) | lower }}">
+      <div class="card-preview">
+        {% if item.invoice_filename and item.invoice_filename.lower().endswith('.pdf') %}
+          <div class="pdf-icon">📄</div>
+        {% else %}
+          <div class="pdf-icon">🖼️</div>
+        {% endif %}
+        {% if item.vendor_submitted %}<span class="vendor-tag">VENDOR</span>{% endif %}
+      </div>
+      <div class="card-body">
+        <div class="card-payee">{{ item.payee or '—' }}</div>
+        <div class="card-meta">
+          {{ item.invoice_date or '—' }}
+          {% if item.artist %} · {{ item.artist }}{% endif %}
+          {% if item.invoice_number %} · #{{ item.invoice_number }}{% endif %}
+        </div>
+        <div class="card-amount">{% if item.amount %}${{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}</div>
+        <div class="card-footer">
+          <a href="/invoice/{{ item.id }}" target="_blank" class="btn-view">View</a>
+          <a href="/invoice/{{ item.id }}" download="{{ item.invoice_filename }}" class="btn-dl">↓</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+<script>
+const total = {{ items | length }};
+document.getElementById('count-label').textContent = total ? `(${total})` : '';
+
+function filterCards() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.card[data-search]').forEach(c => {
+    const show = !q || c.dataset.search.includes(q);
+    c.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('count-label').textContent = q ? `(${visible} of ${total})` : `(${total})`;
+}
+</script>
+</body>
+</html>
