@@ -164,9 +164,13 @@
       </div>
 
       <div class="card-actions">
+        {% if is_admin %}
         <span class="action-note">Approving adds this invoice to the ledger.</span>
         <button class="btn-reject" onclick="askReject({{ item.id }}, '{{ item.vendor_name or item.payee }}')">Reject</button>
         <button class="btn-approve" onclick="approve({{ item.id }}, this)">✓ Approve</button>
+        {% else %}
+        <span class="action-note" style="color:#777">🔒 Only admins can approve or reject invoices.</span>
+        {% endif %}
       </div>
     </div>
     {% endfor %}

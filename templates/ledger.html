@@ -84,12 +84,10 @@
     <a href="/" class="btn-ghost">+ Add Invoice</a>
     <a href="/invoices" class="btn-ghost">📄 Invoices</a>
     <a href="/w9s" class="btn-ghost">W9 / W8</a>
-    {% if is_admin %}
     <a href="/approvals" class="btn-approvals">
       Approvals
       {% if pending_count > 0 %}<span class="approval-badge">{{ pending_count }}</span>{% endif %}
     </a>
-    {% endif %}
     <a href="/export" class="btn-export">⬇ Excel</a>
     <a href="/export-qbo" class="btn-export">⬇ QB</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
@@ -214,6 +212,7 @@ function renderRows(entries) {
       <td class="td-payee">
         ${e.payee||'—'}
         ${e.vendor_submitted ? `<span class="vendor-badge">VENDOR</span>` : ''}
+        ${e.vendor_submitted && e.approved_by ? `<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">✓ ${e.approved_by}${e.approved_at ? ' · ' + e.approved_at.slice(0,10) : ''}</div>` : ''}
       </td>
       <td class="td-trunc" title="${esc(e.description)}">${e.description||'—'}</td>
       <td>${e.category||'—'}</td>

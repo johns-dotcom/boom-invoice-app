@@ -14,12 +14,22 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 DATABASE_URL   = os.environ.get("DATABASE_URL", "")
 APP_PASSWORD   = os.environ.get("APP_PASSWORD", "")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL          = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 RESEND_KEY     = os.environ.get("RESEND_API_KEY", "")
 NOTIFY_EMAIL   = os.environ.get("NOTIFY_EMAIL", "johns@boomrecords.co")
 APP_URL        = os.environ.get("APP_URL", "")
+
+# Named admin accounts — each gets their own password and display name.
+# Set JOHN_PASSWORD, JESSE_PASSWORD, FELIPE_PASSWORD as env vars in Railway.
+# ADMIN_PASSWORD kept as a generic fallback for backward compatibility.
+_ADMIN_ACCOUNTS_RAW = [
+    (os.environ.get("JOHN_PASSWORD",""),   "John"),
+    (os.environ.get("JESSE_PASSWORD",""),  "Jesse"),
+    (os.environ.get("FELIPE_PASSWORD",""), "Felipe"),
+    (os.environ.get("ADMIN_PASSWORD",""),  "Admin"),   # generic fallback
+]
+ADMIN_ACCOUNTS = {pw: name for pw, name in _ADMIN_ACCOUNTS_RAW if pw}
 
 # Cobrand is no longer a category — it's a separate yes/no flag on any expense
 CATEGORIES = ["Recording","Mixing & Mastering","Music Video","Marketing",
@@ -70,6 +80,8 @@ def init_db():
             proof_filename TEXT, proof_data TEXT,
             status TEXT DEFAULT 'approved',
             cobrand BOOLEAN DEFAULT FALSE,
+            approved_by TEXT,
+            approved_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT NOW())""")
         for col in ["song TEXT","vendor_submitted BOOLEAN DEFAULT FALSE",
                     "vendor_name TEXT","vendor_email TEXT",
@@ -77,7 +89,9 @@ def init_db():
                     "invoice_filename TEXT","invoice_data TEXT",
                     "proof_filename TEXT","proof_data TEXT",
                     "status TEXT DEFAULT 'approved'",
-                    "cobrand BOOLEAN DEFAULT FALSE"]:
+                    "cobrand BOOLEAN DEFAULT FALSE",
+                    "approved_by TEXT",
+                    "approved_at TIMESTAMP"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -96,6 +110,8 @@ def init_db():
             proof_filename TEXT, proof_data TEXT,
             status TEXT DEFAULT 'approved',
             cobrand INTEGER DEFAULT 0,
+            approved_by TEXT,
+            approved_at TEXT,
             created_at TEXT DEFAULT (datetime('now')))""")
         for col in ["song TEXT","vendor_submitted INTEGER DEFAULT 0",
                     "vendor_name TEXT","vendor_email TEXT",
@@ -103,7 +119,9 @@ def init_db():
                     "invoice_filename TEXT","invoice_data TEXT",
                     "proof_filename TEXT","proof_data TEXT",
                     "status TEXT DEFAULT 'approved'",
-                    "cobrand INTEGER DEFAULT 0"]:
+                    "cobrand INTEGER DEFAULT 0",
+                    "approved_by TEXT",
+                    "approved_at TEXT"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -116,7 +134,7 @@ def init_db():
 def login_required(f):
     @wraps(f)
     def dec(*a, **kw):
-        if (APP_PASSWORD or ADMIN_PASSWORD) and not session.get("authenticated"):
+        if (APP_PASSWORD or ADMIN_ACCOUNTS) and not session.get("authenticated"):
             return redirect("/login")
         return f(*a, **kw)
     return dec
@@ -133,7 +151,7 @@ def is_admin():
     return session.get("role") == "admin"
 
 @app.context_processor
-def inject_pending_count():
+def inject_globals():
     if session.get("authenticated"):
         try:
             conn, kind = get_db(); cur = conn.cursor()
@@ -141,20 +159,29 @@ def inject_pending_count():
             count = cur.fetchone()[0]; conn.close()
         except:
             count = 0
-        return {"pending_count": count}
-    return {"pending_count": 0}
+        return {"pending_count": count, "current_user": session.get("user_name")}
+    return {"pending_count": 0, "current_user": None}
 
 @app.route("/login", methods=["GET","POST"])
 def login():
     err = None
     if request.method == "POST":
         pw = request.form.get("password","")
-        if ADMIN_PASSWORD and pw == ADMIN_PASSWORD:
-            session["authenticated"] = True; session["role"] = "admin"; return redirect("/")
+        if pw in ADMIN_ACCOUNTS:
+            session["authenticated"] = True
+            session["role"] = "admin"
+            session["user_name"] = ADMIN_ACCOUNTS[pw]
+            return redirect("/")
         elif APP_PASSWORD and pw == APP_PASSWORD:
-            session["authenticated"] = True; session["role"] = "user"; return redirect("/")
-        elif not APP_PASSWORD and not ADMIN_PASSWORD:
-            session["authenticated"] = True; session["role"] = "admin"; return redirect("/")
+            session["authenticated"] = True
+            session["role"] = "user"
+            session["user_name"] = None
+            return redirect("/")
+        elif not APP_PASSWORD and not ADMIN_ACCOUNTS:
+            session["authenticated"] = True
+            session["role"] = "admin"
+            session["user_name"] = "Admin"
+            return redirect("/")
         else:
             err = "Incorrect password."
     return render_template("login.html", error=err)
@@ -375,8 +402,6 @@ def delete_entry(eid):
 @app.route("/approvals")
 @login_required
 def approvals_page():
-    if not is_admin():
-        return redirect("/ledger")
     try:
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT id, created_at, vendor_name, vendor_email,
@@ -404,9 +429,12 @@ def approvals_page():
 def approve_entry(eid):
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-        cur.execute(f"UPDATE expenses SET status = 'approved' WHERE id={ph}", (eid,))
+        approver = session.get("user_name") or "Admin"
+        now = datetime.now()
+        cur.execute(f"""UPDATE expenses SET status='approved', approved_by={ph}, approved_at={ph}
+                        WHERE id={ph}""", (approver, now, eid))
         conn.commit(); conn.close()
-        return jsonify({"ok":True})
+        return jsonify({"ok":True, "approved_by": approver, "approved_at": now.strftime("%Y-%m-%d %H:%M")})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
@@ -490,7 +518,8 @@ def entries():
                               invoice_number,amount,payment_method,payment_date,
                               in_quickbooks,uploaded_to_stem,notes,
                               vendor_submitted,vendor_name,w9_filename,
-                              invoice_filename,proof_filename,cobrand
+                              invoice_filename,proof_filename,cobrand,
+                              approved_by,approved_at
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date DESC, id DESC""")
@@ -504,7 +533,8 @@ def entries():
                          "notes":str(r[13] or ""),"vendor_submitted":bool(r[14]),
                          "vendor_name":str(r[15] or ""),"w9_filename":str(r[16] or ""),
                          "has_invoice":bool(r[17]),"has_proof":bool(r[18]),
-                         "cobrand":bool(r[19]) if r[19] else False} for r in rows])
+                         "cobrand":bool(r[19]) if r[19] else False,
+                         "approved_by":str(r[20] or ""),"approved_at":str(r[21] or "")} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 

@@ -39,17 +39,6 @@
   .drop-filename { font-size:13px; font-weight:700; color:#16a34a; margin-top:6px; }
   .inline-error { color:#b91c1c; font-size:12px; font-weight:700; margin-top:5px; }
 
-  /* Cobrand toggle */
-  .toggle-row { display:flex; align-items:center; gap:12px; padding:12px 16px; background:#f9f9f9; border:1.5px solid #e2e2e2; border-radius:8px; cursor:pointer; transition:all .15s; user-select:none; }
-  .toggle-row:hover { border-color:#e31e24; background:#fef9f9; }
-  .toggle-row.active { border-color:#e31e24; background:#fef2f2; }
-  .toggle-switch { width:40px; height:22px; background:#e2e2e2; border-radius:11px; position:relative; transition:background .2s; flex-shrink:0; }
-  .toggle-switch::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; background:#fff; border-radius:50%; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
-  .toggle-row.active .toggle-switch { background:#e31e24; }
-  .toggle-row.active .toggle-switch::after { left:21px; }
-  .toggle-label { font-size:13px; font-weight:700; color:#111; flex:1; }
-  .toggle-sublabel { font-size:11px; color:#777; }
-
   .section-divider { border:none; border-top:1px solid #e2e2e2; margin:22px 0; }
   .error { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:18px; }
   .btn { width:100%; background:#e31e24; color:#fff; border:none; border-radius:8px; padding:13px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; margin-top:20px; transition:background .15s; }
@@ -110,18 +99,6 @@
         </div>
       </div>
 
-      <!-- Cobrand toggle -->
-      <div style="margin-top:14px">
-        <label style="display:block;margin-bottom:8px">Cobrand Expense?</label>
-        <div class="toggle-row" id="cobrand-toggle" onclick="toggleCobrand()">
-          <div class="toggle-switch" id="cobrand-switch"></div>
-          <div>
-            <div class="toggle-label" id="cobrand-label">No</div>
-            <div class="toggle-sublabel">Is this a cobrand / co-marketing expense?</div>
-          </div>
-        </div>
-        <input type="hidden" name="cobrand" id="cobrand-input" value="no"/>
-      </div>
 
       <hr class="section-divider"/>
 
@@ -163,16 +140,6 @@
 </div>
 
 <script>
-// ── Cobrand toggle ────────────────────────────────────────────
-function toggleCobrand() {
-  const row = document.getElementById('cobrand-toggle');
-  const input = document.getElementById('cobrand-input');
-  const label = document.getElementById('cobrand-label');
-  const isOn = row.classList.toggle('active');
-  input.value = isOn ? 'yes' : 'no';
-  label.textContent = isOn ? 'Yes — Cobrand' : 'No';
-}
-
 // ── Drop zones ────────────────────────────────────────────────
 function setupDropZone(dzId, inputId, fnId) {
   const dz = document.getElementById(dzId);
