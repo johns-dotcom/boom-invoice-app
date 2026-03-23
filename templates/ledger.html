@@ -16,6 +16,9 @@
   a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
   a.btn-export { background:#f0fdf4; border:1.5px solid #86efac; color:var(--green); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:all .15s; }
   a.btn-export:hover { background:#dcfce7; }
+  a.btn-approvals { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s; position:relative; }
+  a.btn-approvals:hover { border-color:var(--red); color:var(--red); }
+  .approval-badge { background:var(--red); color:#fff; font-size:10px; font-weight:900; padding:1px 6px; border-radius:10px; line-height:1.5; }
   .toolbar { padding:12px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:#fff; }
   .search-input, .filter-select { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; color:var(--text); font-size:13px; font-family:inherit; }
   .search-input { width:220px; }
@@ -45,14 +48,11 @@
   .inline-input { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:4px 8px; width:130px; font-family:inherit; }
   .inline-input:focus { outline:none; }
   .vendor-badge { background:#fef2f2; color:var(--red); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; border:1px solid #fca5a5; }
-
-  /* File attachment icons */
   .file-icons { display:flex; gap:4px; align-items:center; white-space:nowrap; }
   a.file-icon { font-size:14px; text-decoration:none; opacity:.7; transition:opacity .15s; }
   a.file-icon:hover { opacity:1; }
   .attach-btn { background:none; border:1.5px dashed var(--border); border-radius:5px; color:var(--muted); font-size:11px; padding:3px 7px; cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap; }
   .attach-btn:hover { border-color:var(--red); color:var(--red); }
-
   .btn-delete { background:none; border:1.5px solid transparent; color:#ccc; border-radius:5px; padding:4px 8px; cursor:pointer; font-size:12px; transition:all .15s; }
   .btn-delete:hover { border-color:#dc2626; color:#dc2626; background:#fef2f2; }
   .saving { opacity:.4; pointer-events:none; }
@@ -82,6 +82,12 @@
     <a href="/" class="btn-ghost">+ Add Invoice</a>
     <a href="/invoices" class="btn-ghost">📄 Invoices</a>
     <a href="/w9s" class="btn-ghost">W9 / W8</a>
+    {% if is_admin %}
+    <a href="/approvals" class="btn-approvals">
+      Approvals
+      {% if pending_count > 0 %}<span class="approval-badge">{{ pending_count }}</span>{% endif %}
+    </a>
+    {% endif %}
     <a href="/export" class="btn-export">⬇ Export</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
@@ -183,7 +189,6 @@ function fileIcons(e) {
     html += `<a href="/proof/${e.id}" target="_blank" class="file-icon" title="View proof of payment">💳</a>`;
   if (e.w9_filename)
     html += `<a href="/w9/${e.id}" target="_blank" class="file-icon" title="View W9/W8">📋</a>`;
-  // Proof upload button if no proof yet
   if (!e.has_proof)
     html += `<button class="attach-btn" onclick="triggerProofUpload(${e.id})" title="Attach proof of payment">+ Proof</button>
              <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadProof(${e.id},this)"/>`;
@@ -283,7 +288,6 @@ function editText(id, field, spanEl, currentVal) {
   input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=currentVal;input.blur();}});
 }
 
-// ── Proof of payment ──────────────────────────────────────────────────────────
 function triggerProofUpload(id) {
   document.getElementById(`proof-input-${id}`).click();
 }

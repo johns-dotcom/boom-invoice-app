@@ -67,13 +67,17 @@ def init_db():
             w9_filename TEXT, w9_data TEXT,
             invoice_filename TEXT, invoice_data TEXT,
             proof_filename TEXT, proof_data TEXT,
+            status TEXT DEFAULT 'approved',
             created_at TIMESTAMP DEFAULT NOW())""")
         for col in ["song TEXT","vendor_submitted BOOLEAN DEFAULT FALSE",
                     "vendor_name TEXT","vendor_email TEXT",
                     "w9_filename TEXT","w9_data TEXT",
                     "invoice_filename TEXT","invoice_data TEXT",
-                    "proof_filename TEXT","proof_data TEXT"]:
+                    "proof_filename TEXT","proof_data TEXT",
+                    "status TEXT DEFAULT 'approved'"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
+        # Backfill any NULL statuses from before this migration
+        cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
     else:
         cur.execute("""CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_date TEXT, payee TEXT,
@@ -87,14 +91,17 @@ def init_db():
             w9_filename TEXT, w9_data TEXT,
             invoice_filename TEXT, invoice_data TEXT,
             proof_filename TEXT, proof_data TEXT,
+            status TEXT DEFAULT 'approved',
             created_at TEXT DEFAULT (datetime('now')))""")
         for col in ["song TEXT","vendor_submitted INTEGER DEFAULT 0",
                     "vendor_name TEXT","vendor_email TEXT",
                     "w9_filename TEXT","w9_data TEXT",
                     "invoice_filename TEXT","invoice_data TEXT",
-                    "proof_filename TEXT","proof_data TEXT"]:
+                    "proof_filename TEXT","proof_data TEXT",
+                    "status TEXT DEFAULT 'approved'"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
+        cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
     conn.commit(); conn.close()
 
 
@@ -118,6 +125,19 @@ def admin_required(f):
 
 def is_admin():
     return session.get("role") == "admin"
+
+@app.context_processor
+def inject_pending_count():
+    """Inject pending approval count into every template automatically."""
+    if session.get("authenticated"):
+        try:
+            conn, kind = get_db(); cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM expenses WHERE status = 'pending'")
+            count = cur.fetchone()[0]; conn.close()
+        except:
+            count = 0
+        return {"pending_count": count}
+    return {"pending_count": 0}
 
 @app.route("/login", methods=["GET","POST"])
 def login():
@@ -199,7 +219,8 @@ def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=N
     if not RESEND_KEY: return
     try:
         import resend; resend.api_key = RESEND_KEY
-        review_url = f"{APP_URL}/ledger" if APP_URL else "#"
+        # Link to approvals queue, not ledger
+        review_url = f"{APP_URL}/approvals" if APP_URL else "#"
         amt = fields.get("amount",0)
         amt_str = f"${float(amt):,.2f}" if amt else "Unknown"
         warn = ("".join(f"<li style='color:#d97706'>⚠ {u}</li>" for u in unknowns) if unknowns else "")
@@ -216,10 +237,10 @@ def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=N
         html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
 border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
   <div style='background:#e31e24;padding:18px 24px'>
-    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — New Invoice Submission</h2>
+    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — New Invoice Pending Approval</h2>
   </div>
   <div style='padding:22px;color:#111'>
-    <p style='margin:0 0 14px'>A vendor submitted an invoice through your portal.</p>
+    <p style='margin:0 0 14px'>A vendor submitted an invoice — it's waiting in your approval queue.</p>
     <table style='width:100%;border-collapse:collapse;font-size:13px'>
       {row(True,'Vendor',f"<strong>{vendor_name}</strong> ({vendor_email})")}
       {row(False,'Invoice Date',fields.get('invoice_date') or '—')}
@@ -231,13 +252,13 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
     {w9_block}{warn_block}
     <div style='margin-top:20px'>
       <a href='{review_url}' style='background:#e31e24;color:#fff;padding:9px 18px;
-border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review in Ledger →</a>
+border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &amp; Approve →</a>
     </div>
   </div>
 </div>"""
         resend.Emails.send({"from":"Boom Records <onboarding@resend.dev>",
                             "to":[NOTIFY_EMAIL],
-                            "subject":f"New Invoice: {vendor_name} — {amt_str}",
+                            "subject":f"New Invoice Pending Approval: {vendor_name} — {amt_str}",
                             "html":html})
     except Exception as e:
         print(f"Email error: {e}")
@@ -335,6 +356,69 @@ def delete_entry(eid):
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
+
+# ── Approval queue ────────────────────────────────────────────────────────────
+
+@app.route("/approvals")
+@login_required
+def approvals_page():
+    if not is_admin():
+        return redirect("/ledger")
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("""SELECT id, created_at, vendor_name, vendor_email,
+                              invoice_date, payee, description, category,
+                              invoice_number, amount, notes,
+                              invoice_filename, w9_filename
+                       FROM expenses WHERE status = 'pending'
+                       ORDER BY created_at ASC""")
+        rows = cur.fetchall(); conn.close()
+        items = [{"id":r[0],"created_at":str(r[1] or ""),"vendor_name":str(r[2] or ""),
+                  "vendor_email":str(r[3] or ""),"invoice_date":str(r[4] or ""),
+                  "payee":str(r[5] or ""),"description":str(r[6] or ""),
+                  "category":str(r[7] or ""),"invoice_number":str(r[8] or ""),
+                  "amount":r[9],"notes":str(r[10] or ""),
+                  "invoice_filename":str(r[11] or ""),"w9_filename":str(r[12] or "")} for r in rows]
+    except Exception as e:
+        items = []
+    return render_template("approvals.html", items=items, is_admin=is_admin())
+
+@app.route("/approve/<int:eid>", methods=["POST"])
+@login_required
+@admin_required
+def approve_entry(eid):
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET status = 'approved' WHERE id={ph}", (eid,))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/reject/<int:eid>", methods=["POST"])
+@login_required
+@admin_required
+def reject_entry(eid):
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"DELETE FROM expenses WHERE id={ph}", (eid,))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/pending-count")
+@login_required
+def pending_count():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM expenses WHERE status = 'pending'")
+        count = cur.fetchone()[0]; conn.close()
+        return jsonify({"count": count})
+    except:
+        return jsonify({"count": 0})
+
+
 # ── File viewer routes ────────────────────────────────────────────────────────
 
 @app.route("/invoice/<int:eid>")
@@ -364,6 +448,7 @@ def view_w9(eid):
     if not row or not row[1]: return "No W9 on record.", 404
     return serve_file(row[1], row[0] or f"w9_{eid}.pdf")
 
+
 # ── Listing routes ────────────────────────────────────────────────────────────
 
 @app.route("/recent")
@@ -372,7 +457,9 @@ def recent():
     try:
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT invoice_date,payee,amount,artist,song,in_quickbooks,uploaded_to_stem
-                       FROM expenses ORDER BY id DESC LIMIT 10""")
+                       FROM expenses
+                       WHERE status = 'approved' OR status IS NULL
+                       ORDER BY id DESC LIMIT 10""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"date":str(r[0] or ""),"payee":str(r[1] or ""),
                          "amount":r[2],"artist":str(r[3] or ""),"song":str(r[4] or ""),
@@ -389,7 +476,9 @@ def entries():
                               in_quickbooks,uploaded_to_stem,notes,
                               vendor_submitted,vendor_name,w9_filename,
                               invoice_filename,proof_filename
-                       FROM expenses ORDER BY invoice_date DESC, id DESC""")
+                       FROM expenses
+                       WHERE status = 'approved' OR status IS NULL
+                       ORDER BY invoice_date DESC, id DESC""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
                          "description":str(r[3] or ""),"category":str(r[4] or ""),
@@ -416,7 +505,9 @@ def invoices_page():
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT id,invoice_date,payee,invoice_number,amount,category,
                               artist,invoice_filename,vendor_submitted,vendor_name
-                       FROM expenses WHERE invoice_filename IS NOT NULL AND invoice_data IS NOT NULL
+                       FROM expenses
+                       WHERE invoice_filename IS NOT NULL AND invoice_data IS NOT NULL
+                         AND (status = 'approved' OR status IS NULL)
                        ORDER BY invoice_date DESC, id DESC""")
         rows = cur.fetchall(); conn.close()
         items = [{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
@@ -434,7 +525,9 @@ def w9s_page():
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT id,created_at,vendor_name,vendor_email,w9_filename,
                               payee,invoice_date,amount
-                       FROM expenses WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
+                       FROM expenses
+                       WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
+                         AND (status = 'approved' OR status IS NULL)
                        ORDER BY id DESC""")
         rows = cur.fetchall(); conn.close()
         items = [{"id":r[0],"created_at":str(r[1] or ""),"vendor_name":str(r[2] or ""),
@@ -453,7 +546,9 @@ def export_excel():
         cur.execute("""SELECT invoice_date,payee,description,category,artist,song,
                               invoice_number,amount,payment_method,payment_date,
                               in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,notes
-                       FROM expenses ORDER BY invoice_date ASC, id ASC""")
+                       FROM expenses
+                       WHERE status = 'approved' OR status IS NULL
+                       ORDER BY invoice_date ASC, id ASC""")
         rows = cur.fetchall(); conn.close()
     except Exception as e: return jsonify({"error":str(e)}), 500
     wb = _build_excel(rows); buf = io.BytesIO(); wb.save(buf); buf.seek(0)
@@ -540,14 +635,14 @@ def submit_invoice():
            "","", fields.get("invoice_number",""), parse_amount(fields.get("amount",0)),
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
            True if DATABASE_URL else 1, vendor_name, vendor_email,
-           w9_fname, w9_b64, inv_fname, inv_b64)
+           w9_fname, w9_b64, inv_fname, inv_b64, "pending")
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
-            vendor_name,vendor_email,w9_filename,w9_data,invoice_filename,invoice_data)
-            VALUES ({','.join([ph]*22)})""", row)
+            vendor_name,vendor_email,w9_filename,w9_data,invoice_filename,invoice_data,status)
+            VALUES ({','.join([ph]*23)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
         return render_template("submit.html", error=f"Submission failed: {e}")

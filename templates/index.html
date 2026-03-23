@@ -74,6 +74,9 @@
     <a href="/ledger" class="btn-red">📋 Ledger</a>
     <a href="/invoices" class="btn-ghost">📄 Invoices</a>
     <a href="/w9s" class="btn-ghost">W9 / W8</a>
+    {% if is_admin %}
+    <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
+    {% endif %}
     <a href="/export" class="btn-ghost">⬇ Export</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>

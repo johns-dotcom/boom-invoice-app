@@ -21,7 +21,6 @@
   input:focus, textarea:focus { border-color:#e31e24; }
   textarea { resize:vertical; min-height:80px; }
 
-  /* Drop zones */
   .drop-zone { border:2px dashed #e2e2e2; border-radius:10px; padding:30px 24px; text-align:center; cursor:pointer; transition:all .2s; background:#f9f9f9; }
   .drop-zone:hover { border-color:#e31e24; background:#fef9f9; }
   .drop-zone.drag-over { border-color:#e31e24; background:#fef2f2; }
@@ -34,6 +33,7 @@
   .section-divider { border:none; border-top:1px solid #e2e2e2; margin:24px 0; }
 
   .error { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:18px; }
+  .inline-error { color:#b91c1c; font-size:12px; font-weight:700; margin-top:6px; }
   .btn { width:100%; background:#e31e24; color:#fff; border:none; border-radius:8px; padding:13px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; margin-top:8px; transition:background .15s; }
   .btn:hover { background:#c41a1f; }
   .btn:disabled { background:#ccc; cursor:not-allowed; }
@@ -130,6 +130,10 @@ setupDropZone('dz-w9', 'file-w9', 'fn-w9');
 document.getElementById('submit-form').addEventListener('submit', function(e) {
   // Clear previous inline errors
   document.querySelectorAll('.inline-error').forEach(el => el.remove());
+  document.getElementById('dz-invoice').style.borderColor = '';
+  document.getElementById('dz-invoice').style.background = '';
+  document.getElementById('dz-w9').style.borderColor = '';
+  document.getElementById('dz-w9').style.background = '';
 
   let valid = true;
 
@@ -157,7 +161,6 @@ function showInlineError(dzId, msg) {
   dz.style.background = '#fef2f2';
   const err = document.createElement('div');
   err.className = 'inline-error';
-  err.style.cssText = 'color:#b91c1c;font-size:12px;font-weight:700;margin-top:6px;';
   err.textContent = msg;
   dz.parentNode.appendChild(err);
 }

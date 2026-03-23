@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom Records — Approvals</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+  header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
+  .header-right { display:flex; gap:8px; align-items:center; }
+  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
+  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
+  a.btn-active { background:var(--red); color:#fff; border:1.5px solid var(--red); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; }
+  a.btn-export { background:#f0fdf4; border:1.5px solid #86efac; color:var(--green); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; }
+  .badge-count { background:#fff; color:var(--red); font-size:11px; font-weight:900; padding:1px 6px; border-radius:10px; margin-left:4px; }
+
+  .page { max-width:900px; margin:32px auto; padding:0 20px 60px; }
+  h1 { font-size:20px; font-weight:900; color:#111; margin-bottom:4px; }
+  .subtitle { font-size:13px; color:var(--muted); margin-bottom:24px; }
+
+  .empty-state { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:60px; text-align:center; }
+  .empty-icon { font-size:40px; margin-bottom:12px; }
+  .empty-title { font-size:16px; font-weight:700; color:#111; margin-bottom:6px; }
+  .empty-sub { font-size:13px; color:var(--muted); }
+
+  .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; }
+  .card-header { padding:16px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:12px; }
+  .vendor-avatar { width:40px; height:40px; border-radius:50%; background:#fef2f2; border:2px solid #fca5a5; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:var(--red); flex-shrink:0; }
+  .vendor-info { flex:1; min-width:0; }
+  .vendor-name { font-weight:700; font-size:15px; color:#111; }
+  .vendor-email { font-size:12px; color:var(--muted); margin-top:2px; }
+  .submitted-time { font-size:11px; color:var(--muted); white-space:nowrap; margin-top:2px; }
+
+  .card-body { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
+  .field { }
+  .field-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:2px; }
+  .field-value { font-size:13px; color:#111; font-weight:600; }
+  .field-value.muted { font-weight:400; color:var(--muted); font-style:italic; }
+  .field-value.amount { color:var(--red); font-size:15px; font-weight:900; }
+  .notes-row { grid-column:1/-1; }
+
+  .card-files { padding:12px 20px; background:#fafafa; border-top:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; }
+  a.file-pill { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1.5px solid var(--border); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; color:#111; text-decoration:none; transition:all .15s; }
+  a.file-pill:hover { border-color:var(--red); color:var(--red); }
+  a.file-pill span { font-size:14px; }
+
+  .card-actions { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:center; justify-content:flex-end; }
+  .btn-approve { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:9px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; display:flex; align-items:center; gap:6px; }
+  .btn-approve:hover { background:#15803d; }
+  .btn-approve:disabled { background:#86efac; cursor:not-allowed; }
+  .btn-reject { background:#fff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:7px; padding:9px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .15s; }
+  .btn-reject:hover { background:#fef2f2; border-color:#dc2626; }
+  .btn-reject:disabled { opacity:.5; cursor:not-allowed; }
+  .action-note { font-size:12px; color:var(--muted); margin-right:auto; }
+
+  #confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; align-items:center; justify-content:center; }
+  #confirm-overlay.open { display:flex; }
+  #confirm-box { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:28px; width:360px; box-shadow:0 8px 32px rgba(0,0,0,.12); }
+  #confirm-box h3 { font-size:15px; margin-bottom:8px; }
+  #confirm-box p { color:var(--muted); font-size:13px; margin-bottom:20px; line-height:1.5; }
+  .confirm-actions { display:flex; gap:10px; }
+  .btn-del-confirm { background:#dc2626; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:12px 20px; border-radius:8px; font-weight:700; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
+  #toast.show { opacity:1; transform:translateY(0); }
+  #toast.error { background:#dc2626; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">boom.</div>
+  <div class="header-right">
+    <a href="/" class="btn-ghost">+ Add Invoice</a>
+    <a href="/ledger" class="btn-ghost">Ledger</a>
+    <a href="/invoices" class="btn-ghost">📄 Invoices</a>
+    <a href="/w9s" class="btn-ghost">W9 / W8</a>
+    <a href="/approvals" class="btn-active">
+      Approvals
+      {% if pending_count > 0 %}<span class="badge-count">{{ pending_count }}</span>{% endif %}
+    </a>
+    <a href="/export" class="btn-export">⬇ Export</a>
+    <a href="/logout" class="btn-ghost">Sign out</a>
+  </div>
+</header>
+
+<div class="page">
+  <h1>Pending Approvals</h1>
+  <div class="subtitle">Review vendor-submitted invoices before they appear in the ledger.</div>
+
+  {% if not items %}
+  <div class="empty-state">
+    <div class="empty-icon">✅</div>
+    <div class="empty-title">All clear — nothing pending</div>
+    <div class="empty-sub">Vendor submissions will appear here for review before going to the ledger.</div>
+  </div>
+  {% else %}
+    {% for item in items %}
+    <div class="card" id="card-{{ item.id }}">
+      <div class="card-header">
+        <div class="vendor-avatar">{{ (item.vendor_name or item.payee or '?')[0].upper() }}</div>
+        <div class="vendor-info">
+          <div class="vendor-name">{{ item.vendor_name or item.payee or 'Unknown Vendor' }}</div>
+          <div class="vendor-email">{{ item.vendor_email or '—' }}</div>
+        </div>
+        <div class="submitted-time">Submitted {{ item.created_at[:10] if item.created_at else '—' }}</div>
+      </div>
+
+      <div class="card-body">
+        <div class="field">
+          <div class="field-label">Invoice Date</div>
+          <div class="field-value {% if not item.invoice_date %}muted{% endif %}">{{ item.invoice_date or 'Not found' }}</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Amount</div>
+          <div class="field-value {% if item.amount %}amount{% else %}muted{% endif %}">
+            {% if item.amount %}${{ "%.2f"|format(item.amount|float) }}{% else %}Not found{% endif %}
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">Invoice #</div>
+          <div class="field-value {% if not item.invoice_number %}muted{% endif %}">{{ item.invoice_number or 'Not found' }}</div>
+        </div>
+        <div class="field">
+          <div class="field-label">Category</div>
+          <div class="field-value {% if not item.category %}muted{% endif %}">{{ item.category or 'Not found' }}</div>
+        </div>
+        <div class="field notes-row">
+          <div class="field-label">Description</div>
+          <div class="field-value {% if not item.description %}muted{% endif %}">{{ item.description or 'Not extracted' }}</div>
+        </div>
+        {% if item.notes %}
+        <div class="field notes-row">
+          <div class="field-label">Vendor Notes</div>
+          <div class="field-value">{{ item.notes }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="card-files">
+        {% if item.invoice_filename %}
+        <a href="/invoice/{{ item.id }}" target="_blank" class="file-pill"><span>📄</span> {{ item.invoice_filename }}</a>
+        {% endif %}
+        {% if item.w9_filename %}
+        <a href="/w9/{{ item.id }}" target="_blank" class="file-pill"><span>📋</span> {{ item.w9_filename }}</a>
+        {% endif %}
+      </div>
+
+      <div class="card-actions">
+        <span class="action-note">Approving adds this invoice to the ledger.</span>
+        <button class="btn-reject" onclick="askReject({{ item.id }}, '{{ item.vendor_name or item.payee }}')">Reject</button>
+        <button class="btn-approve" onclick="approve({{ item.id }}, this)">✓ Approve</button>
+      </div>
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3>Reject this invoice?</h3>
+    <p id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <button class="btn-del-confirm" onclick="confirmReject()">Yes, Reject</button>
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+let pendingRejectId = null;
+
+async function approve(id, btn) {
+  btn.disabled = true; btn.textContent = 'Approving…';
+  const res = await fetch(`/approve/${id}`, {method:'POST'});
+  if (res.ok) {
+    const card = document.getElementById(`card-${id}`);
+    card.style.transition = 'opacity .3s, transform .3s';
+    card.style.opacity = '0'; card.style.transform = 'translateY(-8px)';
+    setTimeout(() => { card.remove(); checkEmpty(); }, 300);
+    toast('Invoice approved — added to ledger');
+    updateBadge(-1);
+  } else {
+    btn.disabled = false; btn.innerHTML = '✓ Approve';
+    toast('Approval failed', true);
+  }
+}
+
+function askReject(id, name) {
+  pendingRejectId = id;
+  document.getElementById('confirm-msg').textContent =
+    `Permanently reject and remove the invoice from "${name}"? This cannot be undone.`;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  pendingRejectId = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+async function confirmReject() {
+  if (!pendingRejectId) return;
+  const id = pendingRejectId; closeConfirm();
+  const res = await fetch(`/reject/${id}`, {method:'POST'});
+  if (res.ok) {
+    const card = document.getElementById(`card-${id}`);
+    card.style.transition = 'opacity .3s';
+    card.style.opacity = '0';
+    setTimeout(() => { card.remove(); checkEmpty(); }, 300);
+    toast('Invoice rejected and removed');
+    updateBadge(-1);
+  } else toast('Reject failed', true);
+}
+
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('confirm-overlay')) closeConfirm();
+});
+
+function checkEmpty() {
+  if (!document.querySelector('.card')) {
+    document.querySelector('.page').insertAdjacentHTML('beforeend',
+      `<div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">All clear — nothing pending</div>
+        <div class="empty-sub">All submissions have been reviewed.</div>
+      </div>`);
+  }
+}
+
+function updateBadge(delta) {
+  const badge = document.querySelector('.badge-count');
+  if (badge) {
+    const n = parseInt(badge.textContent) + delta;
+    if (n <= 0) badge.remove();
+    else badge.textContent = n;
+  }
+}
+
+function toast(msg, isError=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => el.className = '', 2500);
+}
+</script>
+</body>
+</html>
