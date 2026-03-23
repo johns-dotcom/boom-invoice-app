@@ -75,7 +75,7 @@
           <div class="drop-sub">PDF, JPG, PNG — up to 25 MB</div>
           <div class="drop-filename" id="fn-invoice"></div>
         </div>
-        <input type="file" id="file-invoice" name="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" required/>
+        <input type="file" id="file-invoice" name="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
       </div>
 
       <div class="form-group">
@@ -86,7 +86,7 @@
           <div class="drop-sub">PDF, JPG, PNG — up to 25 MB</div>
           <div class="drop-filename" id="fn-w9"></div>
         </div>
-        <input type="file" id="file-w9" name="w9_file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" required/>
+        <input type="file" id="file-w9" name="w9_file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
       </div>
 
       <hr class="section-divider"/>
@@ -127,10 +127,40 @@ function showFile(dzId, fnId, name) {
 setupDropZone('dz-invoice', 'file-invoice', 'fn-invoice');
 setupDropZone('dz-w9', 'file-w9', 'fn-w9');
 
-document.getElementById('submit-form').addEventListener('submit', () => {
+document.getElementById('submit-form').addEventListener('submit', function(e) {
+  // Clear previous inline errors
+  document.querySelectorAll('.inline-error').forEach(el => el.remove());
+
+  let valid = true;
+
+  const invoiceFile = document.getElementById('file-invoice');
+  const w9File = document.getElementById('file-w9');
+
+  if (!invoiceFile.files || invoiceFile.files.length === 0) {
+    showInlineError('dz-invoice', 'Please attach your invoice file.');
+    valid = false;
+  }
+  if (!w9File.files || w9File.files.length === 0) {
+    showInlineError('dz-w9', 'Please attach your W9 or W8 form.');
+    valid = false;
+  }
+
+  if (!valid) { e.preventDefault(); return; }
+
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = 'Submitting…';
 });
+
+function showInlineError(dzId, msg) {
+  const dz = document.getElementById(dzId);
+  dz.style.borderColor = '#e31e24';
+  dz.style.background = '#fef2f2';
+  const err = document.createElement('div');
+  err.className = 'inline-error';
+  err.style.cssText = 'color:#b91c1c;font-size:12px;font-weight:700;margin-top:6px;';
+  err.textContent = msg;
+  dz.parentNode.appendChild(err);
+}
 </script>
 </body>
 </html>
