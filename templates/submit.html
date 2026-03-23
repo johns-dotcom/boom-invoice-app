@@ -57,10 +57,8 @@
   .val-issue { display:flex; gap:8px; align-items:flex-start; font-size:13px; color:#333; margin-bottom:6px; line-height:1.4; }
   .val-issue::before { content:"⚠"; font-size:12px; color:#d97706; flex-shrink:0; margin-top:1px; }
   .val-actions { display:flex; gap:10px; margin-top:20px; }
-  .btn-fix { flex:1; background:#f3f4f6; color:#111; border:none; border-radius:8px; padding:11px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .btn-fix { width:100%; background:#f3f4f6; color:#111; border:none; border-radius:8px; padding:11px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
   .btn-fix:hover { background:#e5e7eb; }
-  .btn-submit-anyway { flex:1; background:#e31e24; color:#fff; border:none; border-radius:8px; padding:11px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
-  .btn-submit-anyway:hover { background:#c41a1f; }
 </style>
 </head>
 <body>
@@ -163,8 +161,10 @@
     <div id="val-body"></div>
     <div class="val-actions">
       <button class="btn-fix" onclick="closeValModal()">← Go back and fix</button>
-      <button class="btn-submit-anyway" onclick="forceSubmit()">Submit anyway</button>
     </div>
+    <p style="margin-top:14px;font-size:12px;color:#999;text-align:center">
+      Having trouble? Email <a href="mailto:johns@boomrecords.co" style="color:#e31e24;font-weight:700;text-decoration:none">johns@boomrecords.co</a>
+    </p>
   </div>
 </div>
 
@@ -199,8 +199,6 @@ setupDropZone('dz-invoice', 'file-invoice', 'fn-invoice');
 setupDropZone('dz-w9', 'file-w9', 'fn-w9');
 
 // ── Submit validation ──────────────────────────────────────────
-let _forceSubmit = false;
-
 document.getElementById('submit-form').addEventListener('submit', async function(e) {
   e.preventDefault();
   document.querySelectorAll('.inline-error').forEach(el => el.remove());
@@ -216,9 +214,6 @@ document.getElementById('submit-form').addEventListener('submit', async function
     showDropError('dz-w9', 'Please attach your W9 or W8 form.'); valid = false;
   }
   if (!valid) return;
-
-  // If user already clicked "Submit anyway", skip AI check and go
-  if (_forceSubmit) { this.submit(); return; }
 
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = '🔍 Checking documents…';
@@ -266,14 +261,6 @@ document.getElementById('submit-form').addEventListener('submit', async function
 
 function closeValModal() {
   document.getElementById('val-overlay').classList.remove('open');
-}
-
-function forceSubmit() {
-  _forceSubmit = true;
-  closeValModal();
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true; btn.textContent = 'Submitting…';
-  document.getElementById('submit-form').requestSubmit();
 }
 
 function showDropError(dzId, msg) {
