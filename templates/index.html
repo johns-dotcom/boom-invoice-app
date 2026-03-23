@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom Records — Invoice Parser</title>
+<style>
+  :root {
+    --bg:#0f0f13; --surface:#1a1a24; --border:#2e2e3e;
+    --accent:#6c63ff; --accent2:#a78bfa; --text:#e8e8f0; --muted:#7a7a9a;
+    --green:#34d399; --yellow:#fbbf24; --red:#f87171; --radius:10px;
+  }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; min-height:100vh; }
+
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:15px; font-weight:700; letter-spacing:.04em; }
+  header h1 span { color:var(--accent2); }
+  .header-right { display:flex; gap:8px; align-items:center; }
+
+  .main { display:grid; grid-template-columns:1fr 400px; gap:20px; padding:24px; max-width:1200px; margin:0 auto; }
+  @media(max-width:900px){ .main { grid-template-columns:1fr; } }
+
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+  .card h2 { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:16px; }
+
+  #warn-banner { display:none; background:#2a1f00; border:1px solid #7a5500; border-radius:var(--radius); padding:14px 18px; margin-bottom:18px; color:var(--yellow); font-size:13px; }
+  #warn-banner.visible { display:block; }
+
+  /* Drop zone */
+  #drop-zone { border:2px dashed var(--border); border-radius:var(--radius); padding:48px 24px; text-align:center; cursor:pointer; transition:border-color .2s,background .2s; }
+  #drop-zone:hover, #drop-zone.drag-over { border-color:var(--accent); background:rgba(108,99,255,.06); }
+  #drop-zone .icon { font-size:36px; margin-bottom:10px; }
+  #drop-zone p { color:var(--muted); line-height:1.6; }
+  #drop-zone strong { color:var(--text); }
+  #file-input { display:none; }
+
+  #processing { display:none; text-align:center; padding:40px; }
+  #processing .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 14px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #processing p { color:var(--muted); }
+
+  #result-area { display:none; }
+  #invoice-preview { width:100%; max-height:220px; object-fit:contain; border-radius:6px; border:1px solid var(--border); margin-bottom:16px; background:#111; }
+  #pdf-badge { display:none; background:#1e2a3a; border:1px solid #2a4060; border-radius:6px; padding:10px 14px; margin-bottom:16px; color:#60a5fa; font-size:13px; }
+
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .form-group { display:flex; flex-direction:column; gap:5px; }
+  .form-group.full { grid-column:1 / -1; }
+  label { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  input, select, textarea { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px 10px; color:var(--text); font-size:13px; width:100%; transition:border-color .15s; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); }
+  textarea { resize:vertical; min-height:56px; }
+  select option { background:var(--surface); }
+
+  .btn { padding:9px 18px; border-radius:7px; border:none; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .15s; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover:not(:disabled) { opacity:.88; }
+  .btn-secondary { background:var(--border); color:var(--text); }
+  .btn-secondary:hover:not(:disabled) { background:#3a3a50; }
+  .btn-export { background:#1a3a2a; border:1px solid #2a5a3a; color:var(--green); }
+  .btn-export:hover { background:#1f4a32; }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+  .btn-icon { background:none; border:1px solid var(--border); color:var(--muted); padding:7px 10px; border-radius:7px; cursor:pointer; font-size:13px; }
+  .btn-icon:hover { border-color:var(--accent2); color:var(--accent2); }
+
+  .action-row { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+
+  #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#000; padding:12px 20px; border-radius:8px; font-weight:600; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
+  #toast.show { opacity:1; transform:translateY(0); }
+  #toast.error { background:var(--red); color:#fff; }
+
+  /* Recent list */
+  #recent-list { display:flex; flex-direction:column; gap:8px; }
+  .recent-item { background:var(--bg); border:1px solid var(--border); border-radius:7px; padding:10px 12px; }
+  .recent-item-top { display:flex; justify-content:space-between; align-items:center; }
+  .recent-payee { font-weight:600; font-size:13px; }
+  .recent-amount { color:var(--accent2); font-weight:700; font-size:13px; }
+  .recent-meta { font-size:11px; color:var(--muted); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
+  .badge { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:.04em; }
+  .badge-yes { background:rgba(52,211,153,.15); color:var(--green); }
+  .badge-no  { background:rgba(251,191,36,.15); color:var(--yellow); }
+  .empty-state { color:var(--muted); font-size:13px; text-align:center; padding:20px 0; }
+
+  /* Stats bar */
+  .stats-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px; }
+  .stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; text-align:center; }
+  .stat-val { font-size:22px; font-weight:700; color:var(--accent2); }
+  .stat-label { font-size:11px; color:var(--muted); margin-top:3px; text-transform:uppercase; letter-spacing:.05em; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BOOM RECORDS <span>/ Invoice Parser</span></h1>
+  <div class="header-right">
+    <a href="/ledger" class="btn-icon" style="text-decoration:none">📋 View All</a>
+    <button class="btn btn-export btn-sm" onclick="exportExcel()">⬇ Export Excel</button>
+    <a href="/logout" class="btn-icon" style="text-decoration:none">Sign out</a>
+  </div>
+</header>
+
+<div class="main">
+  <!-- LEFT: drop + form -->
+  <div>
+    {% if not api_configured %}
+    <div id="warn-banner" class="visible">
+      ⚠ ANTHROPIC_API_KEY is not set on the server. Invoice parsing will not work until it's added.
+    </div>
+    {% endif %}
+
+    <!-- Stats -->
+    <div class="stats-bar" id="stats-bar" style="display:none">
+      <div class="stat"><div class="stat-val" id="stat-total">—</div><div class="stat-label">Total Logged</div></div>
+      <div class="stat"><div class="stat-val" id="stat-qb">—</div><div class="stat-label">Pending QB</div></div>
+      <div class="stat"><div class="stat-val" id="stat-stem">—</div><div class="stat-label">Pending Stem</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <h2>Drop Invoice</h2>
+
+      <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📄</div>
+        <p><strong>Click to browse</strong> or drag &amp; drop an invoice here</p>
+        <p style="margin-top:6px;font-size:12px">PDF, JPG, PNG — up to 25 MB</p>
+      </div>
+      <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.webp"/>
+
+      <div id="processing">
+        <div class="spinner"></div>
+        <p>Claude is reading the invoice…</p>
+      </div>
+
+      <div id="result-area">
+        <img id="invoice-preview" alt="Invoice preview" style="display:none"/>
+        <div id="pdf-badge">📄 PDF uploaded — fields extracted below</div>
+
+        <div class="form-grid">
+          <div class="form-group"><label>Invoice Date</label><input type="text" id="f-invoice_date" placeholder="MM/DD/YYYY"/></div>
+          <div class="form-group"><label>Invoice #</label><input type="text" id="f-invoice_number" placeholder="e.g. INV-001"/></div>
+          <div class="form-group full"><label>Payee / Vendor</label><input type="text" id="f-payee" placeholder="Vendor name"/></div>
+          <div class="form-group full"><label>Description</label><input type="text" id="f-description" placeholder="What was this invoice for?"/></div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="f-category">
+              <option value="">— select —</option>
+              {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount ($)</label>
+            <input type="number" id="f-amount" step="0.01" placeholder="0.00"/>
+          </div>
+          <div class="form-group full"><label>Artist / Project</label><input type="text" id="f-artist" placeholder="Which artist or project?"/></div>
+          <div class="form-group">
+            <label>Payment Method</label>
+            <select id="f-payment_method">
+              <option value="">— select —</option>
+              {% for m in payment_methods %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Payment Date</label>
+            <input type="text" id="f-payment_date" placeholder="MM/DD/YYYY"/>
+          </div>
+          <div class="form-group">
+            <label>In QuickBooks?</label>
+            <select id="f-in_quickbooks">
+              <option value="No">No</option><option value="Yes">Yes</option><option value="N/A">N/A</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Uploaded to Stem?</label>
+            <select id="f-uploaded_to_stem">
+              <option value="No">No</option><option value="Yes">Yes</option><option value="N/A">N/A</option>
+            </select>
+          </div>
+          <div class="form-group full"><label>Notes</label><textarea id="f-notes" placeholder="Optional notes"></textarea></div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-primary" id="save-btn" onclick="saveEntry()">➕ Add to Tracker</button>
+          <button class="btn btn-secondary" onclick="resetForm()">✕ Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: recent log -->
+  <div>
+    <div class="card">
+      <h2>Recently Added</h2>
+      <div id="recent-list"><p class="empty-state">Loading…</p></div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:14px;width:100%" onclick="loadRecent()">↻ Refresh</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const dz = document.getElementById('drop-zone');
+const fi = document.getElementById('file-input');
+
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fi.addEventListener('change', () => { if(fi.files[0]) handleFile(fi.files[0]); fi.value=''; });
+
+async function handleFile(file) {
+  dz.style.display = 'none';
+  document.getElementById('processing').style.display = 'block';
+  document.getElementById('result-area').style.display = 'none';
+
+  const fd = new FormData(); fd.append('file', file);
+  try {
+    const res = await fetch('/parse', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!res.ok) { showDrop(); toast(data.error||'Parse failed.', true); return; }
+    fillForm(data.fields);
+    if (data.preview) {
+      const img = document.getElementById('invoice-preview');
+      img.src = data.preview; img.style.display = 'block';
+      document.getElementById('pdf-badge').style.display = 'none';
+    } else {
+      document.getElementById('invoice-preview').style.display = 'none';
+      document.getElementById('pdf-badge').style.display = 'block';
+    }
+    document.getElementById('processing').style.display = 'none';
+    document.getElementById('result-area').style.display = 'block';
+  } catch(e) { showDrop(); toast('Network error: '+e.message, true); }
+}
+
+function fillForm(f) {
+  const s = (id, v) => { const el = document.getElementById(id); if(el && v!==undefined && v!==null) el.value=v; };
+  s('f-invoice_date', f.invoice_date); s('f-invoice_number', f.invoice_number);
+  s('f-payee', f.payee); s('f-description', f.description);
+  s('f-category', f.category); s('f-amount', f.amount||'');
+  s('f-payment_method', f.payment_method);
+}
+
+async function saveEntry() {
+  const btn = document.getElementById('save-btn');
+  btn.disabled=true; btn.textContent='Saving…';
+  const payload = {
+    invoice_date: document.getElementById('f-invoice_date').value,
+    payee: document.getElementById('f-payee').value,
+    description: document.getElementById('f-description').value,
+    category: document.getElementById('f-category').value,
+    artist: document.getElementById('f-artist').value,
+    invoice_number: document.getElementById('f-invoice_number').value,
+    amount: document.getElementById('f-amount').value,
+    payment_method: document.getElementById('f-payment_method').value,
+    payment_date: document.getElementById('f-payment_date').value,
+    in_quickbooks: document.getElementById('f-in_quickbooks').value,
+    uploaded_to_stem: document.getElementById('f-uploaded_to_stem').value,
+    notes: document.getElementById('f-notes').value,
+  };
+  if (!payload.payee) { toast('Payee name is required.', true); btn.disabled=false; btn.textContent='➕ Add to Tracker'; return; }
+  try {
+    const res = await fetch('/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    const data = await res.json();
+    if (!res.ok) { toast(data.error||'Save failed.',true); btn.disabled=false; btn.textContent='➕ Add to Tracker'; return; }
+    toast(`✓ ${data.payee} saved`);
+    resetForm(); loadRecent();
+  } catch(e) { toast('Network error: '+e.message,true); btn.disabled=false; btn.textContent='➕ Add to Tracker'; }
+}
+
+function resetForm() {
+  ['f-invoice_date','f-payee','f-description','f-invoice_number','f-amount','f-artist','f-payment_date','f-notes']
+    .forEach(id => { document.getElementById(id).value=''; });
+  ['f-category','f-payment_method'].forEach(id => { document.getElementById(id).value=''; });
+  document.getElementById('f-in_quickbooks').value='No';
+  document.getElementById('f-uploaded_to_stem').value='No';
+  showDrop();
+}
+
+function showDrop() {
+  dz.style.display='';
+  document.getElementById('processing').style.display='none';
+  document.getElementById('result-area').style.display='none';
+}
+
+async function loadRecent() {
+  const list = document.getElementById('recent-list');
+  try {
+    const res = await fetch('/recent');
+    const items = await res.json();
+    if (!items.length) { list.innerHTML='<p class="empty-state">No entries yet.</p>'; return; }
+    // Update stats
+    const pending_qb   = items.filter(i=>i.qb==='No').length;
+    const pending_stem = items.filter(i=>i.stem==='No').length;
+    document.getElementById('stat-total').textContent = items.length;
+    document.getElementById('stat-qb').textContent    = pending_qb;
+    document.getElementById('stat-stem').textContent  = pending_stem;
+    document.getElementById('stats-bar').style.display = 'grid';
+
+    list.innerHTML = items.map(item=>`
+      <div class="recent-item">
+        <div class="recent-item-top">
+          <span class="recent-payee">${item.payee}</span>
+          <span class="recent-amount">${item.amount ? '$'+Number(item.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</span>
+        </div>
+        <div class="recent-meta">
+          <span>${item.date||'—'}</span>
+          ${item.artist?`<span>· ${item.artist}</span>`:''}
+          <span class="badge ${item.qb==='Yes'?'badge-yes':'badge-no'}">QB ${item.qb||'?'}</span>
+          <span class="badge ${item.stem==='Yes'?'badge-yes':'badge-no'}">Stem ${item.stem||'?'}</span>
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML='<p class="empty-state">Could not load entries.</p>'; }
+}
+
+function exportExcel() {
+  window.location.href = '/export';
+  toast('⬇ Downloading Excel…');
+}
+
+function toast(msg, isError=false) {
+  const el = document.getElementById('toast');
+  el.textContent=msg; el.className='show'+(isError?' error':'');
+  setTimeout(()=>el.className='', 3500);
+}
+
+loadRecent();
+</script>
+</body>
+</html>

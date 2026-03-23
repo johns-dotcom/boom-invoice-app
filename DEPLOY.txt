@@ -1,0 +1,104 @@
+BOOM RECORDS — DEPLOY TO RAILWAY (Share with Your Team)
+══════════════════════════════════════════════════════════
+
+Railway gives you a free hosted URL your whole team can use.
+This takes about 10 minutes.
+
+────────────────────────────────────────────────────────
+STEP 1 — Create a GitHub repo for the app
+────────────────────────────────────────────────────────
+
+1. Go to https://github.com and sign in (or create a free account)
+2. Click the + in the top right → "New repository"
+3. Name it: boom-invoice-app
+4. Set to Private
+5. Click "Create repository"
+
+Now push the app files. In Terminal:
+
+  cd /path/to/boom-invoice-app    ← drag this folder into Terminal to get the path
+  git init
+  git add .
+  git commit -m "Initial commit"
+  git branch -M main
+  git remote add origin https://github.com/YOUR_USERNAME/boom-invoice-app.git
+  git push -u origin main
+
+Replace YOUR_USERNAME with your actual GitHub username.
+
+────────────────────────────────────────────────────────
+STEP 2 — Deploy on Railway
+────────────────────────────────────────────────────────
+
+1. Go to https://railway.app and sign in with GitHub
+2. Click "New Project" → "Deploy from GitHub repo"
+3. Select your boom-invoice-app repo
+4. Railway will auto-detect Python and start deploying
+
+────────────────────────────────────────────────────────
+STEP 3 — Add a Postgres database
+────────────────────────────────────────────────────────
+
+In your Railway project dashboard:
+1. Click "+ New" → "Database" → "Add PostgreSQL"
+2. Railway creates a Postgres instance and auto-sets DATABASE_URL
+   in your app's environment. Nothing else to do here.
+
+────────────────────────────────────────────────────────
+STEP 4 — Set environment variables
+────────────────────────────────────────────────────────
+
+In your Railway project, click your app service → "Variables" tab.
+Add these:
+
+  ANTHROPIC_API_KEY   =  sk-ant-... (your Anthropic key)
+  APP_PASSWORD        =  choose a shared team password
+  SECRET_KEY          =  any random string (e.g. type gibberish)
+
+Click "Save" — Railway will redeploy automatically.
+
+────────────────────────────────────────────────────────
+STEP 5 — Get your URL
+────────────────────────────────────────────────────────
+
+1. In Railway, click your app service → "Settings" tab
+2. Under "Networking", click "Generate Domain"
+3. You'll get a URL like: https://boom-invoice-app-production.up.railway.app
+
+Share that URL + the APP_PASSWORD you set with your team.
+Anyone can now open it in their browser on any device.
+
+────────────────────────────────────────────────────────
+EXPORTING YOUR DATA
+────────────────────────────────────────────────────────
+
+The app stores everything in Postgres. To get your Excel:
+  → Click the "⬇ Export Excel" button in the top right of the app
+
+This downloads a fresh, fully formatted Excel file with all entries —
+same format as your original BoomRecords tracker.
+
+────────────────────────────────────────────────────────
+BACKFILLING HISTORICAL DATA
+────────────────────────────────────────────────────────
+
+You can still use the local version (START.command) to enter old invoices
+pointing at your local SQLite DB — then export to Excel when done.
+
+Or just drop old invoices one by one into the live cloud version.
+
+────────────────────────────────────────────────────────
+TROUBLESHOOTING
+────────────────────────────────────────────────────────
+
+App shows "Application error":
+  → Check Railway logs (your project → Deployments → View Logs)
+  → Most common cause: missing env vars
+
+"Parse failed" error:
+  → Verify ANTHROPIC_API_KEY is set correctly in Railway Variables
+
+Forgot team password:
+  → Update APP_PASSWORD in Railway Variables → redeploy
+
+══════════════════════════════════════════════════════════

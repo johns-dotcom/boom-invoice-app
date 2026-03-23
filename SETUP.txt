@@ -1,0 +1,68 @@
+BOOM RECORDS — INVOICE PARSER
+Setup Guide
+══════════════════════════════════════════════════════
+
+REQUIREMENTS
+────────────
+• Python 3.9+ (check with: python3 --version)
+  Download from: https://www.python.org/downloads/
+• An Anthropic API key
+  Get one at: https://console.anthropic.com
+
+FIRST-TIME SETUP (takes 2 minutes)
+────────────────────────────────────
+
+1. OPEN TERMINAL
+   Press Cmd+Space, type "Terminal", hit Enter.
+
+2. INSTALL DEPENDENCIES
+   Drag the boom-invoice-app folder into Terminal, then type:
+     cd [dragged path]
+     pip3 install -r requirements.txt
+
+3. START THE APP
+   Option A (easiest): Double-click START.command
+                       (If blocked by Gatekeeper: right-click → Open)
+   Option B (Terminal): python3 app.py
+
+4. OPEN IN BROWSER
+   Go to: http://localhost:5100
+
+5. CONFIGURE SETTINGS (first run)
+   Click ⚙ Settings in the top right.
+
+   • API Key:     Paste your Anthropic API key (sk-ant-...)
+   • Excel Path:  Full path to your tracker, e.g.:
+                    /Users/john/Documents/BoomRecords_Expense_Recoupment_Tracker.xlsx
+                  Tip: drag the Excel file onto Terminal to get its full path.
+   • Model:       Leave as claude-sonnet-4-6 (recommended)
+
+   Click Save.
+
+DAILY USE
+─────────
+1. Double-click START.command (or run python3 app.py)
+2. Go to http://localhost:5100
+3. Drop an invoice → Claude extracts the fields → review & edit → Add to Tracker
+4. The Excel file is updated instantly.
+
+STOPPING THE APP
+────────────────
+Press Ctrl+C in the Terminal window where the app is running.
+
+TROUBLESHOOTING
+───────────────
+• "Permission denied" on START.command:
+    Run in Terminal: chmod +x /path/to/START.command
+
+• "Port already in use":
+    Another process is on port 5100. Edit app.py, change port=5100
+    to port=5101 (or any free port).
+
+• "Module not found" errors:
+    Run: pip3 install flask anthropic openpyxl
+
+• API key error:
+    Make sure you pasted the full key starting with sk-ant-
+
+══════════════════════════════════════════════════════

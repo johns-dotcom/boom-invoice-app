@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom Records — Ledger</title>
+<style>
+  :root {
+    --bg:#0f0f13; --surface:#1a1a24; --border:#2e2e3e;
+    --accent:#6c63ff; --accent2:#a78bfa; --text:#e8e8f0; --muted:#7a7a9a;
+    --green:#34d399; --yellow:#fbbf24; --red:#f87171; --radius:10px;
+  }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; min-height:100vh; }
+
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:15px; font-weight:700; letter-spacing:.04em; }
+  header h1 span { color:var(--accent2); }
+  .header-right { display:flex; gap:8px; align-items:center; }
+  .btn-icon { background:none; border:1px solid var(--border); color:var(--muted); padding:7px 10px; border-radius:7px; cursor:pointer; font-size:13px; text-decoration:none; }
+  .btn-icon:hover { border-color:var(--accent2); color:var(--accent2); }
+  .btn-export { background:#1a3a2a; border:1px solid #2a5a3a; color:var(--green); padding:7px 12px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; }
+  .btn-export:hover { background:#1f4a32; }
+
+  .toolbar { padding:16px 24px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:var(--surface); }
+  .search-input { background:var(--bg); border:1px solid var(--border); border-radius:7px; padding:8px 12px; color:var(--text); font-size:13px; width:260px; }
+  .search-input:focus { outline:none; border-color:var(--accent); }
+  .filter-select { background:var(--bg); border:1px solid var(--border); border-radius:7px; padding:8px 10px; color:var(--text); font-size:13px; }
+  .filter-select:focus { outline:none; border-color:var(--accent); }
+  .count { color:var(--muted); font-size:13px; margin-left:auto; }
+
+  .table-wrap { padding:24px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:var(--surface); color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; }
+  tbody tr { border-bottom:1px solid var(--border); transition:background .1s; }
+  tbody tr:hover { background:var(--surface); }
+  tbody td { padding:10px 12px; vertical-align:middle; }
+  .td-date { white-space:nowrap; color:var(--muted); }
+  .td-payee { font-weight:600; }
+  .td-desc { color:var(--muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-amount { text-align:right; font-weight:700; color:var(--accent2); white-space:nowrap; }
+  .td-artist { color:var(--accent2); }
+
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; letter-spacing:.03em; white-space:nowrap; }
+  .badge-yes  { background:rgba(52,211,153,.15); color:var(--green); }
+  .badge-no   { background:rgba(251,191,36,.12); color:var(--yellow); }
+  .badge-na   { background:rgba(122,122,154,.12); color:var(--muted); }
+
+  .btn-delete { background:none; border:1px solid transparent; color:var(--muted); border-radius:5px; padding:4px 8px; cursor:pointer; font-size:12px; transition:all .15s; }
+  .btn-delete:hover { border-color:var(--red); color:var(--red); background:rgba(248,113,113,.08); }
+
+  .empty { text-align:center; padding:60px; color:var(--muted); font-size:14px; }
+
+  .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Delete confirm modal */
+  #confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; align-items:center; justify-content:center; }
+  #confirm-overlay.open { display:flex; }
+  #confirm-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px; width:360px; }
+  #confirm-box h3 { font-size:15px; margin-bottom:8px; }
+  #confirm-box p { color:var(--muted); font-size:13px; margin-bottom:20px; line-height:1.5; }
+  .confirm-actions { display:flex; gap:10px; }
+  .btn-confirm-del { background:var(--red); color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer; }
+  .btn-confirm-del:hover { opacity:.88; }
+  .btn-cancel { background:var(--border); color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer; }
+
+  #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#000; padding:12px 20px; border-radius:8px; font-weight:600; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
+  #toast.show { opacity:1; transform:translateY(0); }
+  #toast.error { background:var(--red); color:#fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BOOM RECORDS <span>/ Ledger</span></h1>
+  <div class="header-right">
+    <a href="/" class="btn-icon">+ Add Invoice</a>
+    <a href="/export" class="btn-export">⬇ Export Excel</a>
+    <a href="/logout" class="btn-icon">Sign out</a>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input class="search-input" id="search" placeholder="Search payee, artist, description…" oninput="filterTable()"/>
+  <select class="filter-select" id="filter-qb" onchange="filterTable()">
+    <option value="">All QB statuses</option>
+    <option value="No">QB — Pending</option>
+    <option value="Yes">QB — Done</option>
+  </select>
+  <select class="filter-select" id="filter-stem" onchange="filterTable()">
+    <option value="">All Stem statuses</option>
+    <option value="No">Stem — Pending</option>
+    <option value="Yes">Stem — Done</option>
+  </select>
+  <select class="filter-select" id="filter-cat" onchange="filterTable()">
+    <option value="">All categories</option>
+  </select>
+  <span class="count" id="row-count"></span>
+</div>
+
+<div class="table-wrap">
+  <div class="spinner" id="spinner"></div>
+  <table id="ledger-table" style="display:none">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Payee</th>
+        <th>Description</th>
+        <th>Category</th>
+        <th>Artist</th>
+        <th>Inv #</th>
+        <th style="text-align:right">Amount</th>
+        <th>QB</th>
+        <th>Stem</th>
+        <th>Notes</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty-state" style="display:none">No entries found.</div>
+</div>
+
+<!-- Confirm delete modal -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3>Delete entry?</h3>
+    <p id="confirm-msg">This will permanently remove the entry from the database.</p>
+    <div class="confirm-actions">
+      <button class="btn-confirm-del" onclick="confirmDelete()">Delete</button>
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let allEntries = [];
+let pendingDeleteId = null;
+
+async function loadEntries() {
+  const res = await fetch('/entries');
+  allEntries = await res.json();
+
+  // Populate category filter
+  const cats = [...new Set(allEntries.map(e => e.category).filter(Boolean))].sort();
+  const catSel = document.getElementById('filter-cat');
+  cats.forEach(c => { const o = document.createElement('option'); o.value=c; o.textContent=c; catSel.appendChild(o); });
+
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('ledger-table').style.display = 'table';
+  filterTable();
+}
+
+function filterTable() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const qb     = document.getElementById('filter-qb').value;
+  const stem   = document.getElementById('filter-stem').value;
+  const cat    = document.getElementById('filter-cat').value;
+
+  const filtered = allEntries.filter(e => {
+    if (search && !`${e.payee} ${e.artist} ${e.description} ${e.invoice_number}`.toLowerCase().includes(search)) return false;
+    if (qb   && e.in_quickbooks   !== qb)   return false;
+    if (stem && e.uploaded_to_stem !== stem) return false;
+    if (cat  && e.category         !== cat)  return false;
+    return true;
+  });
+
+  renderRows(filtered);
+  document.getElementById('row-count').textContent = `${filtered.length} of ${allEntries.length} entries`;
+}
+
+function fmt(amount) {
+  if (amount === null || amount === undefined || amount === '') return '—';
+  return '$' + Number(amount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function badge(val) {
+  if (val === 'Yes') return `<span class="badge badge-yes">Yes</span>`;
+  if (val === 'No')  return `<span class="badge badge-no">No</span>`;
+  return `<span class="badge badge-na">${val||'—'}</span>`;
+}
+
+function renderRows(entries) {
+  const tbody = document.getElementById('tbody');
+  if (!entries.length) {
+    tbody.innerHTML = '';
+    document.getElementById('empty-state').style.display = 'block';
+    document.getElementById('ledger-table').style.display = 'none';
+    return;
+  }
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('ledger-table').style.display = 'table';
+
+  tbody.innerHTML = entries.map(e => `
+    <tr data-id="${e.id}">
+      <td class="td-date">${e.invoice_date||'—'}</td>
+      <td class="td-payee">${e.payee||'—'}</td>
+      <td class="td-desc" title="${e.description||''}">${e.description||'—'}</td>
+      <td>${e.category||'—'}</td>
+      <td class="td-artist">${e.artist||'—'}</td>
+      <td style="color:var(--muted)">${e.invoice_number||'—'}</td>
+      <td class="td-amount">${fmt(e.amount)}</td>
+      <td>${badge(e.in_quickbooks)}</td>
+      <td>${badge(e.uploaded_to_stem)}</td>
+      <td class="td-desc" title="${e.notes||''}">${e.notes||''}</td>
+      <td><button class="btn-delete" onclick="askDelete(${e.id}, '${(e.payee||'').replace(/'/g,"\\'")}')">✕</button></td>
+    </tr>`).join('');
+}
+
+function askDelete(id, payee) {
+  pendingDeleteId = id;
+  document.getElementById('confirm-msg').textContent = `This will permanently remove "${payee}" from the database. This cannot be undone.`;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  pendingDeleteId = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+async function confirmDelete() {
+  if (!pendingDeleteId) return;
+  const id = pendingDeleteId;
+  closeConfirm();
+  const res = await fetch(`/delete/${id}`, {method:'POST'});
+  const data = await res.json();
+  if (res.ok) {
+    allEntries = allEntries.filter(e => e.id !== id);
+    filterTable();
+    toast('Entry deleted');
+  } else {
+    toast(data.error||'Delete failed.', true);
+  }
+}
+
+document.getElementById('confirm-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('confirm-overlay')) closeConfirm();
+});
+
+function toast(msg, isError=false) {
+  const el = document.getElementById('toast');
+  el.textContent=msg; el.className='show'+(isError?' error':'');
+  setTimeout(()=>el.className='', 3000);
+}
+
+loadEntries();
+</script>
+</body>
+</html>
