@@ -121,6 +121,7 @@
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
         <th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Notes</th>
+        <th>Approved By</th>
         <th>Files</th>
         {% if is_admin %}<th></th>{% endif %}
       </tr>
@@ -212,7 +213,6 @@ function renderRows(entries) {
       <td class="td-payee">
         ${e.payee||'—'}
         ${e.vendor_submitted ? `<span class="vendor-badge">VENDOR</span>` : ''}
-        ${e.vendor_submitted && e.approved_by ? `<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">✓ ${e.approved_by}${e.approved_at ? ' · ' + e.approved_at.slice(0,10) : ''}</div>` : ''}
       </td>
       <td class="td-trunc" title="${esc(e.description)}">${e.description||'—'}</td>
       <td>${e.category||'—'}</td>
@@ -225,6 +225,9 @@ function renderRows(entries) {
       <td id="cb-${e.id}">${cobrandBadge(e.id, e.cobrand)}</td>
       <td class="td-trunc">
         <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${e.notes||'—'}</span>
+      </td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--muted)">
+        ${e.approved_by ? `<span style="color:#15803d;font-weight:700">${e.approved_by}</span>${e.approved_at ? '<br><span style="font-size:10px">' + e.approved_at.slice(0,10) + '</span>' : ''}` : '—'}
       </td>
       <td id="files-${e.id}">${fileIcons(e)}</td>
       ${IS_ADMIN ? `<td><button class="btn-delete" onclick="askDelete(${e.id},'${esc(e.payee)}')">✕</button></td>` : ''}

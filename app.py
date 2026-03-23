@@ -595,7 +595,7 @@ def export_excel():
         cur.execute("""SELECT invoice_date,payee,description,category,artist,song,
                               invoice_number,amount,payment_method,payment_date,
                               in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,
-                              notes,cobrand
+                              notes,cobrand,approved_by,approved_at
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date ASC, id ASC""")
@@ -724,7 +724,7 @@ def _build_excel(rows):
         s=Side(style="thin",color="FFE2E2E2"); return Border(left=s,right=s,top=s,bottom=s)
     wb=Workbook(); ws=wb.active; ws.title="Expense Tracker"
     ws.sheet_view.showGridLines=False; ws.freeze_panes="A3"
-    ws.merge_cells("A1:P1"); ws["A1"]="BOOM RECORDS — EXPENSE & RECOUPMENT TRACKER"
+    ws.merge_cells("A1:R1"); ws["A1"]="BOOM RECORDS — EXPENSE & RECOUPMENT TRACKER"
     ws["A1"].font=Font(name="Arial",bold=True,size=13,color="FFFFFFFF")
     ws["A1"].fill=fill("FFE31E24"); ws["A1"].alignment=Alignment(horizontal="center",vertical="center")
     ws.row_dimensions[1].height=28
@@ -733,7 +733,8 @@ def _build_excel(rows):
           ("G","Invoice #",14),("H","Amount ($)",13),("I","Payment Method",16),
           ("J","Payment Date",14),("K","In QuickBooks?",16),("L","QB Entry Date",14),
           ("M","Uploaded to Stem?",18),("N","Stem Upload Date",16),
-          ("O","Cobrand",10),("P","Notes",30)]
+          ("O","Cobrand",10),("P","Notes",30),
+          ("Q","Approved By",14),("R","Approved Date",14)]
     for col,label,w in hdrs:
         c=ws[f"{col}2"]; c.value=label
         c.font=Font(name="Arial",bold=True,size=10,color="FFFFFFFF")
@@ -759,6 +760,14 @@ def _build_excel(rows):
         dc("N",v[13],"MM/DD/YYYY","center")
         dc("O","Yes" if v[15] else "No","","center")
         dc("P",v[14])
+        dc("Q",v[16] or "","","center")
+        approved_at_val = v[17]
+        if approved_at_val:
+            try:
+                if hasattr(approved_at_val, 'date'): approved_at_val = approved_at_val.date()
+                elif isinstance(approved_at_val, str): approved_at_val = datetime.strptime(str(approved_at_val)[:10], "%Y-%m-%d").date()
+            except: approved_at_val = str(approved_at_val)[:10]
+        dc("R", approved_at_val or "", "MM/DD/YYYY" if approved_at_val else "", "center")
     return wb
 
 
