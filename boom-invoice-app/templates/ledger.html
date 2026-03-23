@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom Records — Ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --yellow:#d97706; --red-err:#dc2626; --radius:10px; }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+  header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
+  .header-right { display:flex; gap:8px; align-items:center; }
+  a.btn-ghost, button.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; font-family:inherit; text-decoration:none; display:inline-block; transition:all .15s; }
+  a.btn-ghost:hover, button.btn-ghost:hover { border-color:var(--red); color:var(--red); }
+  a.btn-export { background:#f0fdf4; border:1.5px solid #86efac; color:var(--green); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:all .15s; }
+  a.btn-export:hover { background:#dcfce7; }
+
+  .toolbar { padding:12px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:#fff; }
+  .search-input, .filter-select { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; color:var(--text); font-size:13px; font-family:inherit; }
+  .search-input { width:220px; }
+  .search-input:focus, .filter-select:focus { outline:none; border-color:var(--red); }
+  .count { color:var(--muted); font-size:13px; margin-left:auto; }
+
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:#fff; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:1; }
+  tbody tr { border-bottom:1px solid var(--border); background:#fff; transition:background .1s; }
+  tbody tr:hover { background:#fafafa; }
+  tbody td { padding:9px 12px; vertical-align:middle; }
+  .td-date { white-space:nowrap; color:var(--muted); font-size:12px; }
+  .td-payee { font-weight:700; }
+  .td-trunc { color:var(--muted); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-amount { text-align:right; font-weight:700; color:var(--red); white-space:nowrap; }
+
+  /* Badges */
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; transition:opacity .15s; user-select:none; }
+  .badge:hover { opacity:.75; }
+  .badge-yes { background:#dcfce7; color:#15803d; }
+  .badge-no  { background:#fef3c7; color:#b45309; }
+  .badge-na  { background:#f3f4f6; color:#6b7280; }
+  .badge .edit-icon { font-size:9px; opacity:.5; }
+
+  /* Inline dropdowns */
+  .status-select { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:3px 7px; cursor:pointer; font-family:inherit; }
+  .status-select:focus { outline:none; }
+
+  /* Editable text cells */
+  .editable-cell { cursor:pointer; border-radius:4px; padding:2px 4px; transition:background .15s; }
+  .editable-cell:hover { background:rgba(227,30,36,.08); }
+  .editable-cell:hover::after { content:" ✎"; font-size:10px; color:var(--muted); }
+  .inline-input { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:4px 8px; width:130px; font-family:inherit; }
+  .inline-input:focus { outline:none; }
+
+  .vendor-badge { background:#fef2f2; color:var(--red); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; border:1px solid #fca5a5; }
+
+  .btn-delete { background:none; border:1.5px solid transparent; color:#ccc; border-radius:5px; padding:4px 8px; cursor:pointer; font-size:12px; transition:all .15s; }
+  .btn-delete:hover { border-color:var(--red-err); color:var(--red-err); background:#fef2f2; }
+
+  .saving { opacity:.4; pointer-events:none; }
+  .saved-flash { animation: flash .4s ease; }
+  @keyframes flash { 0%{background:#dcfce7} 100%{background:transparent} }
+
+  .empty { text-align:center; padding:60px; color:var(--muted); }
+  .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  #confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; align-items:center; justify-content:center; }
+  #confirm-overlay.open { display:flex; }
+  #confirm-box { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:28px; width:360px; box-shadow:0 8px 32px rgba(0,0,0,.12); }
+  #confirm-box h3 { font-size:15px; margin-bottom:8px; }
+  #confirm-box p { color:var(--muted); font-size:13px; margin-bottom:20px; line-height:1.5; }
+  .confirm-actions { display:flex; gap:10px; }
+  .btn-del-confirm { background:var(--red-err); color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+
+  #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:12px 20px; border-radius:8px; font-weight:700; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
+  #toast.show { opacity:1; transform:translateY(0); }
+  #toast.error { background:var(--red-err); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">boom.</div>
+  <div class="header-right">
+    <a href="/" class="btn-ghost">+ Add Invoice</a>
+    <a href="/export" class="btn-export">⬇ Export Excel</a>
+    <a href="/logout" class="btn-ghost">Sign out</a>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input class="search-input" id="search" placeholder="Search payee, artist, song…" oninput="filterTable()"/>
+  <select class="filter-select" id="filter-qb" onchange="filterTable()">
+    <option value="">All QB statuses</option>
+    <option value="No">QB — Pending</option>
+    <option value="Yes">QB — Done</option>
+  </select>
+  <select class="filter-select" id="filter-stem" onchange="filterTable()">
+    <option value="">All Stem statuses</option>
+    <option value="No">Stem — Pending</option>
+    <option value="Yes">Stem — Done</option>
+  </select>
+  <select class="filter-select" id="filter-cat" onchange="filterTable()">
+    <option value="">All categories</option>
+  </select>
+  <span class="count" id="row-count"></span>
+</div>
+
+<div class="table-wrap">
+  <div class="spinner" id="spinner"></div>
+  <table id="ledger-table" style="display:none">
+    <thead>
+      <tr>
+        <th>Date</th><th>Payee</th><th>Description</th><th>Category</th>
+        <th>Artist</th><th>Song</th><th>Inv #</th>
+        <th style="text-align:right">Amount</th>
+        <th>In QB?</th><th>Stem?</th><th>Notes</th>
+        {% if is_admin %}<th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty-state" style="display:none">No entries found.</div>
+</div>
+
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3>Delete entry?</h3>
+    <p id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <button class="btn-del-confirm" onclick="confirmDelete()">Delete</button>
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const CATEGORIES      = {{ categories | tojson }};
+const PAYMENT_METHODS = {{ payment_methods | tojson }};
+const IS_ADMIN        = {{ is_admin | tojson }};
+
+let allEntries = [];
+let pendingDeleteId = null;
+
+async function loadEntries() {
+  const res = await fetch('/entries');
+  allEntries = await res.json();
+  const cats = [...new Set(allEntries.map(e=>e.category).filter(Boolean))].sort();
+  const sel = document.getElementById('filter-cat');
+  cats.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+  document.getElementById('spinner').style.display='none';
+  document.getElementById('ledger-table').style.display='table';
+  filterTable();
+}
+
+function filterTable() {
+  const q    = document.getElementById('search').value.toLowerCase();
+  const qb   = document.getElementById('filter-qb').value;
+  const stem = document.getElementById('filter-stem').value;
+  const cat  = document.getElementById('filter-cat').value;
+  const f = allEntries.filter(e => {
+    if (q && !`${e.payee} ${e.artist} ${e.song} ${e.description} ${e.invoice_number}`.toLowerCase().includes(q)) return false;
+    if (qb   && e.in_quickbooks    !== qb)   return false;
+    if (stem && e.uploaded_to_stem !== stem) return false;
+    if (cat  && e.category         !== cat)  return false;
+    return true;
+  });
+  renderRows(f);
+  document.getElementById('row-count').textContent = `${f.length} of ${allEntries.length} entries`;
+}
+
+function fmt(v) {
+  if (!v && v!==0) return '—';
+  return '$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function renderRows(entries) {
+  const tbody = document.getElementById('tbody');
+  if (!entries.length) {
+    tbody.innerHTML=''; document.getElementById('empty-state').style.display='block';
+    document.getElementById('ledger-table').style.display='none'; return;
+  }
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('ledger-table').style.display='table';
+
+  tbody.innerHTML = entries.map(e => `
+    <tr id="row-${e.id}">
+      <td class="td-date">${e.invoice_date||'—'}</td>
+      <td class="td-payee">
+        ${e.payee||'—'}
+        ${e.vendor_submitted ? `<span class="vendor-badge">VENDOR</span>` : ''}
+      </td>
+      <td class="td-trunc" title="${esc(e.description)}">${e.description||'—'}</td>
+      <td>${e.category||'—'}</td>
+      <td>
+        <span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span>
+      </td>
+      <td>
+        <span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span>
+      </td>
+      <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
+      <td class="td-amount">${fmt(e.amount)}</td>
+      <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
+      <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
+      <td class="td-trunc">
+        <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${e.notes||'—'}</span>
+      </td>
+      ${IS_ADMIN ? `<td><button class="btn-delete" onclick="askDelete(${e.id},'${esc(e.payee)}')">✕</button></td>` : ''}
+    </tr>`).join('');
+}
+
+function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+function statusBadge(id, field, val) {
+  const cls = val==='Yes'?'badge-yes':val==='No'?'badge-no':'badge-na';
+  return `<span class="badge ${cls}" onclick="openStatusEdit(${id},'${field}',this)">${val||'—'} <span class="edit-icon">▾</span></span>`;
+}
+
+function openStatusEdit(id, field, badgeEl) {
+  const sel = document.createElement('select');
+  sel.className = 'status-select';
+  ['Yes','No','N/A'].forEach(v => {
+    const o=document.createElement('option'); o.value=v; o.textContent=v;
+    if (v === (badgeEl.textContent.trim().split(' ')[0])) o.selected=true;
+    sel.appendChild(o);
+  });
+  badgeEl.replaceWith(sel); sel.focus();
+
+  const save = async () => {
+    const newVal = sel.value;
+    sel.classList.add('saving');
+    const res = await fetch(`/update/${id}`, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({[field]:newVal})});
+    const containerId = field==='in_quickbooks' ? `qb-${id}` : `stem-${id}`;
+    document.getElementById(containerId).innerHTML = statusBadge(id, field, newVal);
+    const entry = allEntries.find(e=>e.id===id);
+    if (entry) entry[field] = newVal;
+    if (res.ok) { flashRow(id); toast('Saved'); }
+    else toast('Save failed', true);
+  };
+
+  sel.addEventListener('change', save);
+  sel.addEventListener('blur', () => {
+    if (sel.parentNode) {
+      const entry = allEntries.find(e=>e.id===id);
+      const val = entry ? entry[field] : '—';
+      const containerId = field==='in_quickbooks' ? `qb-${id}` : `stem-${id}`;
+      document.getElementById(containerId).innerHTML = statusBadge(id, field, val);
+    }
+  });
+}
+
+function editText(id, field, spanEl, currentVal) {
+  const input = document.createElement('input');
+  input.className = 'inline-input';
+  input.value = currentVal === '—' ? '' : currentVal;
+  spanEl.replaceWith(input);
+  input.focus(); input.select();
+
+  const save = async () => {
+    const newVal = input.value.trim();
+    input.classList.add('saving');
+    const res = await fetch(`/update/${id}`, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({[field]:newVal})});
+    const entry = allEntries.find(e=>e.id===id);
+    if (entry) entry[field] = newVal;
+    const span = document.createElement('span');
+    span.className = 'editable-cell';
+    span.textContent = newVal || '—';
+    span.title = newVal || '';
+    span.onclick = () => editText(id, field, span, newVal);
+    input.replaceWith(span);
+    if (res.ok) { flashRow(id); toast('Saved'); }
+    else toast('Save failed', true);
+  };
+
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key==='Enter') input.blur();
+    if (e.key==='Escape') { input.value=currentVal; input.blur(); }
+  });
+}
+
+function flashRow(id) {
+  const row = document.getElementById(`row-${id}`);
+  if (row) { row.classList.add('saved-flash'); setTimeout(()=>row.classList.remove('saved-flash'),400); }
+}
+
+function askDelete(id, payee) {
+  pendingDeleteId=id;
+  document.getElementById('confirm-msg').textContent=`Permanently remove "${payee}"? This cannot be undone.`;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function closeConfirm() { pendingDeleteId=null; document.getElementById('confirm-overlay').classList.remove('open'); }
+async function confirmDelete() {
+  if (!pendingDeleteId) return;
+  const id=pendingDeleteId; closeConfirm();
+  const res=await fetch(`/delete/${id}`,{method:'POST'});
+  if (res.ok) {
+    allEntries=allEntries.filter(e=>e.id!==id);
+    const row=document.getElementById(`row-${id}`);
+    if(row) row.remove();
+    filterTable();
+    toast('Entry deleted');
+  } else toast('Delete failed',true);
+}
+document.getElementById('confirm-overlay').addEventListener('click',e=>{
+  if(e.target===document.getElementById('confirm-overlay')) closeConfirm();
+});
+
+function toast(msg,isError=false) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='show'+(isError?' error':'');
+  setTimeout(()=>el.className='',2500);
+}
+
+loadEntries();
+</script>
+</body>
+</html>

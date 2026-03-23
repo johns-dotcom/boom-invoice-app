@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom Records — Submit Invoice</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#f4f4f4; font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+  header { background:#fff; border-bottom:1px solid #e2e2e2; padding:0 28px; display:flex; align-items:center; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .logo { font-size:24px; font-weight:900; color:#e31e24; letter-spacing:-0.5px; }
+  .page { max-width:560px; margin:40px auto; padding:0 20px; }
+  h1 { font-size:22px; font-weight:900; color:#111; margin-bottom:6px; }
+  .subtitle { font-size:14px; color:#777; margin-bottom:28px; }
+  .card { background:#fff; border:1px solid #e2e2e2; border-radius:10px; padding:28px; }
+  .form-group { margin-bottom:18px; }
+  label { display:block; font-size:11px; font-weight:700; color:#555; letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; }
+  .optional { color:#999; font-weight:400; font-size:10px; text-transform:none; letter-spacing:0; }
+  input[type=text], input[type=email], textarea { width:100%; border:1.5px solid #e2e2e2; border-radius:7px; padding:10px 13px; font-size:14px; font-family:inherit; color:#111; outline:none; transition:border-color .15s; }
+  input:focus, textarea:focus { border-color:#e31e24; }
+  textarea { resize:vertical; min-height:80px; }
+
+  .drop-zone { border:2px dashed #e2e2e2; border-radius:10px; padding:36px 24px; text-align:center; cursor:pointer; transition:all .2s; background:#f9f9f9; }
+  .drop-zone:hover { border-color:#e31e24; background:#fef9f9; }
+  .drop-zone.drag-over { border-color:#e31e24; background:#fef2f2; }
+  .drop-zone.has-file { border-color:#16a34a; border-style:solid; background:#f0fdf4; }
+  .drop-icon { font-size:32px; margin-bottom:8px; }
+  .drop-title { font-size:15px; font-weight:700; color:#111; margin-bottom:4px; }
+  .drop-sub { font-size:12px; color:#777; }
+  .drop-filename { font-size:13px; font-weight:700; color:#16a34a; margin-top:8px; }
+
+  .error { background:#fef2f2; border:1px solid #fca5a5; color:#b91c1c; border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:18px; }
+  .btn { width:100%; background:#e31e24; color:#fff; border:none; border-radius:8px; padding:13px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; margin-top:8px; transition:background .15s; }
+  .btn:hover { background:#c41a1f; }
+  .btn:disabled { background:#ccc; cursor:not-allowed; }
+  .secure-note { text-align:center; font-size:12px; color:#999; margin-top:14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">boom.</div>
+</header>
+
+<div class="page">
+  <h1>Submit an Invoice</h1>
+  <div class="subtitle">Upload your invoice and we'll take it from there. You'll receive a confirmation once it's been received.</div>
+
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <div class="card">
+    <form method="POST" enctype="multipart/form-data" id="submit-form">
+
+      <div class="form-group">
+        <label>Your Name or Company <span style="color:#e31e24">*</span></label>
+        <input type="text" name="vendor_name" placeholder="e.g. Studio XYZ" required/>
+      </div>
+
+      <div class="form-group">
+        <label>Email Address <span class="optional">(optional)</span></label>
+        <input type="email" name="vendor_email" placeholder="your@email.com"/>
+      </div>
+
+      <div class="form-group">
+        <label>Invoice File <span style="color:#e31e24">*</span></label>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div class="drop-icon">📎</div>
+          <div class="drop-title">Click or drop your invoice here</div>
+          <div class="drop-sub">PDF, JPG, PNG — up to 25 MB</div>
+          <div class="drop-filename" id="drop-filename"></div>
+        </div>
+        <input type="file" id="file-input" name="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" required/>
+      </div>
+
+      <div class="form-group">
+        <label>Notes <span class="optional">(optional)</span></label>
+        <textarea name="notes" placeholder="Anything we should know about this invoice…"></textarea>
+      </div>
+
+      <button type="submit" class="btn" id="submit-btn">Submit Invoice</button>
+    </form>
+    <div class="secure-note">🔒 Secure submission — Boom Records only</div>
+  </div>
+</div>
+
+<script>
+const dz = document.getElementById('drop-zone');
+const fi = document.getElementById('file-input');
+
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) {
+    const dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]);
+    fi.files = dt.files; showFile(e.dataTransfer.files[0].name);
+  }
+});
+fi.addEventListener('change', () => { if (fi.files[0]) showFile(fi.files[0].name); });
+
+function showFile(name) {
+  dz.classList.add('has-file');
+  document.getElementById('drop-filename').textContent = '✓ ' + name;
+}
+
+document.getElementById('submit-form').addEventListener('submit', () => {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+});
+</script>
+</body>
+</html>
