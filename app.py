@@ -392,6 +392,23 @@ def update_entry(eid):
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
+@app.route("/add-invoice/<int:eid>", methods=["POST"])
+@login_required
+def add_invoice(eid):
+    if "file" not in request.files or not request.files["file"].filename:
+        return jsonify({"error":"No file"}), 400
+    f = request.files["file"]
+    fname = f.filename
+    data = base64.b64encode(f.read()).decode()
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET invoice_filename={ph}, invoice_data={ph} WHERE id={ph}",
+                    (fname, data, eid))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True,"filename":fname})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
 @app.route("/add-w9/<int:eid>", methods=["POST"])
 @login_required
 def add_w9(eid):
