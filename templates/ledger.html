@@ -120,7 +120,7 @@
         <th>Date</th><th>Payee</th><th>Description</th><th>Category</th>
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
-        <th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Notes</th>
+        <th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Notes</th>
         <th>Approved By</th>
         <th>Files</th>
         {% if is_admin %}<th></th>{% endif %}
@@ -194,6 +194,9 @@ function fileIcons(e) {
   if (!e.has_proof)
     html += `<button class="attach-btn" onclick="triggerProofUpload(${e.id})" title="Attach proof of payment">+ Proof</button>
              <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadProof(${e.id},this)"/>`;
+  if (!e.w9_filename)
+    html += `<button class="attach-btn" onclick="triggerW9Upload(${e.id})" title="Attach W9/W8">+ W9</button>
+             <input type="file" id="w9-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadW9(${e.id},this)"/>`;
   html += '</div>';
   return html;
 }
@@ -223,6 +226,8 @@ function renderRows(entries) {
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
       <td id="cb-${e.id}">${cobrandBadge(e.id, e.cobrand)}</td>
+      <td style="text-align:center">${e.has_invoice ? `<span style="color:#15803d;font-weight:700;font-size:12px">Yes</span>` : `<span style="color:#b45309;font-size:12px">No</span>`}</td>
+      <td id="w9-onfile-${e.id}" style="text-align:center">${e.w9_filename ? `<span style="color:#15803d;font-weight:700;font-size:12px">Yes</span>` : `<span style="color:#b45309;font-size:12px">No</span>`}</td>
       <td class="td-trunc">
         <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${e.notes||'—'}</span>
       </td>
@@ -324,6 +329,24 @@ async function uploadProof(id, input) {
     if (entry) entry.has_proof = true;
     document.getElementById(`files-${id}`).innerHTML = fileIcons(entry || {id,has_proof:true,has_invoice:false,w9_filename:''});
     flashRow(id); toast('Proof attached');
+  } else toast('Upload failed', true);
+}
+
+function triggerW9Upload(id) {
+  document.getElementById(`w9-input-${id}`).click();
+}
+
+async function uploadW9(id, input) {
+  const file = input.files[0]; if (!file) return;
+  const fd = new FormData(); fd.append('file', file);
+  const res = await fetch(`/add-w9/${id}`, {method:'POST', body:fd});
+  if (res.ok) {
+    const entry = allEntries.find(e=>e.id===id);
+    if (entry) entry.w9_filename = file.name;
+    document.getElementById(`files-${id}`).innerHTML = fileIcons(entry || {id,has_proof:false,has_invoice:false,w9_filename:file.name});
+    const w9cell = document.getElementById(`w9-onfile-${id}`);
+    if (w9cell) w9cell.innerHTML = `<span style="color:#15803d;font-weight:700;font-size:12px">Yes</span>`;
+    flashRow(id); toast('W9 attached');
   } else toast('Upload failed', true);
 }
 

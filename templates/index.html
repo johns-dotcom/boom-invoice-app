@@ -163,6 +163,44 @@
   </div>
 </div>
 
+<!-- Standalone W9 upload -->
+<div style="max-width:900px;margin:0 auto 40px;padding:0 24px">
+  <div class="form-card" style="border-top:3px solid var(--red)">
+    <h2 style="margin-bottom:4px">Submit W9 Only</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Use this when a W9 arrives after the invoice has already been logged.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;display:block;margin-bottom:6px">Payee / Vendor <span style="color:var(--red)">*</span></label>
+        <input type="text" id="w9only-payee" placeholder="Vendor name" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff"/>
+        <div class="drop-zone" id="dz-w9only" onclick="document.getElementById('fi-w9only').click()" style="margin-top:12px;padding:20px">
+          <div class="drop-icon" style="font-size:22px">📋</div>
+          <div class="drop-title" style="font-size:13px">Drop W9/W8 or click to upload</div>
+          <div class="drop-filename" id="fn-w9only" style="font-size:12px"></div>
+        </div>
+        <input type="file" id="fi-w9only" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+      </div>
+      <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:2px">
+        <div id="w9only-validation" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#92400e"></div>
+        <button id="btn-w9only" onclick="submitW9Only()" style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s">Save W9</button>
+        <div id="w9only-success" style="display:none;color:#15803d;font-weight:700;font-size:13px;margin-top:10px;text-align:center"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- W9 validation modal (with Submit Anyway) -->
+<div id="w9-val-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:12px;padding:28px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.18)">
+    <h2 style="font-size:17px;font-weight:900;margin-bottom:6px">⚠ Issues found in W9</h2>
+    <p style="font-size:13px;color:#555;margin-bottom:16px;line-height:1.5">The W9 may be incomplete. Review before saving.</p>
+    <div id="w9-val-body" style="margin-bottom:18px"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeW9Modal()" style="flex:1;background:#f3f4f6;color:#111;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">← Go back</button>
+      <button onclick="confirmW9Anyway()" style="flex:1;background:var(--red);color:#fff;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">Save anyway</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API_CONFIGURED = {{ api_configured | tojson }};
 let storedFileB64 = null, storedFileMime = null, storedFileName = null;
@@ -200,8 +238,12 @@ dzW9.addEventListener('dragleave', () => dzW9.classList.remove('drag-over'));
 dzW9.addEventListener('drop', e => { e.preventDefault(); dzW9.classList.remove('drag-over'); handleW9(e.dataTransfer.files[0]); });
 fiW9.addEventListener('change', () => handleW9(fiW9.files[0]));
 
-function handleW9(file) {
+let _pendingW9File = null;
+
+async function handleW9(file) {
   if (!file) return;
+  _pendingW9File = file;
+  // Read into base64 for storage
   const reader = new FileReader();
   reader.onload = ev => {
     storedW9B64 = ev.target.result.split(',')[1];
@@ -210,6 +252,30 @@ function handleW9(file) {
     document.getElementById('drop-filename-w9').textContent = '✓ ' + file.name;
   };
   reader.readAsDataURL(file);
+
+  // Run AI validation if configured
+  if (!API_CONFIGURED) return;
+  try {
+    const fd = new FormData(); fd.append('w9_file', file);
+    const res = await fetch('/validate-files', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.skipped || !data.issues) return;
+    const issues = data.issues.w9 || [];
+    if (!issues.length) return;
+    // Show modal with submit anyway option
+    document.getElementById('w9-val-body').innerHTML =
+      issues.map(i=>`<div style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#333;margin-bottom:6px"><span style="color:#d97706">⚠</span>${i}</div>`).join('');
+    document.getElementById('w9-val-overlay').style.display = 'flex';
+  } catch(e) {}
+}
+
+function closeW9Modal() {
+  document.getElementById('w9-val-overlay').style.display = 'none';
+}
+
+function confirmW9Anyway() {
+  closeW9Modal();
+  // W9 already stored in storedW9B64/storedW9Name — user proceeds
 }
 
 async function handleFile(file) {
@@ -299,6 +365,71 @@ function resetForm() {
   document.getElementById('drop-filename-w9').textContent='';
   dzW9.classList.remove('has-file');
   storedW9B64=null; storedW9Name=null;
+}
+
+// ── Standalone W9 upload ──────────────────────────────────────
+let storedW9OnlyB64 = null, storedW9OnlyName = null;
+
+const dzW9Only = document.getElementById('dz-w9only');
+const fiW9Only = document.getElementById('fi-w9only');
+dzW9Only.addEventListener('dragover', e => { e.preventDefault(); dzW9Only.classList.add('drag-over'); });
+dzW9Only.addEventListener('dragleave', () => dzW9Only.classList.remove('drag-over'));
+dzW9Only.addEventListener('drop', e => { e.preventDefault(); dzW9Only.classList.remove('drag-over'); handleW9Only(e.dataTransfer.files[0]); });
+fiW9Only.addEventListener('change', () => handleW9Only(fiW9Only.files[0]));
+
+async function handleW9Only(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    storedW9OnlyB64 = ev.target.result.split(',')[1];
+    storedW9OnlyName = file.name;
+    dzW9Only.classList.add('has-file');
+    document.getElementById('fn-w9only').textContent = '✓ ' + file.name;
+  };
+  reader.readAsDataURL(file);
+
+  if (!API_CONFIGURED) return;
+  try {
+    const fd = new FormData(); fd.append('w9_file', file);
+    const res = await fetch('/validate-files', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.skipped || !data.issues) return;
+    const issues = data.issues.w9 || [];
+    const box = document.getElementById('w9only-validation');
+    if (issues.length) {
+      box.innerHTML = '<strong>⚠ Issues found:</strong><br>' + issues.map(i=>`• ${i}`).join('<br>');
+      box.style.display = 'block';
+    } else {
+      box.style.display = 'none';
+    }
+  } catch(e) {}
+}
+
+async function submitW9Only() {
+  const payee = document.getElementById('w9only-payee').value.trim();
+  if (!payee) { alert('Please enter the payee name.'); return; }
+  if (!storedW9OnlyB64) { alert('Please upload a W9 file.'); return; }
+  const btn = document.getElementById('btn-w9only');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const fd = new FormData();
+    fd.append('payee', payee);
+    const blob = await (await fetch(`data:application/octet-stream;base64,${storedW9OnlyB64}`)).blob();
+    fd.append('file', blob, storedW9OnlyName);
+    const res = await fetch('/w9-only', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('w9only-success').textContent = `✓ W9 saved for ${payee}`;
+      document.getElementById('w9only-success').style.display = 'block';
+      document.getElementById('w9only-payee').value = '';
+      document.getElementById('fn-w9only').textContent = '';
+      dzW9Only.classList.remove('has-file');
+      document.getElementById('w9only-validation').style.display = 'none';
+      storedW9OnlyB64 = null; storedW9OnlyName = null;
+      setTimeout(() => { document.getElementById('w9only-success').style.display='none'; }, 4000);
+    } else alert('Error: ' + (data.error || 'Unknown'));
+  } catch(e) { alert('Network error'); }
+  btn.disabled = false; btn.textContent = 'Save W9';
 }
 
 function showSuccess(msg) {

@@ -392,6 +392,45 @@ def update_entry(eid):
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
+@app.route("/add-w9/<int:eid>", methods=["POST"])
+@login_required
+def add_w9(eid):
+    if "file" not in request.files or not request.files["file"].filename:
+        return jsonify({"error":"No file"}), 400
+    f = request.files["file"]
+    fname = f.filename
+    data = base64.b64encode(f.read()).decode()
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET w9_filename={ph}, w9_data={ph} WHERE id={ph}",
+                    (fname, data, eid))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True,"filename":fname})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/w9-only", methods=["POST"])
+@login_required
+def w9_only():
+    """Save a standalone W9 (no invoice) — creates a minimal approved expense record."""
+    if "file" not in request.files or not request.files["file"].filename:
+        return jsonify({"error":"No file"}), 400
+    payee = request.form.get("payee","").strip()
+    if not payee:
+        return jsonify({"error":"Payee name required"}), 400
+    f = request.files["file"]
+    fname = f.filename
+    data = base64.b64encode(f.read()).decode()
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"""INSERT INTO expenses (payee, w9_filename, w9_data, status)
+                        VALUES ({ph},{ph},{ph},{ph})""", (payee, fname, data, "approved"))
+        new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
+        conn.commit(); conn.close()
+        return jsonify({"ok":True,"id":new_id,"payee":payee})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
 @app.route("/add-proof/<int:eid>", methods=["POST"])
 @login_required
 def add_proof(eid):
