@@ -76,7 +76,7 @@
     <a href="/w9s" class="btn-ghost">W9 / W8</a>
     <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
     <a href="/export" class="btn-ghost">⬇ Excel</a>
-    <a href="/export-qbo" class="btn-ghost">⬇ QB</a>
+    <a href="/export-qbo" class="btn-ghost">⬇ CSV</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
@@ -168,26 +168,37 @@
 <!-- Standalone W9 upload -->
 <div style="max-width:900px;margin:0 auto 40px;padding:0 24px">
   <div class="form-card" style="border-top:3px solid var(--red)">
-    <h2 style="margin-bottom:4px">Submit W9 Only</h2>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Use this when a W9 arrives after the invoice has already been logged.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+    <h2 style="margin-bottom:4px">Submit Documents</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Use this when a W9 or proof of payment arrives after the invoice has already been logged.</p>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;display:block;margin-bottom:6px">Payee / Vendor <span style="color:var(--red)">*</span></label>
+      <input type="text" id="w9only-payee" placeholder="Vendor name" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
       <div>
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;display:block;margin-bottom:6px">Payee / Vendor <span style="color:var(--red)">*</span></label>
-        <input type="text" id="w9only-payee" placeholder="Vendor name" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff"/>
-        <div class="drop-zone" id="dz-w9only" onclick="document.getElementById('fi-w9only').click()" style="margin-top:12px;padding:20px">
+        <div class="drop-zone" id="dz-w9only" onclick="document.getElementById('fi-w9only').click()" style="padding:20px">
           <div class="drop-icon" style="font-size:22px">📋</div>
-          <div class="drop-title" style="font-size:13px">Drop W9/W8 or click to upload</div>
+          <div class="drop-title" style="font-size:13px">W9 / W8</div>
+          <div class="drop-sub">Drop or click to upload</div>
           <div class="drop-filename" id="fn-w9only" style="font-size:12px"></div>
         </div>
         <input type="file" id="fi-w9only" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
         <button id="remove-w9only" onclick="removeW9Only()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
-      <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:2px">
-        <div id="w9only-validation" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#92400e"></div>
-        <button id="btn-w9only" onclick="submitW9Only()" style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s">Save W9</button>
-        <div id="w9only-success" style="display:none;color:#15803d;font-weight:700;font-size:13px;margin-top:10px;text-align:center"></div>
+      <div>
+        <div class="drop-zone" id="dz-proofonly" onclick="document.getElementById('fi-proofonly').click()" style="padding:20px">
+          <div class="drop-icon" style="font-size:22px">💳</div>
+          <div class="drop-title" style="font-size:13px">Proof of Payment</div>
+          <div class="drop-sub">Drop or click to upload</div>
+          <div class="drop-filename" id="fn-proofonly" style="font-size:12px"></div>
+        </div>
+        <input type="file" id="fi-proofonly" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+        <button id="remove-proofonly" onclick="removeProofOnly()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
     </div>
+    <div id="w9only-validation" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#92400e"></div>
+    <button id="btn-w9only" onclick="submitW9Only()" style="width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s">Save Documents</button>
+    <div id="w9only-success" style="display:none;color:#15803d;font-weight:700;font-size:13px;margin-top:10px;text-align:center"></div>
   </div>
 </div>
 
@@ -403,8 +414,9 @@ function resetForm() {
   document.getElementById('remove-w9').style.display='none';
 }
 
-// ── Standalone W9 upload ──────────────────────────────────────
+// ── Standalone document upload (W9 + Proof) ──────────────────
 let storedW9OnlyB64 = null, storedW9OnlyName = null;
+let storedProofOnlyB64 = null, storedProofOnlyName = null;
 
 const dzW9Only = document.getElementById('dz-w9only');
 const fiW9Only = document.getElementById('fi-w9only');
@@ -412,6 +424,34 @@ dzW9Only.addEventListener('dragover', e => { e.preventDefault(); dzW9Only.classL
 dzW9Only.addEventListener('dragleave', () => dzW9Only.classList.remove('drag-over'));
 dzW9Only.addEventListener('drop', e => { e.preventDefault(); dzW9Only.classList.remove('drag-over'); handleW9Only(e.dataTransfer.files[0]); });
 fiW9Only.addEventListener('change', () => handleW9Only(fiW9Only.files[0]));
+
+const dzProofOnly = document.getElementById('dz-proofonly');
+const fiProofOnly = document.getElementById('fi-proofonly');
+dzProofOnly.addEventListener('dragover', e => { e.preventDefault(); dzProofOnly.classList.add('drag-over'); });
+dzProofOnly.addEventListener('dragleave', () => dzProofOnly.classList.remove('drag-over'));
+dzProofOnly.addEventListener('drop', e => { e.preventDefault(); dzProofOnly.classList.remove('drag-over'); handleProofOnly(e.dataTransfer.files[0]); });
+fiProofOnly.addEventListener('change', () => handleProofOnly(fiProofOnly.files[0]));
+
+function handleProofOnly(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    storedProofOnlyB64 = ev.target.result.split(',')[1];
+    storedProofOnlyName = file.name;
+    dzProofOnly.classList.add('has-file');
+    document.getElementById('fn-proofonly').textContent = '✓ ' + file.name;
+    document.getElementById('remove-proofonly').style.display = 'inline-block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeProofOnly() {
+  storedProofOnlyB64 = null; storedProofOnlyName = null;
+  dzProofOnly.classList.remove('has-file');
+  document.getElementById('fn-proofonly').textContent = '';
+  document.getElementById('fi-proofonly').value = '';
+  document.getElementById('remove-proofonly').style.display = 'none';
+}
 
 async function handleW9Only(file) {
   if (!file) return;
@@ -445,28 +485,42 @@ async function handleW9Only(file) {
 async function submitW9Only() {
   const payee = document.getElementById('w9only-payee').value.trim();
   if (!payee) { alert('Please enter the payee name.'); return; }
-  if (!storedW9OnlyB64) { alert('Please upload a W9 file.'); return; }
+  if (!storedW9OnlyB64 && !storedProofOnlyB64) { alert('Please upload at least one file.'); return; }
   const btn = document.getElementById('btn-w9only');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const fd = new FormData();
     fd.append('payee', payee);
-    const blob = await (await fetch(`data:application/octet-stream;base64,${storedW9OnlyB64}`)).blob();
-    fd.append('file', blob, storedW9OnlyName);
+    if (storedW9OnlyB64) {
+      const blob = await (await fetch(`data:application/octet-stream;base64,${storedW9OnlyB64}`)).blob();
+      fd.append('w9_file', blob, storedW9OnlyName);
+    }
+    if (storedProofOnlyB64) {
+      const blob = await (await fetch(`data:application/octet-stream;base64,${storedProofOnlyB64}`)).blob();
+      fd.append('proof_file', blob, storedProofOnlyName);
+    }
     const res = await fetch('/w9-only', {method:'POST', body:fd});
     const data = await res.json();
     if (data.ok) {
-      document.getElementById('w9only-success').textContent = `✓ W9 saved for ${payee}`;
+      const parts = [];
+      if (storedW9OnlyB64) parts.push('W9');
+      if (storedProofOnlyB64) parts.push('proof of payment');
+      document.getElementById('w9only-success').textContent = `✓ ${parts.join(' & ')} saved for ${payee}`;
       document.getElementById('w9only-success').style.display = 'block';
       document.getElementById('w9only-payee').value = '';
       document.getElementById('fn-w9only').textContent = '';
+      document.getElementById('fn-proofonly').textContent = '';
       dzW9Only.classList.remove('has-file');
+      dzProofOnly.classList.remove('has-file');
+      document.getElementById('remove-w9only').style.display = 'none';
+      document.getElementById('remove-proofonly').style.display = 'none';
       document.getElementById('w9only-validation').style.display = 'none';
       storedW9OnlyB64 = null; storedW9OnlyName = null;
+      storedProofOnlyB64 = null; storedProofOnlyName = null;
       setTimeout(() => { document.getElementById('w9only-success').style.display='none'; }, 4000);
     } else alert('Error: ' + (data.error || 'Unknown'));
   } catch(e) { alert('Network error'); }
-  btn.disabled = false; btn.textContent = 'Save W9';
+  btn.disabled = false; btn.textContent = 'Save Documents';
 }
 
 function showSuccess(msg) {

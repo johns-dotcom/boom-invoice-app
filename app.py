@@ -429,19 +429,33 @@ def add_w9(eid):
 @app.route("/w9-only", methods=["POST"])
 @login_required
 def w9_only():
-    """Save a standalone W9 (no invoice) — creates a minimal approved expense record."""
-    if "file" not in request.files or not request.files["file"].filename:
-        return jsonify({"error":"No file"}), 400
+    """Save standalone W9 and/or Proof of Payment — creates a minimal approved expense record."""
     payee = request.form.get("payee","").strip()
     if not payee:
         return jsonify({"error":"Payee name required"}), 400
-    f = request.files["file"]
-    fname = f.filename
-    data = base64.b64encode(f.read()).decode()
+
+    w9_f = request.files.get("file")
+    proof_f = request.files.get("proof_file")
+
+    if (not w9_f or not w9_f.filename) and (not proof_f or not proof_f.filename):
+        return jsonify({"error":"At least one file (W9 or Proof of Payment) required"}), 400
+
+    w9_fname = w9_data = None
+    if w9_f and w9_f.filename:
+        w9_fname = w9_f.filename
+        w9_data  = base64.b64encode(w9_f.read()).decode()
+
+    proof_fname = proof_data = None
+    if proof_f and proof_f.filename:
+        proof_fname = proof_f.filename
+        proof_data  = base64.b64encode(proof_f.read()).decode()
+
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-        cur.execute(f"""INSERT INTO expenses (payee, w9_filename, w9_data, status)
-                        VALUES ({ph},{ph},{ph},{ph})""", (payee, fname, data, "approved"))
+        cur.execute(f"""INSERT INTO expenses
+                        (payee, w9_filename, w9_data, proof_filename, proof_data, status)
+                        VALUES ({ph},{ph},{ph},{ph},{ph},{ph})""",
+                    (payee, w9_fname, w9_data, proof_fname, proof_data, "approved"))
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         return jsonify({"ok":True,"id":new_id,"payee":payee})
@@ -692,112 +706,53 @@ def export_excel():
 def export_qbo():
     try:
         conn, kind = get_db(); cur = conn.cursor()
-        cur.execute("""SELECT id,invoice_date,payee,description,category,amount,
-                              invoice_number,cobrand,artist,song
+        cur.execute("""SELECT invoice_date,payee,description,category,artist,song,
+                              invoice_number,amount,payment_method,payment_date,
+                              in_quickbooks,uploaded_to_stem,notes,cobrand,
+                              approved_by,approved_at
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date ASC, id ASC""")
         rows = cur.fetchall(); conn.close()
     except Exception as e: return jsonify({"error":str(e)}), 500
-    qbo_content = _build_qbo(rows)
-    buf = io.BytesIO(qbo_content.encode("ascii","replace"))
+    csv_content = _build_csv(rows)
+    buf = io.BytesIO(csv_content.encode("utf-8-sig"))  # utf-8-sig adds BOM for Excel compatibility
     buf.seek(0)
     return send_file(buf, as_attachment=True,
-                     download_name=f"BoomRecords_Expenses_{date.today():%Y-%m-%d}.qbo",
-                     mimetype="application/x-ofx")
+                     download_name=f"BoomRecords_Expenses_{date.today():%Y-%m-%d}.csv",
+                     mimetype="text/csv")
 
-def _build_qbo(rows):
-    now = datetime.now().strftime("%Y%m%d%H%M%S")
-    dates = []
+def _build_csv(rows):
+    import csv, io as _io
+    buf = _io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "Date", "Payee / Vendor", "Description", "Category",
+        "Artist / Project", "Song", "Invoice #", "Amount",
+        "Payment Method", "Payment Date", "In QuickBooks?",
+        "Uploaded to Stem?", "Notes", "Cobrand", "Approved By", "Approved Date"
+    ])
     for r in rows:
-        d = r[1]
-        if d:
+        inv_date, payee, desc, category, artist, song, inv_num, amount, \
+        pay_method, pay_date, in_qb, in_stem, notes, cobrand, approved_by, approved_at = r
+
+        def fmt_d(d):
+            if not d: return ""
             try:
-                if hasattr(d,'strftime'): dates.append(d)
-                else:
-                    parsed = datetime.strptime(str(d)[:10], "%Y-%m-%d").date()
-                    dates.append(parsed)
-            except: pass
-    dt_start = fmt_qbo_date(min(dates) if dates else None)
-    dt_end   = fmt_qbo_date(max(dates) if dates else None)
+                if hasattr(d, 'strftime'): return d.strftime("%m/%d/%Y")
+                return datetime.strptime(str(d)[:10], "%Y-%m-%d").strftime("%m/%d/%Y")
+            except: return str(d)[:10]
 
-    transactions = []
-    for r in rows:
-        eid, inv_date, payee, desc, category, amount, inv_num, cobrand, artist, song = r
-        amount = float(amount or 0)
-        dt_posted = fmt_qbo_date(inv_date)
-        name = (payee or "Unknown")[:32]
-        memo_parts = []
-        if category: memo_parts.append(category)
-        if cobrand: memo_parts.append("COBRAND")
-        if artist: memo_parts.append(artist)
-        if desc: memo_parts.append(desc[:40])
-        memo = " | ".join(memo_parts)[:255]
-        fitid = f"{eid:08d}"
-        transactions.append(
-            f"<STMTTRN>\n"
-            f"<TRNTYPE>DEBIT\n"
-            f"<DTPOSTED>{dt_posted}\n"
-            f"<TRNAMT>-{amount:.2f}\n"
-            f"<FITID>{fitid}\n"
-            f"<NAME>{name}\n"
-            f"<MEMO>{memo}\n"
-            f"</STMTTRN>"
-        )
-
-    total = -sum(float(r[5] or 0) for r in rows)
-    trn_block = "\n".join(transactions)
-
-    return (
-        "OFXHEADER:100\n"
-        "DATA:OFXSGML\n"
-        "VERSION:102\n"
-        "SECURITY:NONE\n"
-        "ENCODING:USASCII\n"
-        "CHARSET:1252\n"
-        "COMPRESSION:NONE\n"
-        "OLDFILEUID:NONE\n"
-        "NEWFILEUID:NONE\n"
-        "\n"
-        "<OFX>\n"
-        "<SIGNONMSGSRSV1>\n"
-        "<SONRS>\n"
-        "<STATUS>\n"
-        "<CODE>0\n"
-        "<SEVERITY>INFO\n"
-        "</STATUS>\n"
-        f"<DTSERVER>{now}\n"
-        "<LANGUAGE>ENG\n"
-        "</SONRS>\n"
-        "</SIGNONMSGSRSV1>\n"
-        "<BANKMSGSRSV1>\n"
-        "<STMTTRNRS>\n"
-        "<TRNUID>1001\n"
-        "<STATUS>\n"
-        "<CODE>0\n"
-        "<SEVERITY>INFO\n"
-        "</STATUS>\n"
-        "<STMTRS>\n"
-        "<CURDEF>USD\n"
-        "<BANKACCTFROM>\n"
-        "<BANKID>000000000\n"
-        "<ACCTID>BOOM-RECORDS-EXPENSES\n"
-        "<ACCTTYPE>CHECKING\n"
-        "</BANKACCTFROM>\n"
-        "<BANKTRANLIST>\n"
-        f"<DTSTART>{dt_start}\n"
-        f"<DTEND>{dt_end}\n"
-        f"{trn_block}\n"
-        "</BANKTRANLIST>\n"
-        "<LEDGERBAL>\n"
-        f"<BALAMT>{total:.2f}\n"
-        f"<DTASOF>{now}\n"
-        "</LEDGERBAL>\n"
-        "</STMTRS>\n"
-        "</STMTTRNRS>\n"
-        "</BANKMSGSRSV1>\n"
-        "</OFX>"
-    )
+        writer.writerow([
+            fmt_d(inv_date), payee or "", desc or "", category or "",
+            artist or "", song or "", inv_num or "",
+            f"{float(amount):.2f}" if amount else "",
+            pay_method or "", fmt_d(pay_date),
+            in_qb or "", in_stem or "", notes or "",
+            "Yes" if cobrand else "No",
+            approved_by or "", fmt_d(approved_at)
+        ])
+    return buf.getvalue()
 
 def _build_excel(rows):
     def fill(c): return PatternFill("solid",start_color=c,end_color=c)
