@@ -120,7 +120,7 @@
         <th>Date</th><th>Payee</th><th>Description</th><th>Category</th>
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
-        <th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Notes</th>
+        <th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Proof?</th><th>Notes</th>
         <th>Approved By</th>
         <th>Files</th>
         {% if is_admin %}<th></th>{% endif %}
@@ -191,10 +191,7 @@ function fileIcons(e) {
     html += `<a href="/proof/${e.id}" target="_blank" class="file-icon" title="View proof of payment">💳</a>`;
   if (e.w9_filename)
     html += `<a href="/w9/${e.id}" target="_blank" class="file-icon" title="View W9/W8">📋</a>`;
-  if (!e.has_proof)
-    html += `<button class="attach-btn" onclick="triggerProofUpload(${e.id})" title="Attach proof of payment">+ Proof</button>
-             <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadProof(${e.id},this)"/>`;
-  // W9 upload input (triggered from the W9? cell)
+  // Hidden inputs triggered from the Inv?, W9?, and Proof? cells
   html += `<input type="file" id="w9-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadW9(${e.id},this)"/>`;
   html += '</div>';
   return html;
@@ -234,6 +231,12 @@ function renderRows(entries) {
         ${e.w9_filename
           ? `<a href="/w9/${e.id}" target="_blank" style="color:#15803d;font-weight:700;font-size:12px;text-decoration:none" title="View W9">Yes ↗</a>`
           : `<span style="color:#b45309;font-size:12px;cursor:pointer;border-bottom:1px dotted #b45309" onclick="triggerW9Upload(${e.id})" title="Click to attach W9">No +</span>`}
+      </td>
+      <td id="proof-onfile-${e.id}" style="text-align:center;white-space:nowrap">
+        ${e.has_proof
+          ? `<a href="/proof/${e.id}" target="_blank" style="color:#15803d;font-weight:700;font-size:12px;text-decoration:none" title="View proof of payment">Yes ↗</a>`
+          : `<span style="color:#b45309;font-size:12px;cursor:pointer;border-bottom:1px dotted #b45309" onclick="triggerProofUpload(${e.id})" title="Click to attach proof">No +</span>
+             <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadProof(${e.id},this)"/>`}
       </td>
       <td class="td-trunc">
         <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${e.notes||'—'}</span>
@@ -334,6 +337,10 @@ async function uploadProof(id, input) {
   if (res.ok) {
     const entry = allEntries.find(e=>e.id===id);
     if (entry) entry.has_proof = true;
+    // Update the Proof? cell
+    const proofCell = document.getElementById(`proof-onfile-${id}`);
+    if (proofCell) proofCell.innerHTML = `<a href="/proof/${id}" target="_blank" style="color:#15803d;font-weight:700;font-size:12px;text-decoration:none" title="View proof of payment">Yes ↗</a>`;
+    // Refresh files icons (removes the + Proof button)
     document.getElementById(`files-${id}`).innerHTML = fileIcons(entry || {id,has_proof:true,has_invoice:false,w9_filename:''});
     flashRow(id); toast('Proof attached');
   } else toast('Upload failed', true);
