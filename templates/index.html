@@ -89,13 +89,26 @@
 
 <div class="layout">
   <div class="main-col">
-    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-      <div class="drop-icon">📄</div>
-      <div class="drop-title">Drop invoice or click to upload</div>
-      <div class="drop-sub">PDF, JPG, PNG, WebP — up to 25 MB</div>
-      <div class="drop-filename" id="drop-filename"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div class="drop-icon">📄</div>
+          <div class="drop-title">Invoice</div>
+          <div class="drop-sub">Drop or click to upload</div>
+          <div class="drop-filename" id="drop-filename"></div>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+      </div>
+      <div>
+        <div class="drop-zone" id="drop-zone-w9" onclick="document.getElementById('file-input-w9').click()">
+          <div class="drop-icon">📋</div>
+          <div class="drop-title">W9 / W8</div>
+          <div class="drop-sub">Drop or click to upload</div>
+          <div class="drop-filename" id="drop-filename-w9"></div>
+        </div>
+        <input type="file" id="file-input-w9" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+      </div>
     </div>
-    <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
     <div class="parsing-bar" id="parsing-bar"><div class="spinner-sm"></div>Reading invoice with AI…</div>
     <div id="success-banner"></div>
     <div id="preview-box">
@@ -153,6 +166,7 @@
 <script>
 const API_CONFIGURED = {{ api_configured | tojson }};
 let storedFileB64 = null, storedFileMime = null, storedFileName = null;
+let storedW9B64 = null, storedW9Name = null;
 let cobrandValue = false;
 
 function toggleCobrand() {
@@ -178,6 +192,25 @@ dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dra
 dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
 dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
 fi.addEventListener('change', () => handleFile(fi.files[0]));
+
+const dzW9 = document.getElementById('drop-zone-w9');
+const fiW9 = document.getElementById('file-input-w9');
+dzW9.addEventListener('dragover', e => { e.preventDefault(); dzW9.classList.add('drag-over'); });
+dzW9.addEventListener('dragleave', () => dzW9.classList.remove('drag-over'));
+dzW9.addEventListener('drop', e => { e.preventDefault(); dzW9.classList.remove('drag-over'); handleW9(e.dataTransfer.files[0]); });
+fiW9.addEventListener('change', () => handleW9(fiW9.files[0]));
+
+function handleW9(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    storedW9B64 = ev.target.result.split(',')[1];
+    storedW9Name = file.name;
+    dzW9.classList.add('has-file');
+    document.getElementById('drop-filename-w9').textContent = '✓ ' + file.name;
+  };
+  reader.readAsDataURL(file);
+}
 
 async function handleFile(file) {
   if (!file) return;
@@ -231,6 +264,8 @@ async function submitForm() {
     in_quickbooks:g('in_quickbooks'), uploaded_to_stem:g('uploaded_to_stem'), notes:g('notes'),
     invoice_filename: storedFileName || null,
     invoice_b64: storedFileB64 || null,
+    w9_filename: storedW9Name || null,
+    w9_b64: storedW9B64 || null,
     cobrand: cobrandValue
   };
   try {
@@ -261,6 +296,9 @@ function resetForm() {
   dz.classList.remove('has-file');
   document.getElementById('preview-box').style.display='none';
   storedFileB64=null; storedFileMime=null; storedFileName=null;
+  document.getElementById('drop-filename-w9').textContent='';
+  dzW9.classList.remove('has-file');
+  storedW9B64=null; storedW9Name=null;
 }
 
 function showSuccess(msg) {

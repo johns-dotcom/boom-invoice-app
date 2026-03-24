@@ -359,13 +359,15 @@ def add_expense():
            v("payment_method"), parse_date(v("payment_date")), v("in_quickbooks","No"),
            parse_date(v("qb_entry_date")), v("uploaded_to_stem","No"),
            parse_date(v("stem_upload_date")), v("notes"),
-           v("invoice_filename") or None, v("invoice_b64") or None, cobrand)
+           v("invoice_filename") or None, v("invoice_b64") or None, cobrand,
+           v("w9_filename") or None, v("w9_b64") or None)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
-            qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data,cobrand)
-            VALUES ({','.join([ph]*18)})""", row)
+            qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data,cobrand,
+            w9_filename,w9_data)
+            VALUES ({','.join([ph]*20)})""", row)
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         return jsonify({"ok":True,"id":new_id,"payee":v("payee"),"amount":v("amount")})
