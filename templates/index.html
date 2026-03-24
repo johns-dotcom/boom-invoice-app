@@ -98,6 +98,7 @@
           <div class="drop-filename" id="drop-filename"></div>
         </div>
         <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+        <button id="remove-invoice" onclick="removeInvoice()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
       <div>
         <div class="drop-zone" id="drop-zone-w9" onclick="document.getElementById('file-input-w9').click()">
@@ -107,6 +108,7 @@
           <div class="drop-filename" id="drop-filename-w9"></div>
         </div>
         <input type="file" id="file-input-w9" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+        <button id="remove-w9" onclick="removeW9()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
     </div>
     <div class="parsing-bar" id="parsing-bar"><div class="spinner-sm"></div>Reading invoice with AI…</div>
@@ -178,6 +180,7 @@
           <div class="drop-filename" id="fn-w9only" style="font-size:12px"></div>
         </div>
         <input type="file" id="fi-w9only" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+        <button id="remove-w9only" onclick="removeW9Only()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
       <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:2px">
         <div id="w9only-validation" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#92400e"></div>
@@ -250,6 +253,7 @@ async function handleW9(file) {
     storedW9Name = file.name;
     dzW9.classList.add('has-file');
     document.getElementById('drop-filename-w9').textContent = '✓ ' + file.name;
+    document.getElementById('remove-w9').style.display = 'inline-block';
   };
   reader.readAsDataURL(file);
 
@@ -278,10 +282,39 @@ function confirmW9Anyway() {
   // W9 already stored in storedW9B64/storedW9Name — user proceeds
 }
 
+function removeInvoice() {
+  storedFileB64 = null; storedFileMime = null; storedFileName = null;
+  dz.classList.remove('has-file');
+  document.getElementById('drop-filename').textContent = '';
+  document.getElementById('file-input').value = '';
+  document.getElementById('remove-invoice').style.display = 'none';
+  document.getElementById('preview-box').style.display = 'none';
+  document.getElementById('preview-img').src = '';
+  document.getElementById('pdf-indicator').style.display = 'none';
+}
+
+function removeW9() {
+  storedW9B64 = null; storedW9Name = null;
+  dzW9.classList.remove('has-file');
+  document.getElementById('drop-filename-w9').textContent = '';
+  document.getElementById('file-input-w9').value = '';
+  document.getElementById('remove-w9').style.display = 'none';
+}
+
+function removeW9Only() {
+  storedW9OnlyB64 = null; storedW9OnlyName = null;
+  dzW9Only.classList.remove('has-file');
+  document.getElementById('fn-w9only').textContent = '';
+  document.getElementById('fi-w9only').value = '';
+  document.getElementById('remove-w9only').style.display = 'none';
+  document.getElementById('w9only-validation').style.display = 'none';
+}
+
 async function handleFile(file) {
   if (!file) return;
   dz.classList.add('has-file');
   document.getElementById('drop-filename').textContent = file.name;
+  document.getElementById('remove-invoice').style.display = 'inline-block';
   if (!API_CONFIGURED) return;
   document.getElementById('parsing-bar').classList.add('show');
   clearSuccess();
@@ -294,6 +327,7 @@ async function handleFile(file) {
     storedFileB64 = data.file_b64 || null;
     storedFileMime = data.file_mime || null;
     storedFileName = data.file_name || file.name;
+    document.getElementById('remove-invoice').style.display = 'inline-block';
     if (data.preview) {
       document.getElementById('preview-img').src = data.preview;
       document.getElementById('preview-img').style.display = 'block';
@@ -365,6 +399,8 @@ function resetForm() {
   document.getElementById('drop-filename-w9').textContent='';
   dzW9.classList.remove('has-file');
   storedW9B64=null; storedW9Name=null;
+  document.getElementById('remove-invoice').style.display='none';
+  document.getElementById('remove-w9').style.display='none';
 }
 
 // ── Standalone W9 upload ──────────────────────────────────────
@@ -385,6 +421,7 @@ async function handleW9Only(file) {
     storedW9OnlyName = file.name;
     dzW9Only.classList.add('has-file');
     document.getElementById('fn-w9only').textContent = '✓ ' + file.name;
+    document.getElementById('remove-w9only').style.display = 'inline-block';
   };
   reader.readAsDataURL(file);
 
