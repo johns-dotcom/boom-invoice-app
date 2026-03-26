@@ -166,39 +166,58 @@
 </div>
 
 <!-- Standalone W9 upload -->
-<div style="max-width:900px;margin:0 auto 40px;padding:0 24px">
+<div style="max-width:900px;margin:0 auto 0;padding:0 24px">
   <div class="form-card" style="border-top:3px solid var(--red)">
-    <h2 style="margin-bottom:4px">Submit Documents</h2>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Use this when a W9 or proof of payment arrives after the invoice has already been logged.</p>
+    <h2 style="margin-bottom:4px">Submit W9 / W8</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Use this when a W9 arrives separately from the invoice.</p>
     <div style="margin-bottom:14px">
       <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;display:block;margin-bottom:6px">Payee / Vendor <span style="color:var(--red)">*</span></label>
       <input type="text" id="w9only-payee" placeholder="Vendor name" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff"/>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-      <div>
-        <div class="drop-zone" id="dz-w9only" onclick="document.getElementById('fi-w9only').click()" style="padding:20px">
-          <div class="drop-icon" style="font-size:22px">📋</div>
-          <div class="drop-title" style="font-size:13px">W9 / W8</div>
-          <div class="drop-sub">Drop or click to upload</div>
-          <div class="drop-filename" id="fn-w9only" style="font-size:12px"></div>
-        </div>
-        <input type="file" id="fi-w9only" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
-        <button id="remove-w9only" onclick="removeW9Only()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
+    <div style="margin-bottom:14px">
+      <div class="drop-zone" id="dz-w9only" onclick="document.getElementById('fi-w9only').click()" style="padding:20px">
+        <div class="drop-icon" style="font-size:22px">📋</div>
+        <div class="drop-title" style="font-size:13px">W9 / W8</div>
+        <div class="drop-sub">Drop or click to upload</div>
+        <div class="drop-filename" id="fn-w9only" style="font-size:12px"></div>
       </div>
-      <div>
-        <div class="drop-zone" id="dz-proofonly" onclick="document.getElementById('fi-proofonly').click()" style="padding:20px">
-          <div class="drop-icon" style="font-size:22px">💳</div>
-          <div class="drop-title" style="font-size:13px">Proof of Payment</div>
-          <div class="drop-sub">Drop or click to upload</div>
-          <div class="drop-filename" id="fn-proofonly" style="font-size:12px"></div>
-        </div>
-        <input type="file" id="fi-proofonly" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
-        <button id="remove-proofonly" onclick="removeProofOnly()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
-      </div>
+      <input type="file" id="fi-w9only" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+      <button id="remove-w9only" onclick="removeW9Only()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
     </div>
     <div id="w9only-validation" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#92400e"></div>
-    <button id="btn-w9only" onclick="submitW9Only()" style="width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s">Save Documents</button>
+    <button id="btn-w9only" onclick="submitW9Only()" style="width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s">Save W9</button>
     <div id="w9only-success" style="display:none;color:#15803d;font-weight:700;font-size:13px;margin-top:10px;text-align:center"></div>
+  </div>
+</div>
+
+<!-- Standalone Proof of Payment upload -->
+<div style="max-width:900px;margin:0 auto 40px;padding:0 24px">
+  <div class="form-card" style="border-top:3px solid #6366f1">
+    <h2 style="margin-bottom:4px">Submit Proof of Payment</h2>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">Enter the invoice number to automatically attach to the matching record in the ledger.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;display:block;margin-bottom:6px">Invoice # <span style="color:#6366f1">Match</span></label>
+        <input type="text" id="proof-invoice-num" placeholder="e.g. INV-0042" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff" oninput="lookupProofInvoice()"/>
+        <div id="proof-match-status" style="margin-top:6px;font-size:12px;font-weight:700;min-height:18px"></div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#555;display:block;margin-bottom:6px">Payee / Vendor <span style="color:var(--red)">*</span></label>
+        <input type="text" id="proof-payee" placeholder="Vendor name (auto-filled if matched)" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff"/>
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div class="drop-zone" id="dz-proofonly" onclick="document.getElementById('fi-proofonly').click()" style="padding:20px">
+        <div class="drop-icon" style="font-size:22px">💳</div>
+        <div class="drop-title" style="font-size:13px">Proof of Payment</div>
+        <div class="drop-sub">Drop or click to upload</div>
+        <div class="drop-filename" id="fn-proofonly" style="font-size:12px"></div>
+      </div>
+      <input type="file" id="fi-proofonly" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+      <button id="remove-proofonly" onclick="removeProofOnly()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
+    </div>
+    <button id="btn-proofonly" onclick="submitProofOnly()" style="width:100%;background:#6366f1;color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s">Save Proof of Payment</button>
+    <div id="proofonly-success" style="display:none;color:#15803d;font-weight:700;font-size:13px;margin-top:10px;text-align:center"></div>
   </div>
 </div>
 
@@ -358,6 +377,7 @@ function populateForm(f) {
   set('invoice_date', f.invoice_date); set('invoice_number', f.invoice_number);
   set('payee', f.payee); set('description', f.description);
   set('amount', f.amount); set('payment_method', f.payment_method);
+  set('artist', f.artist); set('song', f.song);
   const catEl = document.getElementById('category');
   if (f.category) { for (let o of catEl.options) { if (o.value === f.category) { o.selected=true; break; } } }
 }
@@ -417,7 +437,9 @@ function resetForm() {
 // ── Standalone document upload (W9 + Proof) ──────────────────
 let storedW9OnlyB64 = null, storedW9OnlyName = null;
 let storedProofOnlyB64 = null, storedProofOnlyName = null;
+let proofMatchedId = null; // expense id matched by invoice number
 
+// ── W9 Only drop zone ──
 const dzW9Only = document.getElementById('dz-w9only');
 const fiW9Only = document.getElementById('fi-w9only');
 dzW9Only.addEventListener('dragover', e => { e.preventDefault(); dzW9Only.classList.add('drag-over'); });
@@ -425,6 +447,61 @@ dzW9Only.addEventListener('dragleave', () => dzW9Only.classList.remove('drag-ove
 dzW9Only.addEventListener('drop', e => { e.preventDefault(); dzW9Only.classList.remove('drag-over'); handleW9Only(e.dataTransfer.files[0]); });
 fiW9Only.addEventListener('change', () => handleW9Only(fiW9Only.files[0]));
 
+async function handleW9Only(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    storedW9OnlyB64 = ev.target.result.split(',')[1];
+    storedW9OnlyName = file.name;
+    dzW9Only.classList.add('has-file');
+    document.getElementById('fn-w9only').textContent = '✓ ' + file.name;
+    document.getElementById('remove-w9only').style.display = 'inline-block';
+  };
+  reader.readAsDataURL(file);
+  if (!API_CONFIGURED) return;
+  try {
+    const fd = new FormData(); fd.append('w9_file', file);
+    const res = await fetch('/validate-files', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.skipped || !data.issues) return;
+    const issues = data.issues.w9 || [];
+    const box = document.getElementById('w9only-validation');
+    if (issues.length) {
+      box.innerHTML = '<strong>⚠ Issues found:</strong><br>' + issues.map(i=>`• ${i}`).join('<br>');
+      box.style.display = 'block';
+    } else { box.style.display = 'none'; }
+  } catch(e) {}
+}
+
+async function submitW9Only() {
+  const payee = document.getElementById('w9only-payee').value.trim();
+  if (!payee) { alert('Please enter the payee name.'); return; }
+  if (!storedW9OnlyB64) { alert('Please upload a W9 file.'); return; }
+  const btn = document.getElementById('btn-w9only');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const fd = new FormData();
+    fd.append('payee', payee);
+    const blob = await (await fetch(`data:application/octet-stream;base64,${storedW9OnlyB64}`)).blob();
+    fd.append('file', blob, storedW9OnlyName);
+    const res = await fetch('/w9-only', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('w9only-success').textContent = `✓ W9 saved for ${payee}`;
+      document.getElementById('w9only-success').style.display = 'block';
+      document.getElementById('w9only-payee').value = '';
+      document.getElementById('fn-w9only').textContent = '';
+      dzW9Only.classList.remove('has-file');
+      document.getElementById('remove-w9only').style.display = 'none';
+      document.getElementById('w9only-validation').style.display = 'none';
+      storedW9OnlyB64 = null; storedW9OnlyName = null;
+      setTimeout(() => { document.getElementById('w9only-success').style.display='none'; }, 4000);
+    } else alert('Error: ' + (data.error || 'Unknown'));
+  } catch(e) { alert('Network error'); }
+  btn.disabled = false; btn.textContent = 'Save W9';
+}
+
+// ── Proof of Payment drop zone ──
 const dzProofOnly = document.getElementById('dz-proofonly');
 const fiProofOnly = document.getElementById('fi-proofonly');
 dzProofOnly.addEventListener('dragover', e => { e.preventDefault(); dzProofOnly.classList.add('drag-over'); });
@@ -453,74 +530,65 @@ function removeProofOnly() {
   document.getElementById('remove-proofonly').style.display = 'none';
 }
 
-async function handleW9Only(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    storedW9OnlyB64 = ev.target.result.split(',')[1];
-    storedW9OnlyName = file.name;
-    dzW9Only.classList.add('has-file');
-    document.getElementById('fn-w9only').textContent = '✓ ' + file.name;
-    document.getElementById('remove-w9only').style.display = 'inline-block';
-  };
-  reader.readAsDataURL(file);
-
-  if (!API_CONFIGURED) return;
-  try {
-    const fd = new FormData(); fd.append('w9_file', file);
-    const res = await fetch('/validate-files', {method:'POST', body:fd});
-    const data = await res.json();
-    if (data.skipped || !data.issues) return;
-    const issues = data.issues.w9 || [];
-    const box = document.getElementById('w9only-validation');
-    if (issues.length) {
-      box.innerHTML = '<strong>⚠ Issues found:</strong><br>' + issues.map(i=>`• ${i}`).join('<br>');
-      box.style.display = 'block';
-    } else {
-      box.style.display = 'none';
-    }
-  } catch(e) {}
+let lookupDebounce = null;
+function lookupProofInvoice() {
+  clearTimeout(lookupDebounce);
+  lookupDebounce = setTimeout(async () => {
+    const num = document.getElementById('proof-invoice-num').value.trim();
+    const statusEl = document.getElementById('proof-match-status');
+    const payeeEl = document.getElementById('proof-payee');
+    if (!num) { statusEl.textContent = ''; proofMatchedId = null; return; }
+    statusEl.style.color = '#6b7280'; statusEl.textContent = 'Looking up…';
+    try {
+      const res = await fetch(`/lookup-invoice?number=${encodeURIComponent(num)}`);
+      const data = await res.json();
+      if (data.found) {
+        proofMatchedId = data.id;
+        statusEl.style.color = '#15803d';
+        statusEl.textContent = `✓ Matched: ${data.payee}${data.amount ? ' — $'+Number(data.amount).toLocaleString('en-US',{minimumFractionDigits:2}) : ''}`;
+        if (!payeeEl.value) payeeEl.value = data.payee;
+      } else {
+        proofMatchedId = null;
+        statusEl.style.color = '#b45309';
+        statusEl.textContent = 'No match — will create a new record';
+      }
+    } catch(e) { statusEl.textContent = ''; }
+  }, 400);
 }
 
-async function submitW9Only() {
-  const payee = document.getElementById('w9only-payee').value.trim();
+async function submitProofOnly() {
+  const payee = document.getElementById('proof-payee').value.trim();
   if (!payee) { alert('Please enter the payee name.'); return; }
-  if (!storedW9OnlyB64 && !storedProofOnlyB64) { alert('Please upload at least one file.'); return; }
-  const btn = document.getElementById('btn-w9only');
+  if (!storedProofOnlyB64) { alert('Please upload a proof of payment file.'); return; }
+  const invoiceNum = document.getElementById('proof-invoice-num').value.trim();
+  const btn = document.getElementById('btn-proofonly');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const fd = new FormData();
     fd.append('payee', payee);
-    if (storedW9OnlyB64) {
-      const blob = await (await fetch(`data:application/octet-stream;base64,${storedW9OnlyB64}`)).blob();
-      fd.append('w9_file', blob, storedW9OnlyName);
-    }
-    if (storedProofOnlyB64) {
-      const blob = await (await fetch(`data:application/octet-stream;base64,${storedProofOnlyB64}`)).blob();
-      fd.append('proof_file', blob, storedProofOnlyName);
-    }
-    const res = await fetch('/w9-only', {method:'POST', body:fd});
+    if (invoiceNum) fd.append('invoice_number', invoiceNum);
+    if (proofMatchedId) fd.append('matched_id', proofMatchedId);
+    const blob = await (await fetch(`data:application/octet-stream;base64,${storedProofOnlyB64}`)).blob();
+    fd.append('file', blob, storedProofOnlyName);
+    const res = await fetch('/add-proof-standalone', {method:'POST', body:fd});
     const data = await res.json();
     if (data.ok) {
-      const parts = [];
-      if (storedW9OnlyB64) parts.push('W9');
-      if (storedProofOnlyB64) parts.push('proof of payment');
-      document.getElementById('w9only-success').textContent = `✓ ${parts.join(' & ')} saved for ${payee}`;
-      document.getElementById('w9only-success').style.display = 'block';
-      document.getElementById('w9only-payee').value = '';
-      document.getElementById('fn-w9only').textContent = '';
+      const msg = data.matched
+        ? `✓ Proof attached to invoice ${invoiceNum} for ${data.payee}`
+        : `✓ Proof of payment saved for ${payee}`;
+      document.getElementById('proofonly-success').textContent = msg;
+      document.getElementById('proofonly-success').style.display = 'block';
+      document.getElementById('proof-invoice-num').value = '';
+      document.getElementById('proof-payee').value = '';
+      document.getElementById('proof-match-status').textContent = '';
       document.getElementById('fn-proofonly').textContent = '';
-      dzW9Only.classList.remove('has-file');
       dzProofOnly.classList.remove('has-file');
-      document.getElementById('remove-w9only').style.display = 'none';
       document.getElementById('remove-proofonly').style.display = 'none';
-      document.getElementById('w9only-validation').style.display = 'none';
-      storedW9OnlyB64 = null; storedW9OnlyName = null;
-      storedProofOnlyB64 = null; storedProofOnlyName = null;
-      setTimeout(() => { document.getElementById('w9only-success').style.display='none'; }, 4000);
+      storedProofOnlyB64 = null; storedProofOnlyName = null; proofMatchedId = null;
+      setTimeout(() => { document.getElementById('proofonly-success').style.display='none'; }, 4000);
     } else alert('Error: ' + (data.error || 'Unknown'));
   } catch(e) { alert('Network error'); }
-  btn.disabled = false; btn.textContent = 'Save Documents';
+  btn.disabled = false; btn.textContent = 'Save Proof of Payment';
 }
 
 function showSuccess(msg) {

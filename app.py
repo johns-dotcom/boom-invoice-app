@@ -66,6 +66,8 @@ Return ONLY valid JSON — no markdown, no extra text:
   "payee": "vendor or company name",
   "description": "brief description of what was invoiced (1 sentence max)",
   "category": "best match from: Recording, Mixing & Mastering, Music Video, Marketing, Sync/Licensing, Distribution, Legal, Merch, Tour/Live, Other",
+  "artist": "artist, band, or project name referenced anywhere on the invoice (e.g. in a project line, memo, attention field, or description) — empty string if not found",
+  "song": "song, album, or project title referenced on the invoice — empty string if not found",
   "invoice_number": "invoice number if present, else empty string",
   "amount": <number, 2 decimal places, no symbols, 0 if not found>,
   "payment_method": "best match from: ACH, Check, Wire, Credit Card, PayPal, Cash — or empty string"
@@ -429,36 +431,72 @@ def add_w9(eid):
 @app.route("/w9-only", methods=["POST"])
 @login_required
 def w9_only():
-    """Save standalone W9 and/or Proof of Payment — creates a minimal approved expense record."""
+    """Save a standalone W9 — creates a minimal approved expense record."""
     payee = request.form.get("payee","").strip()
     if not payee:
         return jsonify({"error":"Payee name required"}), 400
-
     w9_f = request.files.get("file")
-    proof_f = request.files.get("proof_file")
-
-    if (not w9_f or not w9_f.filename) and (not proof_f or not proof_f.filename):
-        return jsonify({"error":"At least one file (W9 or Proof of Payment) required"}), 400
-
-    w9_fname = w9_data = None
-    if w9_f and w9_f.filename:
-        w9_fname = w9_f.filename
-        w9_data  = base64.b64encode(w9_f.read()).decode()
-
-    proof_fname = proof_data = None
-    if proof_f and proof_f.filename:
-        proof_fname = proof_f.filename
-        proof_data  = base64.b64encode(proof_f.read()).decode()
-
+    if not w9_f or not w9_f.filename:
+        return jsonify({"error":"W9 file required"}), 400
+    w9_fname = w9_f.filename
+    w9_data  = base64.b64encode(w9_f.read()).decode()
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-        cur.execute(f"""INSERT INTO expenses
-                        (payee, w9_filename, w9_data, proof_filename, proof_data, status)
-                        VALUES ({ph},{ph},{ph},{ph},{ph},{ph})""",
-                    (payee, w9_fname, w9_data, proof_fname, proof_data, "approved"))
+        cur.execute(f"""INSERT INTO expenses (payee, w9_filename, w9_data, status)
+                        VALUES ({ph},{ph},{ph},{ph})""", (payee, w9_fname, w9_data, "approved"))
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         return jsonify({"ok":True,"id":new_id,"payee":payee})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/lookup-invoice", methods=["GET"])
+@login_required
+def lookup_invoice():
+    """Look up an expense by invoice number — used for proof-of-payment matching."""
+    number = request.args.get("number","").strip()
+    if not number:
+        return jsonify({"found":False})
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT id, payee, amount FROM expenses WHERE invoice_number={ph} LIMIT 1", (number,))
+        row = cur.fetchone(); conn.close()
+        if row:
+            return jsonify({"found":True,"id":row[0],"payee":str(row[1] or ""),"amount":str(row[2] or "")})
+        return jsonify({"found":False})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/add-proof-standalone", methods=["POST"])
+@login_required
+def add_proof_standalone():
+    """Attach proof of payment to an existing invoice (by matched_id) or create a new record."""
+    payee     = request.form.get("payee","").strip()
+    inv_num   = request.form.get("invoice_number","").strip()
+    matched_id = request.form.get("matched_id","").strip()
+    if not payee:
+        return jsonify({"error":"Payee name required"}), 400
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error":"Proof file required"}), 400
+    fname = f.filename
+    data  = base64.b64encode(f.read()).decode()
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        if matched_id:
+            # Attach to existing record
+            cur.execute(f"UPDATE expenses SET proof_filename={ph}, proof_data={ph} WHERE id={ph}",
+                        (fname, data, int(matched_id)))
+            conn.commit(); conn.close()
+            return jsonify({"ok":True,"matched":True,"payee":payee})
+        else:
+            # Create a new record
+            cur.execute(f"""INSERT INTO expenses (payee, invoice_number, proof_filename, proof_data, status)
+                            VALUES ({ph},{ph},{ph},{ph},{ph})""",
+                        (payee, inv_num or None, fname, data, "approved"))
+            new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
+            conn.commit(); conn.close()
+            return jsonify({"ok":True,"matched":False,"id":new_id,"payee":payee})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
