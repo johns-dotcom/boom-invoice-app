@@ -32,6 +32,12 @@ _ADMIN_ACCOUNTS_RAW = [
 ]
 ADMIN_ACCOUNTS = {pw: name for pw, name in _ADMIN_ACCOUNTS_RAW if pw}
 
+_USER_ACCOUNTS_RAW = [
+    (os.environ.get("SOLI_PASSWORD",""),  "Soli"),
+    (os.environ.get("DANNY_PASSWORD",""), "Danny"),
+]
+USER_ACCOUNTS = {pw: name for pw, name in _USER_ACCOUNTS_RAW if pw}
+
 # Cobrand is no longer a category — it's a separate yes/no flag on any expense
 CATEGORIES = ["Recording","Mixing & Mastering","Music Video","Marketing",
               "Sync/Licensing","Distribution","Legal","Merch","Tour/Live","Other"]
@@ -93,6 +99,18 @@ def init_db():
     conn, kind = get_db()
     cur = conn.cursor()
     if kind == "pg":
+        cur.execute("""CREATE TABLE IF NOT EXISTS audit_log (
+            id SERIAL PRIMARY KEY,
+            timestamp TIMESTAMP DEFAULT NOW(),
+            user_name TEXT,
+            action TEXT,
+            entry_id INTEGER,
+            entry_payee TEXT,
+            field TEXT,
+            old_value TEXT,
+            new_value TEXT,
+            details TEXT)""")
+        cur.execute("ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS entry_payee TEXT")
         cur.execute("""CREATE TABLE IF NOT EXISTS expenses (
             id SERIAL PRIMARY KEY, invoice_date DATE, payee TEXT,
             description TEXT, category TEXT, artist TEXT, song TEXT,
@@ -129,6 +147,19 @@ def init_db():
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
     else:
+        cur.execute("""CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT DEFAULT (datetime('now')),
+            user_name TEXT,
+            action TEXT,
+            entry_id INTEGER,
+            entry_payee TEXT,
+            field TEXT,
+            old_value TEXT,
+            new_value TEXT,
+            details TEXT)""")
+        try: cur.execute("ALTER TABLE audit_log ADD COLUMN entry_payee TEXT")
+        except: pass
         cur.execute("""CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT, invoice_date TEXT, payee TEXT,
             description TEXT, category TEXT, artist TEXT, song TEXT,
@@ -211,6 +242,11 @@ def login():
             session["role"] = "admin"
             session["user_name"] = ADMIN_ACCOUNTS[pw]
             return redirect("/")
+        elif pw in USER_ACCOUNTS:
+            session["authenticated"] = True
+            session["role"] = "user"
+            session["user_name"] = USER_ACCOUNTS[pw]
+            return redirect("/")
         elif APP_PASSWORD and pw == APP_PASSWORD:
             session["authenticated"] = True
             session["role"] = "user"
@@ -228,6 +264,29 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear(); return redirect("/login")
+
+def john_required(f):
+    @wraps(f)
+    def dec(*a, **kw):
+        if session.get("user_name") != "John":
+            return redirect("/")
+        return f(*a, **kw)
+    return dec
+
+def log_action(action, entry_id=None, entry_payee=None, field=None, old_value=None, new_value=None, details=None):
+    try:
+        user = session.get("user_name") or session.get("role") or "unknown"
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"""INSERT INTO audit_log (user_name, action, entry_id, entry_payee, field, old_value, new_value, details)
+                        VALUES ({','.join([ph]*8)})""",
+                    (user, action, entry_id, entry_payee,
+                     field,
+                     str(old_value) if old_value is not None else None,
+                     str(new_value) if new_value is not None else None,
+                     details))
+        conn.commit(); conn.close()
+    except:
+        pass
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -405,6 +464,8 @@ def add_expense():
             VALUES ({','.join([ph]*22)})""", row)
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
+        log_action("invoice_added", new_id, v("payee"),
+                   details=f"Invoice #{v('invoice_number')} | {currency} {v('amount')} | {v('category')}")
         return jsonify({"ok":True,"id":new_id,"payee":v("payee"),"amount":v("amount")})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -418,10 +479,18 @@ def update_entry(eid):
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        # Fetch old values + payee for audit log
+        fields_list = list(updates.keys())
+        cur.execute(f"SELECT payee,{','.join(fields_list)} FROM expenses WHERE id={ph}", (eid,))
+        old_row = cur.fetchone()
+        payee_val = old_row[0] if old_row else ""
+        old_vals = {fields_list[i]: old_row[i+1] for i in range(len(fields_list))} if old_row else {}
         for field, val in updates.items():
             if field == "cobrand":
                 val = 1 if val else 0
             cur.execute(f"UPDATE expenses SET {field}={ph} WHERE id={ph}", (val if val != "" else None, eid))
+            log_action("field_updated", eid, payee_val, field=field,
+                       old_value=old_vals.get(field), new_value=val)
         conn.commit(); conn.close()
         return jsonify({"ok":True})
     except Exception as e:
@@ -437,9 +506,12 @@ def add_invoice(eid):
     data = base64.b64encode(f.read()).decode()
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT payee FROM expenses WHERE id={ph}", (eid,))
+        payee_row = cur.fetchone()
         cur.execute(f"UPDATE expenses SET invoice_filename={ph}, invoice_data={ph} WHERE id={ph}",
                     (fname, data, eid))
         conn.commit(); conn.close()
+        log_action("invoice_file_uploaded", eid, payee_row[0] if payee_row else None, details=fname)
         return jsonify({"ok":True,"filename":fname})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -454,9 +526,12 @@ def add_w9(eid):
     data = base64.b64encode(f.read()).decode()
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT payee FROM expenses WHERE id={ph}", (eid,))
+        payee_row = cur.fetchone()
         cur.execute(f"UPDATE expenses SET w9_filename={ph}, w9_data={ph} WHERE id={ph}",
                     (fname, data, eid))
         conn.commit(); conn.close()
+        log_action("w9_file_uploaded", eid, payee_row[0] if payee_row else None, details=fname)
         return jsonify({"ok":True,"filename":fname})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -479,6 +554,7 @@ def w9_only():
                         VALUES ({ph},{ph},{ph},{ph})""", (payee, w9_fname, w9_data, "approved"))
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
+        log_action("w9_submitted", new_id, payee, details=w9_fname)
         return jsonify({"ok":True,"id":new_id,"payee":payee})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -555,8 +631,11 @@ def add_proof(eid):
 def remove_invoice(eid):
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT payee, invoice_filename FROM expenses WHERE id={ph}", (eid,))
+        row = cur.fetchone()
         cur.execute(f"UPDATE expenses SET invoice_filename=NULL, invoice_data=NULL WHERE id={ph}", (eid,))
         conn.commit(); conn.close()
+        log_action("invoice_file_removed", eid, row[0] if row else None, details=row[1] if row else None)
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -566,8 +645,11 @@ def remove_invoice(eid):
 def remove_w9(eid):
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT payee, w9_filename FROM expenses WHERE id={ph}", (eid,))
+        row = cur.fetchone()
         cur.execute(f"UPDATE expenses SET w9_filename=NULL, w9_data=NULL WHERE id={ph}", (eid,))
         conn.commit(); conn.close()
+        log_action("w9_file_removed", eid, row[0] if row else None, details=row[1] if row else None)
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -577,8 +659,11 @@ def remove_w9(eid):
 def remove_proof(eid):
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT payee, proof_filename FROM expenses WHERE id={ph}", (eid,))
+        row = cur.fetchone()
         cur.execute(f"UPDATE expenses SET proof_filename=NULL, proof_data=NULL WHERE id={ph}", (eid,))
         conn.commit(); conn.close()
+        log_action("proof_file_removed", eid, row[0] if row else None, details=row[1] if row else None)
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -589,8 +674,12 @@ def remove_proof(eid):
 def delete_entry(eid):
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT payee, invoice_number FROM expenses WHERE id={ph}", (eid,))
+        row = cur.fetchone()
         cur.execute(f"DELETE FROM expenses WHERE id={ph}", (eid,))
         conn.commit(); conn.close()
+        log_action("invoice_deleted", eid, row[0] if row else None,
+                   details=f"Invoice #{row[1]}" if row and row[1] else None)
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -630,9 +719,12 @@ def approve_entry(eid):
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         approver = session.get("user_name") or "Admin"
         now = datetime.now()
+        cur.execute(f"SELECT payee FROM expenses WHERE id={ph}", (eid,))
+        payee_row = cur.fetchone()
         cur.execute(f"""UPDATE expenses SET status='approved', approved_by={ph}, approved_at={ph}
                         WHERE id={ph}""", (approver, now, eid))
         conn.commit(); conn.close()
+        log_action("invoice_approved", eid, payee_row[0] if payee_row else None)
         return jsonify({"ok":True, "approved_by": approver, "approved_at": now.strftime("%Y-%m-%d %H:%M")})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -643,8 +735,12 @@ def approve_entry(eid):
 def reject_entry(eid):
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT payee, invoice_number FROM expenses WHERE id={ph}", (eid,))
+        row = cur.fetchone()
         cur.execute(f"DELETE FROM expenses WHERE id={ph}", (eid,))
         conn.commit(); conn.close()
+        log_action("invoice_rejected", eid, row[0] if row else None,
+                   details=f"Invoice #{row[1]}" if row and row[1] else None)
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -787,6 +883,30 @@ def w9s_page():
     except Exception as e:
         items = []
     return render_template("w9s.html", items=items, is_admin=is_admin())
+
+
+# ── History route ─────────────────────────────────────────────────────────────
+
+@app.route("/history")
+@login_required
+@john_required
+def history():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("""SELECT id, timestamp, user_name, action, entry_id, entry_payee,
+                              field, old_value, new_value, details
+                       FROM audit_log
+                       ORDER BY timestamp DESC
+                       LIMIT 2000""")
+        rows = cur.fetchall(); conn.close()
+        logs = [{"id":r[0], "timestamp":str(r[1] or ""), "user_name":str(r[2] or ""),
+                 "action":str(r[3] or ""), "entry_id":r[4],
+                 "entry_payee":str(r[5] or ""), "field":str(r[6] or ""),
+                 "old_value":str(r[7] or ""), "new_value":str(r[8] or ""),
+                 "details":str(r[9] or "")} for r in rows]
+    except Exception as e:
+        logs = []
+    return render_template("history.html", logs=logs, is_admin=is_admin())
 
 
 # ── Analytics route ───────────────────────────────────────────────────────────
