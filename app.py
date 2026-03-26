@@ -479,6 +479,39 @@ def add_proof(eid):
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
+@app.route("/remove-invoice/<int:eid>", methods=["POST"])
+@login_required
+def remove_invoice(eid):
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET invoice_filename=NULL, invoice_data=NULL WHERE id={ph}", (eid,))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/remove-w9/<int:eid>", methods=["POST"])
+@login_required
+def remove_w9(eid):
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET w9_filename=NULL, w9_data=NULL WHERE id={ph}", (eid,))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/remove-proof/<int:eid>", methods=["POST"])
+@login_required
+def remove_proof(eid):
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET proof_filename=NULL, proof_data=NULL WHERE id={ph}", (eid,))
+        conn.commit(); conn.close()
+        return jsonify({"ok":True})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
 @app.route("/delete/<int:eid>", methods=["POST"])
 @login_required
 @admin_required

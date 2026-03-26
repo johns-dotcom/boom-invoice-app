@@ -16,6 +16,11 @@
   a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
   a.btn-export { background:#f0fdf4; border:1.5px solid #86efac; color:var(--green); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:all .15s; }
   a.btn-export:hover { background:#dcfce7; }
+  .btn-clear { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; }
+  .btn-clear:hover { border-color:var(--red); color:var(--red); }
+  .btn-undo { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; opacity:.4; pointer-events:none; }
+  .btn-undo.active { opacity:1; pointer-events:auto; }
+  .btn-undo.active:hover { border-color:#6366f1; color:#6366f1; }
   a.btn-approvals { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s; position:relative; }
   a.btn-approvals:hover { border-color:var(--red); color:var(--red); }
   .approval-badge { background:var(--red); color:#fff; font-size:10px; font-weight:900; padding:1px 6px; border-radius:10px; line-height:1.5; }
@@ -110,6 +115,8 @@
     <option value="">All categories</option>
   </select>
   <span class="count" id="row-count"></span>
+  <button class="btn-clear" onclick="clearFilters()">✕ Clear filters</button>
+  <button class="btn-undo" id="undo-btn" onclick="undoLastChange()">↩ Undo</button>
 </div>
 
 <div class="table-wrap">
@@ -150,6 +157,92 @@ const IS_ADMIN        = {{ is_admin | tojson }};
 
 let allEntries = [];
 let pendingDeleteId = null;
+let undoStack = []; // each item: {type, id, field, oldVal} or {type:'file', id, fileType}
+
+function pushUndo(item) {
+  undoStack.push(item);
+  const btn = document.getElementById('undo-btn');
+  btn.classList.add('active');
+  btn.title = undoLabel(item);
+}
+
+function undoLabel(item) {
+  if (item.type === 'field') return `Undo: ${item.field} change`;
+  if (item.type === 'file')  return `Undo: remove ${item.fileType} file`;
+  return 'Undo last change';
+}
+
+function clearFilters() {
+  document.getElementById('search').value = '';
+  document.getElementById('filter-qb').value = '';
+  document.getElementById('filter-stem').value = '';
+  document.getElementById('filter-cat').value = '';
+  filterTable();
+}
+
+async function undoLastChange() {
+  if (!undoStack.length) return;
+  const item = undoStack.pop();
+  const btn = document.getElementById('undo-btn');
+
+  if (item.type === 'field') {
+    const res = await fetch(`/update/${item.id}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[item.field]: item.oldVal})
+    });
+    if (res.ok) {
+      const entry = allEntries.find(e=>e.id===item.id);
+      if (entry) entry[item.field] = item.oldVal;
+      // Refresh the relevant cell
+      if (item.field==='in_quickbooks')
+        document.getElementById(`qb-${item.id}`).innerHTML = statusBadge(item.id,'in_quickbooks',item.oldVal);
+      else if (item.field==='uploaded_to_stem')
+        document.getElementById(`stem-${item.id}`).innerHTML = statusBadge(item.id,'uploaded_to_stem',item.oldVal);
+      else if (item.field==='cobrand') {
+        if (entry) entry.cobrand = item.oldVal;
+        document.getElementById(`cb-${item.id}`).innerHTML = cobrandBadge(item.id, item.oldVal);
+      } else {
+        // text fields — re-render the whole row to be safe
+        filterTable();
+      }
+      flashRow(item.id); toast('Change undone');
+    } else toast('Undo failed', true);
+
+  } else if (item.type === 'file') {
+    const endpoint = item.fileType==='invoice' ? `/remove-invoice/${item.id}`
+                   : item.fileType==='w9'      ? `/remove-w9/${item.id}`
+                   :                             `/remove-proof/${item.id}`;
+    const res = await fetch(endpoint, {method:'POST'});
+    if (res.ok) {
+      const entry = allEntries.find(e=>e.id===item.id);
+      if (entry) {
+        if (item.fileType==='invoice') entry.has_invoice = false;
+        if (item.fileType==='w9')      entry.w9_filename = null;
+        if (item.fileType==='proof')   entry.has_proof   = false;
+      }
+      // Refresh the relevant cell and files column
+      if (item.fileType==='invoice') {
+        const cell = document.getElementById(`inv-onfile-${item.id}`);
+        if (cell) cell.innerHTML = `<span style="color:#b45309;font-size:12px;cursor:pointer;border-bottom:1px dotted #b45309" onclick="triggerInvoiceUpload(${item.id})" title="Click to attach invoice">No +</span><input type="file" id="inv-input-${item.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadInvoiceFile(${item.id},this)"/>`;
+      } else if (item.fileType==='w9') {
+        const cell = document.getElementById(`w9-onfile-${item.id}`);
+        if (cell) cell.innerHTML = `<span style="color:#b45309;font-size:12px;cursor:pointer;border-bottom:1px dotted #b45309" onclick="triggerW9Upload(${item.id})" title="Click to attach W9">No +</span>`;
+      } else if (item.fileType==='proof') {
+        const cell = document.getElementById(`proof-onfile-${item.id}`);
+        if (cell) cell.innerHTML = `<span style="color:#b45309;font-size:12px;cursor:pointer;border-bottom:1px dotted #b45309" onclick="triggerProofUpload(${item.id})" title="Click to attach proof">No +</span><input type="file" id="proof-input-${item.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadProof(${item.id},this)"/>`;
+      }
+      if (entry) document.getElementById(`files-${item.id}`).innerHTML = fileIcons(entry);
+      flashRow(item.id); toast('File removed');
+    } else toast('Undo failed', true);
+  }
+
+  if (!undoStack.length) {
+    btn.classList.remove('active');
+    btn.title = '';
+  } else {
+    btn.title = undoLabel(undoStack[undoStack.length-1]);
+  }
+}
 
 async function loadEntries() {
   const res = await fetch('/entries');
@@ -261,6 +354,7 @@ async function toggleCobrand(id, current) {
   const newVal = current ? 0 : 1;
   const res = await fetch(`/update/${id}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({cobrand: newVal})});
   if (res.ok) {
+    pushUndo({type:'field', id, field:'cobrand', oldVal: !!current});
     const entry = allEntries.find(e => e.id === id);
     if (entry) entry.cobrand = !!newVal;
     document.getElementById(`cb-${id}`).innerHTML = cobrandBadge(id, !!newVal);
@@ -291,8 +385,12 @@ function openStatusEdit(id, field, badgeEl) {
     const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
     const cid=field==='in_quickbooks'?`qb-${id}`:`stem-${id}`;
     document.getElementById(cid).innerHTML=statusBadge(id,field,newVal);
-    const entry=allEntries.find(e=>e.id===id); if(entry) entry[field]=newVal;
-    if(res.ok){flashRow(id);toast('Saved');}else toast('Save failed',true);
+    const entry=allEntries.find(e=>e.id===id);
+    if(res.ok){
+      pushUndo({type:'field', id, field, oldVal: entry ? entry[field] : '—'});
+      if(entry) entry[field]=newVal;
+      flashRow(id);toast('Saved');
+    }else toast('Save failed',true);
   };
 
   const cancel = () => {
@@ -316,11 +414,15 @@ function editText(id, field, spanEl, currentVal) {
   const save=async()=>{
     const newVal=input.value.trim(); input.classList.add('saving');
     const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
-    const entry=allEntries.find(e=>e.id===id); if(entry) entry[field]=newVal;
+    const entry=allEntries.find(e=>e.id===id);
     const span=document.createElement('span'); span.className='editable-cell';
     span.textContent=newVal||'—'; span.title=newVal||'';
     span.onclick=()=>editText(id,field,span,newVal); input.replaceWith(span);
-    if(res.ok){flashRow(id);toast('Saved');}else toast('Save failed',true);
+    if(res.ok){
+      pushUndo({type:'field', id, field, oldVal: currentVal==='—'?'':currentVal});
+      if(entry) entry[field]=newVal;
+      flashRow(id);toast('Saved');
+    }else toast('Save failed',true);
   };
   input.addEventListener('blur',save);
   input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=currentVal;input.blur();}});
@@ -335,12 +437,11 @@ async function uploadProof(id, input) {
   const fd = new FormData(); fd.append('file', file);
   const res = await fetch(`/add-proof/${id}`, {method:'POST', body:fd});
   if (res.ok) {
+    pushUndo({type:'file', id, fileType:'proof'});
     const entry = allEntries.find(e=>e.id===id);
     if (entry) entry.has_proof = true;
-    // Update the Proof? cell
     const proofCell = document.getElementById(`proof-onfile-${id}`);
     if (proofCell) proofCell.innerHTML = `<a href="/proof/${id}" target="_blank" style="color:#15803d;font-weight:700;font-size:12px;text-decoration:none" title="View proof of payment">Yes ↗</a>`;
-    // Refresh files icons (removes the + Proof button)
     document.getElementById(`files-${id}`).innerHTML = fileIcons(entry || {id,has_proof:true,has_invoice:false,w9_filename:''});
     flashRow(id); toast('Proof attached');
   } else toast('Upload failed', true);
@@ -359,11 +460,11 @@ async function uploadInvoiceFile(id, input) {
   const fd = new FormData(); fd.append('file', file);
   const res = await fetch(`/add-invoice/${id}`, {method:'POST', body:fd});
   if (res.ok) {
+    pushUndo({type:'file', id, fileType:'invoice'});
     const entry = allEntries.find(e=>e.id===id);
     if (entry) entry.has_invoice = true;
     const cell = document.getElementById(`inv-onfile-${id}`);
     if (cell) cell.innerHTML = `<a href="/invoice/${id}" target="_blank" style="color:#15803d;font-weight:700;font-size:12px;text-decoration:none" title="View invoice">Yes ↗</a>`;
-    // Also refresh the files cell
     if (entry) document.getElementById(`files-${id}`).innerHTML = fileIcons(entry);
     flashRow(id); toast('Invoice attached');
   } else toast('Upload failed', true);
@@ -374,6 +475,7 @@ async function uploadW9(id, input) {
   const fd = new FormData(); fd.append('file', file);
   const res = await fetch(`/add-w9/${id}`, {method:'POST', body:fd});
   if (res.ok) {
+    pushUndo({type:'file', id, fileType:'w9'});
     const entry = allEntries.find(e=>e.id===id);
     if (entry) entry.w9_filename = file.name;
     document.getElementById(`files-${id}`).innerHTML = fileIcons(entry || {id,has_proof:false,has_invoice:false,w9_filename:file.name});
