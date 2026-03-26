@@ -25,7 +25,7 @@
   .page-title { font-size:22px; font-weight:900; margin-bottom:4px; }
   .page-sub { font-size:13px; color:var(--muted); margin-bottom:28px; }
 
-  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:28px; }
   .kpi { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
   .kpi-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
   .kpi-value { font-size:26px; font-weight:900; color:var(--text); line-height:1; }
@@ -40,7 +40,7 @@
   .chart-full { grid-column:1/-1; }
   .chart-full .chart-wrap { height:220px; }
 
-  .donut-row { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+  .donut-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:20px; }
   .donut-wrap { position:relative; height:200px; }
 
   .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
@@ -96,6 +96,11 @@
         <div class="kpi-value" id="kpi-qb">—</div>
         <div class="kpi-sub">needs QB entry</div>
       </div>
+      <div class="kpi">
+        <div class="kpi-label">Not on Stem</div>
+        <div class="kpi-value" id="kpi-stem">—</div>
+        <div class="kpi-sub">not recouped yet</div>
+      </div>
     </div>
 
     <!-- Monthly trend — full width -->
@@ -127,6 +132,10 @@
       <div class="chart-card">
         <div class="chart-title">QuickBooks Status</div>
         <div class="donut-wrap"><canvas id="chart-qb"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Uploaded to Stem</div>
+        <div class="donut-wrap"><canvas id="chart-stem"></canvas></div>
       </div>
     </div>
 
@@ -195,6 +204,7 @@ async function load() {
   document.getElementById('kpi-unpaid').textContent = fmt(data.paid_summary.Unpaid  || 0);
   document.getElementById('kpi-paid').textContent   = fmt(data.paid_summary.Paid    || 0);
   document.getElementById('kpi-qb').textContent     = fmt(data.qb_summary.No        || 0);
+  document.getElementById('kpi-stem').textContent   = fmt(data.stem_summary.No      || 0);
 
   // Monthly trend
   const months = Object.keys(data.by_month);
@@ -247,6 +257,14 @@ async function load() {
     ['Not in QB','In QB'],
     [qb.No||0, qb.Yes||0],
     ['#fef3c7','#dcfce7']
+  );
+
+  // Stem donut
+  const stem = data.stem_summary;
+  makeDonut('chart-stem',
+    ['Not on Stem','On Stem'],
+    [stem.No||0, stem.Yes||0],
+    ['#ede9fe','#ddd6fe']
   );
 
   document.getElementById('spinner-wrap').style.display = 'none';

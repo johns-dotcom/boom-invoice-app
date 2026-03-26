@@ -18,7 +18,7 @@ ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL          = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
 GMAIL_USER     = os.environ.get("GMAIL_USER", "")        # your Gmail address
 GMAIL_APP_PASS = os.environ.get("GMAIL_APP_PASSWORD", "") # Gmail App Password
-NOTIFY_EMAIL   = os.environ.get("NOTIFY_EMAIL", "johns@boomrecords.co")
+NOTIFY_EMAIL   = os.environ.get("NOTIFY_EMAIL", "johns@boomrecords.co,jesse@boomrecords.co")
 APP_URL        = os.environ.get("APP_URL", "")
 
 # Named admin accounts — each gets their own password and display name.
@@ -335,17 +335,19 @@ border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &a
   </div>
 </div>"""
 
+        recipients = [e.strip() for e in NOTIFY_EMAIL.split(",") if e.strip()]
+
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"New Invoice Pending Approval: {vendor_name} — {amt_str}"
         msg["From"]    = f"Boom Records <{GMAIL_USER}>"
-        msg["To"]      = NOTIFY_EMAIL
+        msg["To"]      = ", ".join(recipients)
         msg.attach(MIMEText(html, "html"))
 
         with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
             smtp.ehlo()
             smtp.starttls()
             smtp.login(GMAIL_USER, GMAIL_APP_PASS)
-            smtp.sendmail(GMAIL_USER, NOTIFY_EMAIL, msg.as_string())
+            smtp.sendmail(GMAIL_USER, recipients, msg.as_string())
 
     except Exception as e:
         print(f"Email error: {e}")
@@ -783,11 +785,13 @@ def w9s_page():
 
 @app.route("/analytics")
 @login_required
+@admin_required
 def analytics():
     return render_template("analytics.html", is_admin=is_admin())
 
 @app.route("/analytics-data")
 @login_required
+@admin_required
 def analytics_data():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -804,10 +808,11 @@ def analytics_data():
         by_month      = {}
         paid_summary  = {"Paid": 0, "Unpaid": 0, "Partial": 0}
         qb_summary    = {"Yes": 0, "No": 0}
+        stem_summary  = {"Yes": 0, "No": 0}
         total_usd     = 0
 
         for r in rows:
-            inv_date, category, artist, amount, currency, pay_status, in_qb, _ = r
+            inv_date, category, artist, amount, currency, pay_status, in_qb, in_stem = r
             amt = float(amount or 0)
             # Only aggregate USD for simplicity; flag others
             if (currency or "USD").upper() != "USD":
@@ -834,6 +839,9 @@ def analytics_data():
             qb = in_qb or "No"
             if qb in qb_summary: qb_summary[qb] += amt
 
+            stem = in_stem or "No"
+            if stem in stem_summary: stem_summary[stem] += amt
+
         # Sort categories and artists by spend desc, cap at top 10
         by_category = dict(sorted(by_category.items(), key=lambda x: x[1], reverse=True)[:10])
         by_artist   = dict(sorted(by_artist.items(),   key=lambda x: x[1], reverse=True)[:10])
@@ -845,6 +853,7 @@ def analytics_data():
             "by_month": by_month,
             "paid_summary": paid_summary,
             "qb_summary": qb_summary,
+            "stem_summary": stem_summary,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
