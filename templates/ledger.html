@@ -14,6 +14,7 @@
   .header-right { display:flex; gap:8px; align-items:center; }
   a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
   a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
+  a.btn-active { background:var(--red); color:#fff; border:1.5px solid var(--red); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; }
   a.btn-export { background:#f0fdf4; border:1.5px solid #86efac; color:var(--green); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:all .15s; }
   a.btn-export:hover { background:#dcfce7; }
   .btn-clear { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; }
@@ -90,6 +91,7 @@
   <div class="logo">boom.</div>
   <div class="header-right">
     <a href="/" class="btn-ghost">+ Add Invoice</a>
+    <a href="/ledger" class="btn-active">Ledger</a>
     <a href="/invoices" class="btn-ghost">Invoices</a>
     <a href="/w9s" class="btn-ghost">W9 / W8</a>
     <a href="/approvals" class="btn-approvals">
