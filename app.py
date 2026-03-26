@@ -111,7 +111,8 @@ def init_db():
             approved_at TIMESTAMP,
             currency TEXT DEFAULT 'USD',
             payment_status TEXT DEFAULT 'Unpaid',
-            created_at TIMESTAMP DEFAULT NOW())""")
+            created_at TIMESTAMP DEFAULT NOW(),
+            created_by TEXT)""")
         for col in ["song TEXT","vendor_submitted BOOLEAN DEFAULT FALSE",
                     "vendor_name TEXT","vendor_email TEXT",
                     "w9_filename TEXT","w9_data TEXT",
@@ -122,7 +123,8 @@ def init_db():
                     "approved_by TEXT",
                     "approved_at TIMESTAMP",
                     "currency TEXT DEFAULT 'USD'",
-                    "payment_status TEXT DEFAULT 'Unpaid'"]:
+                    "payment_status TEXT DEFAULT 'Unpaid'",
+                    "created_by TEXT"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -145,7 +147,8 @@ def init_db():
             approved_at TEXT,
             currency TEXT DEFAULT 'USD',
             payment_status TEXT DEFAULT 'Unpaid',
-            created_at TEXT DEFAULT (datetime('now')))""")
+            created_at TEXT DEFAULT (datetime('now')),
+            created_by TEXT)""")
         for col in ["song TEXT","vendor_submitted INTEGER DEFAULT 0",
                     "vendor_name TEXT","vendor_email TEXT",
                     "w9_filename TEXT","w9_data TEXT",
@@ -156,7 +159,8 @@ def init_db():
                     "approved_by TEXT",
                     "approved_at TEXT",
                     "currency TEXT DEFAULT 'USD'",
-                    "payment_status TEXT DEFAULT 'Unpaid'"]:
+                    "payment_status TEXT DEFAULT 'Unpaid'",
+                    "created_by TEXT"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -384,20 +388,21 @@ def add_expense():
     v = lambda k,df="": (d.get(k,df) or df)
     cobrand = 1 if d.get("cobrand") else 0
     currency = (v("currency") or "USD").upper().strip()[:3]
+    added_by = session.get("user_name") or session.get("role") or "unknown"
     row = (parse_date(v("invoice_date")), v("payee"), v("description"), v("category"),
            v("artist"), v("song"), v("invoice_number"), parse_amount(v("amount",0)),
            v("payment_method"), parse_date(v("payment_date")), v("in_quickbooks","No"),
            parse_date(v("qb_entry_date")), v("uploaded_to_stem","No"),
            parse_date(v("stem_upload_date")), v("notes"),
            v("invoice_filename") or None, v("invoice_b64") or None, cobrand,
-           v("w9_filename") or None, v("w9_b64") or None, currency)
+           v("w9_filename") or None, v("w9_b64") or None, currency, added_by)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data,cobrand,
-            w9_filename,w9_data,currency)
-            VALUES ({','.join([ph]*21)})""", row)
+            w9_filename,w9_data,currency,created_by)
+            VALUES ({','.join([ph]*22)})""", row)
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         return jsonify({"ok":True,"id":new_id,"payee":v("payee"),"amount":v("amount")})
@@ -408,7 +413,7 @@ def add_expense():
 @login_required
 def update_entry(eid):
     allowed = {"in_quickbooks","uploaded_to_stem","artist","song","notes",
-               "category","payment_method","qb_entry_date","stem_upload_date","cobrand","currency","payment_status"}
+               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status"}
     updates = {k:v for k,v in request.json.items() if k in allowed}
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
@@ -713,7 +718,8 @@ def entries():
                               in_quickbooks,uploaded_to_stem,notes,
                               vendor_submitted,vendor_name,w9_filename,
                               invoice_filename,proof_filename,cobrand,
-                              approved_by,approved_at,currency,payment_status
+                              approved_by,approved_at,currency,payment_status,
+                              created_at,created_by
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date DESC, id DESC""")
@@ -730,7 +736,9 @@ def entries():
                          "cobrand":bool(r[19]) if r[19] else False,
                          "approved_by":str(r[20] or ""),"approved_at":str(r[21] or ""),
                          "currency":str(r[22] or "USD"),
-                         "payment_status":str(r[23] or "Unpaid")} for r in rows])
+                         "payment_status":str(r[23] or "Unpaid"),
+                         "date_uploaded":str(r[24] or "")[:10],
+                         "created_by":str(r[25] or "")} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
@@ -869,7 +877,7 @@ def export_excel():
         cur.execute("""SELECT invoice_date,payee,description,category,artist,song,
                               invoice_number,amount,payment_method,payment_date,
                               in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,
-                              notes,cobrand,approved_by,approved_at,currency
+                              notes,cobrand,approved_by,approved_at,currency,created_at,created_by
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date ASC, id ASC""")
@@ -888,7 +896,7 @@ def export_qbo():
         cur.execute("""SELECT invoice_date,payee,description,category,artist,song,
                               invoice_number,amount,payment_method,payment_date,
                               in_quickbooks,uploaded_to_stem,notes,cobrand,
-                              approved_by,approved_at,currency
+                              approved_by,approved_at,currency,created_at,created_by
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date ASC, id ASC""")
@@ -906,14 +914,14 @@ def _build_csv(rows):
     buf = _io.StringIO()
     writer = csv.writer(buf)
     writer.writerow([
-        "Date", "Payee / Vendor", "Description", "Category",
+        "Date Uploaded", "Added By", "Invoice Date", "Payee / Vendor", "Description", "Category",
         "Artist / Project", "Song", "Invoice #", "Currency", "Amount",
-        "Payment Method", "Payment Date", "In QuickBooks?",
+        "Payment Method", "Date Paid", "In QuickBooks?",
         "Uploaded to Stem?", "Notes", "Cobrand", "Approved By", "Approved Date"
     ])
     for r in rows:
         inv_date, payee, desc, category, artist, song, inv_num, amount, \
-        pay_method, pay_date, in_qb, in_stem, notes, cobrand, approved_by, approved_at, currency = r
+        pay_method, pay_date, in_qb, in_stem, notes, cobrand, approved_by, approved_at, currency, created_at, created_by = r
 
         def fmt_d(d):
             if not d: return ""
@@ -923,7 +931,7 @@ def _build_csv(rows):
             except: return str(d)[:10]
 
         writer.writerow([
-            fmt_d(inv_date), payee or "", desc or "", category or "",
+            fmt_d(created_at), created_by or "", fmt_d(inv_date), payee or "", desc or "", category or "",
             artist or "", song or "", inv_num or "",
             currency or "USD",
             f"{float(amount):.2f}" if amount else "",
@@ -940,17 +948,18 @@ def _build_excel(rows):
         s=Side(style="thin",color="FFE2E2E2"); return Border(left=s,right=s,top=s,bottom=s)
     wb=Workbook(); ws=wb.active; ws.title="Expense Tracker"
     ws.sheet_view.showGridLines=False; ws.freeze_panes="A3"
-    ws.merge_cells("A1:S1"); ws["A1"]="BOOM RECORDS — EXPENSE & RECOUPMENT TRACKER"
+    ws.merge_cells("A1:V1"); ws["A1"]="BOOM RECORDS — EXPENSE & RECOUPMENT TRACKER"
     ws["A1"].font=Font(name="Arial",bold=True,size=13,color="FFFFFFFF")
     ws["A1"].fill=fill("FFE31E24"); ws["A1"].alignment=Alignment(horizontal="center",vertical="center")
     ws.row_dimensions[1].height=28
-    hdrs=[("A","Invoice Date",14),("B","Payee / Vendor",22),("C","Description",30),
-          ("D","Category",20),("E","Artist / Project",20),("F","Song",20),
-          ("G","Invoice #",14),("H","Currency",10),("I","Amount",13),
-          ("J","Payment Method",16),("K","Payment Date",14),("L","In QuickBooks?",16),
-          ("M","QB Entry Date",14),("N","Uploaded to Stem?",18),("O","Stem Upload Date",16),
-          ("P","Cobrand",10),("Q","Notes",30),
-          ("R","Approved By",14),("S","Approved Date",14)]
+    hdrs=[("A","Date Uploaded",14),("B","Added By",14),("C","Invoice Date",14),
+          ("D","Payee / Vendor",22),("E","Description",30),("F","Category",20),
+          ("G","Artist / Project",20),("H","Song",20),
+          ("I","Invoice #",14),("J","Currency",10),("K","Amount",13),
+          ("L","Payment Method",16),("M","Date Paid",14),("N","In QuickBooks?",16),
+          ("O","QB Entry Date",14),("P","Uploaded to Stem?",18),("Q","Stem Upload Date",16),
+          ("R","Cobrand",10),("S","Notes",30),
+          ("T","Approved By",14),("U","Approved Date",14)]
     for col,label,w in hdrs:
         c=ws[f"{col}2"]; c.value=label
         c.font=Font(name="Arial",bold=True,size=10,color="FFFFFFFF")
@@ -959,6 +968,10 @@ def _build_excel(rows):
     ws.row_dimensions[2].height=22
     for i,row in enumerate(rows):
         r=i+3; v=list(row)
+        # v indices: 0=inv_date,1=payee,2=desc,3=cat,4=artist,5=song,6=inv#,
+        #            7=amount,8=pay_method,9=pay_date,10=in_qb,11=qb_date,
+        #            12=in_stem,13=stem_date,14=notes,15=cobrand,16=approved_by,17=approved_at,
+        #            18=currency,19=created_at,20=created_by
         qb=str(v[10] or ""); stem=str(v[12] or ""); currency_val=str(v[18] or "USD")
         rf=fill("FFD9EAD3" if (qb=="Yes" and stem=="Yes") else "FFFFF2CC" if qb=="No" else "FFFCE5CD" if stem=="No" else ("FFF5F5F5" if r%2==0 else "FFFFFFFF"))
         for col,_,_ in hdrs:
@@ -968,27 +981,31 @@ def _build_excel(rows):
             c=ws[f"{col}{r}"]; c.value=val
             if fmt: c.number_format=fmt
             c.alignment=Alignment(horizontal=align,vertical="center")
-        # v indices: 0=date,1=payee,2=desc,3=cat,4=artist,5=song,6=inv#,
-        #            7=amount,8=pay_method,9=pay_date,10=in_qb,11=qb_date,
-        #            12=in_stem,13=stem_date,14=notes,15=cobrand,16=approved_by,17=approved_at,18=currency
-        amt_fmt = '#,##0.00;(#,##0.00);"-"'  # no $ symbol — currency shown in col H
-        dc("A",v[0],"MM/DD/YYYY","center"); dc("B",v[1]); dc("C",v[2]); dc("D",v[3],"","center")
-        dc("E",v[4]); dc("F",v[5]); dc("G",v[6],"","center")
-        dc("H", currency_val, "", "center")
-        dc("I", v[7], amt_fmt, "right")
-        dc("J",v[8],"","center"); dc("K",v[9],"MM/DD/YYYY","center"); dc("L",v[10],"","center")
-        dc("M",v[11],"MM/DD/YYYY","center"); dc("N",v[12],"","center")
-        dc("O",v[13],"MM/DD/YYYY","center")
-        dc("P","Yes" if v[15] else "No","","center")
-        dc("Q",v[14])
-        dc("R",v[16] or "","","center")
-        approved_at_val = v[17]
-        if approved_at_val:
+        def parse_date(d):
+            if not d: return None
             try:
-                if hasattr(approved_at_val, 'date'): approved_at_val = approved_at_val.date()
-                elif isinstance(approved_at_val, str): approved_at_val = datetime.strptime(str(approved_at_val)[:10], "%Y-%m-%d").date()
-            except: approved_at_val = str(approved_at_val)[:10]
-        dc("S", approved_at_val or "", "MM/DD/YYYY" if approved_at_val else "", "center")
+                if hasattr(d, 'date'): return d.date()
+                return datetime.strptime(str(d)[:10], "%Y-%m-%d").date()
+            except: return str(d)[:10] or None
+        amt_fmt = '#,##0.00;(#,##0.00);"-"'
+        dc("A", parse_date(v[19]), "MM/DD/YYYY" if v[19] else "", "center")
+        dc("B", v[20] or "", "", "center")
+        dc("C", parse_date(v[0]), "MM/DD/YYYY" if v[0] else "", "center")
+        dc("D",v[1]); dc("E",v[2]); dc("F",v[3],"","center")
+        dc("G",v[4]); dc("H",v[5]); dc("I",v[6],"","center")
+        dc("J", currency_val, "", "center")
+        dc("K", v[7], amt_fmt, "right")
+        dc("L",v[8],"","center")
+        dc("M", parse_date(v[9]), "MM/DD/YYYY" if v[9] else "", "center")
+        dc("N",v[10],"","center")
+        dc("O", parse_date(v[11]), "MM/DD/YYYY" if v[11] else "", "center")
+        dc("P",v[12],"","center")
+        dc("Q", parse_date(v[13]), "MM/DD/YYYY" if v[13] else "", "center")
+        dc("R","Yes" if v[15] else "No","","center")
+        dc("S",v[14])
+        dc("T",v[16] or "","","center")
+        approved_at_val = parse_date(v[17])
+        dc("U", approved_at_val or "", "MM/DD/YYYY" if approved_at_val else "", "center")
     return wb
 
 
