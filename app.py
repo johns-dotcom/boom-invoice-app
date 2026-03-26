@@ -451,7 +451,7 @@ def parse_invoice():
 def add_expense():
     d = request.json
     v = lambda k,df="": (d.get(k,df) or df)
-    cobrand = 1 if d.get("cobrand") else 0
+    cobrand = bool(d.get("cobrand"))
     currency = (v("currency") or "USD").upper().strip()[:3]
     added_by = session.get("user_name") or session.get("role") or "unknown"
     contact_email = v("contact_email") or None
@@ -467,7 +467,7 @@ def add_expense():
         # Duplicate check — only if invoice_number is provided and force not set
         if v("invoice_number") and not d.get("force"):
             cur.execute(f"""SELECT id FROM expenses WHERE invoice_number={ph} AND payee={ph}
-                            AND (deleted IS NULL OR deleted=FALSE OR deleted=0) LIMIT 1""",
+                            AND deleted IS NOT TRUE LIMIT 1""",
                         (v("invoice_number"), v("payee")))
             existing = cur.fetchone()
             if existing:
@@ -504,7 +504,7 @@ def update_entry(eid):
         old_vals = {fields_list[i]: old_row[i+1] for i in range(len(fields_list))} if old_row else {}
         for field, val in updates.items():
             if field == "cobrand":
-                val = 1 if val else 0
+                val = bool(val)
             cur.execute(f"UPDATE expenses SET {field}={ph} WHERE id={ph}", (val if val != "" else None, eid))
             log_action("field_updated", eid, payee_val, field=field,
                        old_value=old_vals.get(field), new_value=val)
@@ -749,12 +749,16 @@ def approve_entry(eid):
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         approver = session.get("user_name") or "Admin"
         now = datetime.now()
-        cur.execute(f"SELECT payee FROM expenses WHERE id={ph}", (eid,))
+        cur.execute(f"SELECT payee, invoice_number, amount FROM expenses WHERE id={ph}", (eid,))
         payee_row = cur.fetchone()
         cur.execute(f"""UPDATE expenses SET status='approved', approved_by={ph}, approved_at={ph}
                         WHERE id={ph}""", (approver, now, eid))
         conn.commit(); conn.close()
-        log_action("invoice_approved", eid, payee_row[0] if payee_row else None)
+        detail_parts = []
+        if payee_row and payee_row[1]: detail_parts.append(f"Invoice #{payee_row[1]}")
+        if payee_row and payee_row[2]: detail_parts.append(f"${payee_row[2]}")
+        log_action("invoice_approved", eid, payee_row[0] if payee_row else None,
+                   details=" | ".join(detail_parts) if detail_parts else None)
         return jsonify({"ok":True, "approved_by": approver, "approved_at": now.strftime("%Y-%m-%d %H:%M")})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -826,7 +830,7 @@ def recent():
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT invoice_date,payee,amount,artist,song,in_quickbooks,uploaded_to_stem
                        FROM expenses
-                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
+                       WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY id DESC LIMIT 10""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"date":str(r[0] or ""),"payee":str(r[1] or ""),
@@ -847,7 +851,7 @@ def entries():
                               approved_by,approved_at,currency,payment_status,
                               created_at,created_by,vendor_email
                        FROM expenses
-                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
+                       WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY invoice_date DESC, id DESC""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
@@ -885,7 +889,7 @@ def invoices_page():
                        FROM expenses
                        WHERE invoice_filename IS NOT NULL AND invoice_data IS NOT NULL
                          AND (status = 'approved' OR status IS NULL)
-                         AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
+                         AND deleted IS NOT TRUE
                        ORDER BY invoice_date DESC, id DESC""")
         rows = cur.fetchall(); conn.close()
         items = [{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
@@ -906,7 +910,7 @@ def w9s_page():
                        FROM expenses
                        WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
                          AND (status = 'approved' OR status IS NULL)
-                         AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
+                         AND deleted IS NOT TRUE
                        ORDER BY id DESC""")
         rows = cur.fetchall(); conn.close()
         items = [{"id":r[0],"created_at":str(r[1] or ""),"vendor_name":str(r[2] or ""),
@@ -968,7 +972,7 @@ def analytics_data():
                        FROM expenses
                        WHERE (status = 'approved' OR status IS NULL)
                          AND amount IS NOT NULL AND amount > 0
-                         AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
+                         AND deleted IS NOT TRUE
                        ORDER BY invoice_date ASC""")
         rows = cur.fetchall(); conn.close()
 
@@ -1066,7 +1070,7 @@ def export_excel():
                               in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,
                               notes,cobrand,approved_by,approved_at,currency,created_at,created_by
                        FROM expenses
-                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
+                       WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY invoice_date ASC, id ASC""")
         rows = cur.fetchall(); conn.close()
     except Exception as e: return jsonify({"error":str(e)}), 500
@@ -1085,7 +1089,7 @@ def export_qbo():
                               in_quickbooks,uploaded_to_stem,notes,cobrand,
                               approved_by,approved_at,currency,created_at,created_by
                        FROM expenses
-                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
+                       WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY invoice_date ASC, id ASC""")
         rows = cur.fetchall(); conn.close()
     except Exception as e: return jsonify({"error":str(e)}), 500
@@ -1262,7 +1266,7 @@ def submit_invoice():
     vendor_artist  = request.form.get("artist","").strip()
     vendor_song    = request.form.get("song","").strip()
     vendor_category= request.form.get("category","").strip()
-    cobrand        = 1 if request.form.get("cobrand") == "yes" else 0
+    cobrand        = request.form.get("cobrand") == "yes"
     notes          = request.form.get("notes","").strip()
 
     def err(msg):
@@ -1296,7 +1300,7 @@ def submit_invoice():
            vendor_artist, vendor_song, fields.get("invoice_number",""),
            parse_amount(fields.get("amount",0)),
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
-           True if DATABASE_URL else 1, vendor_name, vendor_email,
+           True, vendor_name, vendor_email,
            w9_fname, w9_b64, inv_fname, inv_b64, "pending", cobrand)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
