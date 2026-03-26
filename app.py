@@ -16,7 +16,8 @@ DATABASE_URL   = os.environ.get("DATABASE_URL", "")
 APP_PASSWORD   = os.environ.get("APP_PASSWORD", "")
 ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL          = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")
-RESEND_KEY     = os.environ.get("RESEND_API_KEY", "")
+GMAIL_USER     = os.environ.get("GMAIL_USER", "")        # your Gmail address
+GMAIL_APP_PASS = os.environ.get("GMAIL_APP_PASSWORD", "") # Gmail App Password
 NOTIFY_EMAIL   = os.environ.get("NOTIFY_EMAIL", "johns@boomrecords.co")
 APP_URL        = os.environ.get("APP_URL", "")
 
@@ -288,23 +289,29 @@ def fmt_qbo_date(d):
 # ── Email ─────────────────────────────────────────────────────────────────────
 
 def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=None):
-    if not RESEND_KEY: return
+    if not GMAIL_USER or not GMAIL_APP_PASS: return
     try:
-        import resend; resend.api_key = RESEND_KEY
-        review_url = f"{APP_URL}/approvals" if APP_URL else "#"
-        amt = fields.get("amount",0)
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        review_url = f"{APP_URL}/approvals" if APP_URL else "https://boomap.com/approvals"
+        amt = fields.get("amount", 0)
         amt_str = f"${float(amt):,.2f}" if amt else "Unknown"
+
         warn = ("".join(f"<li style='color:#d97706'>⚠ {u}</li>" for u in unknowns) if unknowns else "")
         warn_block = (f"<div style='background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;"
                       f"padding:12px 16px;margin:14px 0'><strong style='color:#92400e'>Needs review:</strong>"
                       f"<ul style='margin:6px 0 0 16px;color:#92400e'>{warn}</ul></div>") if warn else ""
         w9_block = (f"<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:8px;"
                     f"padding:10px 14px;margin:14px 0;font-size:13px;color:#166534'>"
-                    f"📋 W9/W8 submitted: <strong>{w9_filename}</strong></div>") if w9_filename else ""
+                    f"W9/W8 submitted: <strong>{w9_filename}</strong></div>") if w9_filename else ""
+
         def row(bg, label, val):
             bg_s = "background:#f9f9f9;" if bg else ""
             return (f"<tr><td style='padding:7px 12px;{bg_s}color:#666;width:150px'>{label}</td>"
                     f"<td style='padding:7px 12px;{bg_s}'>{val}</td></tr>")
+
         html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
 border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
   <div style='background:#e31e24;padding:18px 24px'>
@@ -323,14 +330,23 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
     {w9_block}{warn_block}
     <div style='margin-top:20px'>
       <a href='{review_url}' style='background:#e31e24;color:#fff;padding:9px 18px;
-border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &amp; Approve →</a>
+border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &amp; Approve</a>
     </div>
   </div>
 </div>"""
-        resend.Emails.send({"from":"Boom Records <onboarding@resend.dev>",
-                            "to":[NOTIFY_EMAIL],
-                            "subject":f"New Invoice Pending Approval: {vendor_name} — {amt_str}",
-                            "html":html})
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"New Invoice Pending Approval: {vendor_name} — {amt_str}"
+        msg["From"]    = f"Boom Records <{GMAIL_USER}>"
+        msg["To"]      = NOTIFY_EMAIL
+        msg.attach(MIMEText(html, "html"))
+
+        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(GMAIL_USER, GMAIL_APP_PASS)
+            smtp.sendmail(GMAIL_USER, NOTIFY_EMAIL, msg.as_string())
+
     except Exception as e:
         print(f"Email error: {e}")
 
@@ -761,6 +777,77 @@ def w9s_page():
     except Exception as e:
         items = []
     return render_template("w9s.html", items=items, is_admin=is_admin())
+
+
+# ── Analytics route ───────────────────────────────────────────────────────────
+
+@app.route("/analytics")
+@login_required
+def analytics():
+    return render_template("analytics.html", is_admin=is_admin())
+
+@app.route("/analytics-data")
+@login_required
+def analytics_data():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("""SELECT invoice_date, category, artist, amount, currency,
+                              payment_status, in_quickbooks, uploaded_to_stem
+                       FROM expenses
+                       WHERE (status = 'approved' OR status IS NULL)
+                         AND amount IS NOT NULL AND amount > 0
+                       ORDER BY invoice_date ASC""")
+        rows = cur.fetchall(); conn.close()
+
+        by_category   = {}
+        by_artist     = {}
+        by_month      = {}
+        paid_summary  = {"Paid": 0, "Unpaid": 0, "Partial": 0}
+        qb_summary    = {"Yes": 0, "No": 0}
+        total_usd     = 0
+
+        for r in rows:
+            inv_date, category, artist, amount, currency, pay_status, in_qb, _ = r
+            amt = float(amount or 0)
+            # Only aggregate USD for simplicity; flag others
+            if (currency or "USD").upper() != "USD":
+                continue
+            total_usd += amt
+
+            cat = category or "Uncategorized"
+            by_category[cat] = by_category.get(cat, 0) + amt
+
+            art = artist or "No Artist"
+            by_artist[art] = by_artist.get(art, 0) + amt
+
+            # Month bucket
+            try:
+                if inv_date:
+                    d = inv_date if hasattr(inv_date, "strftime") else datetime.strptime(str(inv_date)[:10], "%Y-%m-%d").date()
+                    key = d.strftime("%b %Y")
+                    by_month[key] = by_month.get(key, 0) + amt
+            except: pass
+
+            ps = pay_status or "Unpaid"
+            if ps in paid_summary: paid_summary[ps] += amt
+
+            qb = in_qb or "No"
+            if qb in qb_summary: qb_summary[qb] += amt
+
+        # Sort categories and artists by spend desc, cap at top 10
+        by_category = dict(sorted(by_category.items(), key=lambda x: x[1], reverse=True)[:10])
+        by_artist   = dict(sorted(by_artist.items(),   key=lambda x: x[1], reverse=True)[:10])
+
+        return jsonify({
+            "total_usd": total_usd,
+            "by_category": by_category,
+            "by_artist": by_artist,
+            "by_month": by_month,
+            "paid_summary": paid_summary,
+            "qb_summary": qb_summary,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ── Export routes ─────────────────────────────────────────────────────────────
