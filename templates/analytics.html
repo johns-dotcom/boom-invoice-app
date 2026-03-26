@@ -23,7 +23,57 @@
 
   .page { max-width:1100px; margin:0 auto; padding:28px 24px 60px; }
   .page-title { font-size:22px; font-weight:900; margin-bottom:4px; }
-  .page-sub { font-size:13px; color:var(--muted); margin-bottom:28px; }
+  .page-sub { font-size:13px; color:var(--muted); margin-bottom:20px; }
+
+  /* Filter bar */
+  .filter-bar {
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px 18px;
+    display:flex;
+    align-items:flex-end;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:24px;
+  }
+  .filter-group { display:flex; flex-direction:column; gap:4px; }
+  .filter-group label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .filter-group input[type="date"],
+  .filter-group select {
+    height:34px;
+    border:1.5px solid var(--border);
+    border-radius:7px;
+    padding:0 10px;
+    font-size:13px;
+    font-family:'Nunito',system-ui,sans-serif;
+    color:var(--text);
+    background:#fff;
+    outline:none;
+    transition:border-color .15s;
+    min-width:130px;
+  }
+  .filter-group input[type="date"]:focus,
+  .filter-group select:focus { border-color:var(--red); }
+  .filter-actions { display:flex; gap:8px; align-items:flex-end; padding-bottom:1px; }
+  .btn-apply {
+    height:34px; padding:0 16px; background:var(--red); color:#fff;
+    border:none; border-radius:7px; font-size:13px; font-weight:700;
+    font-family:'Nunito',system-ui,sans-serif; cursor:pointer; transition:opacity .15s;
+  }
+  .btn-apply:hover { opacity:.88; }
+  .btn-reset {
+    height:34px; padding:0 14px; background:none; color:var(--muted);
+    border:1.5px solid var(--border); border-radius:7px; font-size:13px; font-weight:600;
+    font-family:'Nunito',system-ui,sans-serif; cursor:pointer; transition:all .15s;
+  }
+  .btn-reset:hover { border-color:var(--red); color:var(--red); }
+  .filter-active-badge {
+    display:inline-block; background:#fef3c7; color:#92400e;
+    border:1px solid #fde68a; border-radius:20px;
+    padding:2px 10px; font-size:11px; font-weight:700;
+    align-self:flex-end; margin-bottom:2px;
+  }
 
   .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:28px; }
   .kpi { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
@@ -46,6 +96,7 @@
   .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
   @keyframes spin { to { transform:rotate(360deg); } }
   .note { font-size:11px; color:var(--muted); text-align:right; margin-top:-18px; margin-bottom:18px; }
+  .no-data { text-align:center; color:var(--muted); padding:60px 0; font-size:14px; }
 </style>
 </head>
 <body>
@@ -73,6 +124,44 @@
   <div class="page-title">Spending Analytics</div>
   <div class="page-sub">USD expenses only. Excludes invoices with no amount.</div>
 
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>From</label>
+      <input type="date" id="f-from">
+    </div>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="date" id="f-to">
+    </div>
+    <div class="filter-group">
+      <label>Category</label>
+      <select id="f-cat">
+        <option value="">All Categories</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Artist</label>
+      <select id="f-artist">
+        <option value="">All Artists</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Payment Status</label>
+      <select id="f-status">
+        <option value="">All Statuses</option>
+        <option value="Paid">Paid</option>
+        <option value="Unpaid">Unpaid</option>
+        <option value="Partial">Partial</option>
+      </select>
+    </div>
+    <div class="filter-actions">
+      <button class="btn-apply" onclick="applyFilters()">Apply</button>
+      <button class="btn-reset" onclick="resetFilters()">Reset</button>
+      <span id="filter-badge" class="filter-active-badge" style="display:none">Filtered</span>
+    </div>
+  </div>
+
   <div id="spinner-wrap"><div class="spinner"></div></div>
   <div id="content" style="display:none">
 
@@ -81,7 +170,7 @@
       <div class="kpi">
         <div class="kpi-label">Total Spend (USD)</div>
         <div class="kpi-value red" id="kpi-total">—</div>
-        <div class="kpi-sub">all time</div>
+        <div class="kpi-sub" id="kpi-sub-total">all time</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">Unpaid</div>
@@ -125,7 +214,7 @@
       </div>
     </div>
 
-    <!-- Paid status + QB status donuts -->
+    <!-- Paid status + QB status + Stem donuts -->
     <div class="donut-row">
       <div class="chart-card">
         <div class="chart-title">Payment Status</div>
@@ -143,18 +232,26 @@
 
     <div class="note">* Only USD amounts included in charts</div>
   </div>
+  <div id="no-data" class="no-data" style="display:none">No data matches your filters.</div>
 </div>
 
 <script>
-const RED   = '#e31e24';
+const RED    = '#e31e24';
 const COLORS = ['#e31e24','#6366f1','#f59e0b','#10b981','#3b82f6','#ec4899','#8b5cf6','#14b8a6','#f97316','#64748b'];
+
+// Chart instance registry so we can destroy before re-render
+const CI = {};
 
 function fmt(v) {
   return '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
 }
 
+function destroyAll() {
+  Object.keys(CI).forEach(k => { if (CI[k]) { CI[k].destroy(); CI[k] = null; } });
+}
+
 function makeBar(id, labels, data, colors) {
-  new Chart(document.getElementById(id), {
+  CI[id] = new Chart(document.getElementById(id), {
     type: 'bar',
     data: {
       labels,
@@ -179,7 +276,7 @@ function makeBar(id, labels, data, colors) {
 }
 
 function makeDonut(id, labels, data, colors) {
-  new Chart(document.getElementById(id), {
+  CI[id] = new Chart(document.getElementById(id), {
     type: 'doughnut',
     data: {
       labels,
@@ -196,10 +293,78 @@ function makeDonut(id, labels, data, colors) {
   });
 }
 
-async function load() {
-  const res  = await fetch('/analytics-data');
+// Track dropdown options from the initial unfiltered load
+let _allCategories = [];
+let _allArtists    = [];
+let _filtersPopulated = false;
+
+function populateDropdowns(cats, artists) {
+  if (_filtersPopulated) return;
+  _filtersPopulated = true;
+  _allCategories = cats;
+  _allArtists    = artists;
+
+  const catSel    = document.getElementById('f-cat');
+  const artistSel = document.getElementById('f-artist');
+
+  cats.forEach(c => {
+    const o = document.createElement('option'); o.value = c; o.textContent = c;
+    catSel.appendChild(o);
+  });
+  artists.forEach(a => {
+    const o = document.createElement('option'); o.value = a; o.textContent = a;
+    artistSel.appendChild(o);
+  });
+}
+
+function buildParams() {
+  const p = {};
+  const from   = document.getElementById('f-from').value;
+  const to     = document.getElementById('f-to').value;
+  const cat    = document.getElementById('f-cat').value;
+  const artist = document.getElementById('f-artist').value;
+  const status = document.getElementById('f-status').value;
+  if (from)   p.date_from       = from;
+  if (to)     p.date_to         = to;
+  if (cat)    p.category        = cat;
+  if (artist) p.artist          = artist;
+  if (status) p.payment_status  = status;
+  return p;
+}
+
+function isFiltered(params) {
+  return Object.keys(params).length > 0;
+}
+
+async function load(params) {
+  document.getElementById('spinner-wrap').style.display = 'block';
+  document.getElementById('content').style.display     = 'none';
+  document.getElementById('no-data').style.display     = 'none';
+
+  const qs  = new URLSearchParams(params || {}).toString();
+  const url = '/analytics-data' + (qs ? '?' + qs : '');
+  const res  = await fetch(url);
   const data = await res.json();
-  if (data.error) { document.getElementById('spinner-wrap').innerHTML = '<p style="text-align:center;color:#999;padding:40px">No data yet.</p>'; return; }
+
+  document.getElementById('spinner-wrap').style.display = 'none';
+
+  if (data.error) {
+    document.getElementById('no-data').style.display = 'block';
+    document.getElementById('no-data').textContent   = 'Error loading data.';
+    return;
+  }
+
+  // Populate dropdowns on first load
+  if (data.all_categories) populateDropdowns(data.all_categories, data.all_artists);
+
+  // If no spend data, show "no data" message
+  if (!data.total_usd && Object.keys(data.by_category).length === 0) {
+    document.getElementById('no-data').style.display = 'block';
+    return;
+  }
+
+  // Destroy existing charts before re-render
+  destroyAll();
 
   // KPIs
   document.getElementById('kpi-total').textContent  = fmt(data.total_usd);
@@ -208,10 +373,15 @@ async function load() {
   document.getElementById('kpi-qb').textContent     = fmt(data.qb_summary.No        || 0);
   document.getElementById('kpi-stem').textContent   = fmt(data.stem_summary.No      || 0);
 
-  // Monthly trend
-  const months = Object.keys(data.by_month);
+  // KPI subtitle — show filter context
+  const filtered = isFiltered(params || {});
+  document.getElementById('kpi-sub-total').textContent = filtered ? 'filtered view' : 'all time';
+  document.getElementById('filter-badge').style.display = filtered ? 'inline-block' : 'none';
+
+  // Monthly trend (line)
+  const months    = Object.keys(data.by_month);
   const monthVals = months.map(m => data.by_month[m]);
-  new Chart(document.getElementById('chart-month'), {
+  CI['chart-month'] = new Chart(document.getElementById('chart-month'), {
     type: 'line',
     data: {
       labels: months,
@@ -269,11 +439,29 @@ async function load() {
     ['#ede9fe','#ddd6fe']
   );
 
-  document.getElementById('spinner-wrap').style.display = 'none';
   document.getElementById('content').style.display = 'block';
 }
 
-load();
+function applyFilters() {
+  load(buildParams());
+}
+
+function resetFilters() {
+  document.getElementById('f-from').value   = '';
+  document.getElementById('f-to').value     = '';
+  document.getElementById('f-cat').value    = '';
+  document.getElementById('f-artist').value = '';
+  document.getElementById('f-status').value = '';
+  load({});
+}
+
+// Also allow pressing Enter in date fields to apply
+document.querySelectorAll('.filter-bar input, .filter-bar select').forEach(el => {
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+});
+
+// Initial load (no filters)
+load({});
 </script>
 </body>
 </html>

@@ -885,6 +885,7 @@ def invoices_page():
                        FROM expenses
                        WHERE invoice_filename IS NOT NULL AND invoice_data IS NOT NULL
                          AND (status = 'approved' OR status IS NULL)
+                         AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY invoice_date DESC, id DESC""")
         rows = cur.fetchall(); conn.close()
         items = [{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
@@ -905,6 +906,7 @@ def w9s_page():
                        FROM expenses
                        WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
                          AND (status = 'approved' OR status IS NULL)
+                         AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY id DESC""")
         rows = cur.fetchall(); conn.close()
         items = [{"id":r[0],"created_at":str(r[1] or ""),"vendor_name":str(r[2] or ""),
@@ -953,14 +955,32 @@ def analytics():
 @admin_required
 def analytics_data():
     try:
+        # Read optional filter params
+        f_date_from  = request.args.get('date_from',  '').strip()
+        f_date_to    = request.args.get('date_to',    '').strip()
+        f_category   = request.args.get('category',   '').strip()
+        f_artist     = request.args.get('artist',     '').strip()
+        f_status     = request.args.get('payment_status', '').strip()
+
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT invoice_date, category, artist, amount, currency,
                               payment_status, in_quickbooks, uploaded_to_stem
                        FROM expenses
                        WHERE (status = 'approved' OR status IS NULL)
                          AND amount IS NOT NULL AND amount > 0
+                         AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY invoice_date ASC""")
         rows = cur.fetchall(); conn.close()
+
+        # First pass: collect all unique categories/artists for dropdown options (USD only)
+        all_categories = sorted(set(
+            (r[1] or "Uncategorized") for r in rows
+            if (r[4] or "USD").upper() == "USD"
+        ))
+        all_artists = sorted(set(
+            (r[2] or "No Artist") for r in rows
+            if (r[4] or "USD").upper() == "USD"
+        ))
 
         by_category   = {}
         by_artist     = {}
@@ -973,16 +993,31 @@ def analytics_data():
         for r in rows:
             inv_date, category, artist, amount, currency, pay_status, in_qb, in_stem = r
             amt = float(amount or 0)
-            # Only aggregate USD for simplicity; flag others
+            # Only aggregate USD
             if (currency or "USD").upper() != "USD":
                 continue
-            total_usd += amt
+
+            # Date filter
+            if f_date_from or f_date_to:
+                try:
+                    d = inv_date if hasattr(inv_date, "strftime") else datetime.strptime(str(inv_date)[:10], "%Y-%m-%d").date()
+                    d_str = d.strftime("%Y-%m-%d")
+                    if f_date_from and d_str < f_date_from: continue
+                    if f_date_to   and d_str > f_date_to:   continue
+                except: pass
 
             cat = category or "Uncategorized"
-            by_category[cat] = by_category.get(cat, 0) + amt
-
             art = artist or "No Artist"
-            by_artist[art] = by_artist.get(art, 0) + amt
+            ps  = pay_status or "Unpaid"
+
+            # Category / artist / status filters
+            if f_category and cat != f_category: continue
+            if f_artist   and art != f_artist:   continue
+            if f_status   and ps  != f_status:   continue
+
+            total_usd += amt
+            by_category[cat] = by_category.get(cat, 0) + amt
+            by_artist[art]   = by_artist.get(art, 0) + amt
 
             # Month bucket
             try:
@@ -992,7 +1027,6 @@ def analytics_data():
                     by_month[key] = by_month.get(key, 0) + amt
             except: pass
 
-            ps = pay_status or "Unpaid"
             if ps in paid_summary: paid_summary[ps] += amt
 
             qb = in_qb or "No"
@@ -1006,13 +1040,15 @@ def analytics_data():
         by_artist   = dict(sorted(by_artist.items(),   key=lambda x: x[1], reverse=True)[:10])
 
         return jsonify({
-            "total_usd": total_usd,
-            "by_category": by_category,
-            "by_artist": by_artist,
-            "by_month": by_month,
-            "paid_summary": paid_summary,
-            "qb_summary": qb_summary,
-            "stem_summary": stem_summary,
+            "total_usd":      total_usd,
+            "by_category":    by_category,
+            "by_artist":      by_artist,
+            "by_month":       by_month,
+            "paid_summary":   paid_summary,
+            "qb_summary":     qb_summary,
+            "stem_summary":   stem_summary,
+            "all_categories": all_categories,
+            "all_artists":    all_artists,
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
