@@ -50,9 +50,13 @@ Return ONLY valid JSON — no markdown, no extra text:
   "has_amount": true or false,
   "has_date": true or false,
   "has_payee_name": true or false,
-  "issues": ["list each specific missing or unclear field as a short plain-English sentence"]
+  "issues": []
 }
-Set a field to true ONLY if it is clearly present and legible. If the document is not an invoice or receipt at all, set all to false and note it in issues."""
+Rules:
+- Set each boolean to true if that field is clearly present anywhere on the document.
+- The "issues" array must ONLY contain entries for the four fields above that are false. Do NOT flag formatting quirks, empty template fields, address style, or anything else — only report a missing required field.
+- If the document is not an invoice or receipt at all, set all to false and add one issue: "This does not appear to be an invoice or receipt."
+- Return an empty issues array if all four fields are present."""
 
 W9_VALIDATE_PROMPT = """Examine this tax form carefully.
 Return ONLY valid JSON — no markdown, no extra text:
