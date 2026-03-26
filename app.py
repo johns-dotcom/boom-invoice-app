@@ -109,6 +109,7 @@ def init_db():
             approved_by TEXT,
             approved_at TIMESTAMP,
             currency TEXT DEFAULT 'USD',
+            payment_status TEXT DEFAULT 'Unpaid',
             created_at TIMESTAMP DEFAULT NOW())""")
         for col in ["song TEXT","vendor_submitted BOOLEAN DEFAULT FALSE",
                     "vendor_name TEXT","vendor_email TEXT",
@@ -119,7 +120,8 @@ def init_db():
                     "cobrand BOOLEAN DEFAULT FALSE",
                     "approved_by TEXT",
                     "approved_at TIMESTAMP",
-                    "currency TEXT DEFAULT 'USD'"]:
+                    "currency TEXT DEFAULT 'USD'",
+                    "payment_status TEXT DEFAULT 'Unpaid'"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -141,6 +143,7 @@ def init_db():
             approved_by TEXT,
             approved_at TEXT,
             currency TEXT DEFAULT 'USD',
+            payment_status TEXT DEFAULT 'Unpaid',
             created_at TEXT DEFAULT (datetime('now')))""")
         for col in ["song TEXT","vendor_submitted INTEGER DEFAULT 0",
                     "vendor_name TEXT","vendor_email TEXT",
@@ -151,7 +154,8 @@ def init_db():
                     "cobrand INTEGER DEFAULT 0",
                     "approved_by TEXT",
                     "approved_at TEXT",
-                    "currency TEXT DEFAULT 'USD'"]:
+                    "currency TEXT DEFAULT 'USD'",
+                    "payment_status TEXT DEFAULT 'Unpaid'"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -386,7 +390,7 @@ def add_expense():
 @login_required
 def update_entry(eid):
     allowed = {"in_quickbooks","uploaded_to_stem","artist","song","notes",
-               "category","payment_method","qb_entry_date","stem_upload_date","cobrand","currency"}
+               "category","payment_method","qb_entry_date","stem_upload_date","cobrand","currency","payment_status"}
     updates = {k:v for k,v in request.json.items() if k in allowed}
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
@@ -691,7 +695,7 @@ def entries():
                               in_quickbooks,uploaded_to_stem,notes,
                               vendor_submitted,vendor_name,w9_filename,
                               invoice_filename,proof_filename,cobrand,
-                              approved_by,approved_at,currency
+                              approved_by,approved_at,currency,payment_status
                        FROM expenses
                        WHERE status = 'approved' OR status IS NULL
                        ORDER BY invoice_date DESC, id DESC""")
@@ -707,7 +711,8 @@ def entries():
                          "has_invoice":bool(r[17]),"has_proof":bool(r[18]),
                          "cobrand":bool(r[19]) if r[19] else False,
                          "approved_by":str(r[20] or ""),"approved_at":str(r[21] or ""),
-                         "currency":str(r[22] or "USD")} for r in rows])
+                         "currency":str(r[22] or "USD"),
+                         "payment_status":str(r[23] or "Unpaid")} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 

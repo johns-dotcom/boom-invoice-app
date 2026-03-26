@@ -46,6 +46,9 @@
   .badge-yes { background:#dcfce7; color:#15803d; }
   .badge-no  { background:#fef3c7; color:#b45309; }
   .badge-na  { background:#f3f4f6; color:#6b7280; }
+  .badge-paid    { background:#dcfce7; color:#15803d; }
+  .badge-unpaid  { background:#fee2e2; color:#b91c1c; }
+  .badge-partial { background:#fef3c7; color:#b45309; }
   .badge .edit-icon { font-size:9px; opacity:.5; }
   .status-select { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:3px 7px; cursor:pointer; font-family:inherit; }
   .status-select:focus { outline:none; }
@@ -114,6 +117,15 @@
   <select class="filter-select" id="filter-cat" onchange="filterTable()">
     <option value="">All categories</option>
   </select>
+  <select class="filter-select" id="filter-artist" onchange="filterTable()">
+    <option value="">All artists</option>
+  </select>
+  <select class="filter-select" id="filter-paid" onchange="filterTable()">
+    <option value="">All payment statuses</option>
+    <option value="Unpaid">Unpaid</option>
+    <option value="Partial">Partial</option>
+    <option value="Paid">Paid</option>
+  </select>
   <span class="count" id="row-count"></span>
   <button class="btn-clear" onclick="clearFilters()">✕ Clear filters</button>
   <button class="btn-undo" id="undo-btn" onclick="undoLastChange()">↩ Undo</button>
@@ -127,13 +139,22 @@
         <th>Date</th><th>Payee</th><th>Description</th><th>Category</th>
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
-        <th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Proof?</th><th>Notes</th>
+        <th>Paid?</th><th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Proof?</th><th>Notes</th>
         <th>Approved By</th>
         <th>Files</th>
         {% if is_admin %}<th></th>{% endif %}
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
+    <tfoot id="tfoot" style="display:none">
+      <tr>
+        <td colspan="7" style="padding:10px 12px;font-size:12px;font-weight:700;color:#555;text-align:right;border-top:2px solid var(--border);background:#fafafa">TOTAL</td>
+        <td id="total-amount" style="padding:10px 12px;font-weight:900;color:var(--red);text-align:right;border-top:2px solid var(--border);background:#fafafa;white-space:nowrap"></td>
+        <td colspan="100" style="border-top:2px solid var(--border);background:#fafafa">
+          <span id="total-note" style="font-size:11px;color:var(--muted);padding-left:8px"></span>
+        </td>
+      </tr>
+    </tfoot>
   </table>
   <div class="empty" id="empty-state" style="display:none">No entries found.</div>
 </div>
@@ -177,6 +198,8 @@ function clearFilters() {
   document.getElementById('filter-qb').value = '';
   document.getElementById('filter-stem').value = '';
   document.getElementById('filter-cat').value = '';
+  document.getElementById('filter-artist').value = '';
+  document.getElementById('filter-paid').value = '';
   filterTable();
 }
 
@@ -198,6 +221,8 @@ async function undoLastChange() {
         document.getElementById(`qb-${item.id}`).innerHTML = statusBadge(item.id,'in_quickbooks',item.oldVal);
       else if (item.field==='uploaded_to_stem')
         document.getElementById(`stem-${item.id}`).innerHTML = statusBadge(item.id,'uploaded_to_stem',item.oldVal);
+      else if (item.field==='payment_status')
+        document.getElementById(`paid-${item.id}`).innerHTML = paymentBadge(item.id, item.oldVal);
       else if (item.field==='cobrand') {
         if (entry) entry.cobrand = item.oldVal;
         document.getElementById(`cb-${item.id}`).innerHTML = cobrandBadge(item.id, item.oldVal);
@@ -247,28 +272,66 @@ async function undoLastChange() {
 async function loadEntries() {
   const res = await fetch('/entries');
   allEntries = await res.json();
+
   const cats = [...new Set(allEntries.map(e=>e.category).filter(Boolean))].sort();
-  const sel = document.getElementById('filter-cat');
-  cats.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+  const catSel = document.getElementById('filter-cat');
+  cats.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; catSel.appendChild(o); });
+
+  const artists = [...new Set(allEntries.map(e=>e.artist).filter(Boolean))].sort();
+  const artSel = document.getElementById('filter-artist');
+  artists.forEach(a => { const o=document.createElement('option'); o.value=a; o.textContent=a; artSel.appendChild(o); });
+
   document.getElementById('spinner').style.display='none';
   document.getElementById('ledger-table').style.display='table';
   filterTable();
 }
 
 function filterTable() {
-  const q    = document.getElementById('search').value.toLowerCase();
-  const qb   = document.getElementById('filter-qb').value;
-  const stem = document.getElementById('filter-stem').value;
-  const cat  = document.getElementById('filter-cat').value;
+  const q      = document.getElementById('search').value.toLowerCase();
+  const qb     = document.getElementById('filter-qb').value;
+  const stem   = document.getElementById('filter-stem').value;
+  const cat    = document.getElementById('filter-cat').value;
+  const artist = document.getElementById('filter-artist').value;
+  const paid   = document.getElementById('filter-paid').value;
   const f = allEntries.filter(e => {
     if (q && !`${e.payee} ${e.artist} ${e.song} ${e.description} ${e.invoice_number}`.toLowerCase().includes(q)) return false;
-    if (qb   && e.in_quickbooks    !== qb)   return false;
-    if (stem && e.uploaded_to_stem !== stem) return false;
-    if (cat  && e.category         !== cat)  return false;
+    if (qb     && e.in_quickbooks    !== qb)     return false;
+    if (stem   && e.uploaded_to_stem !== stem)   return false;
+    if (cat    && e.category         !== cat)    return false;
+    if (artist && e.artist           !== artist) return false;
+    if (paid   && (e.payment_status || 'Unpaid') !== paid) return false;
     return true;
   });
   renderRows(f);
   document.getElementById('row-count').textContent = `${f.length} of ${allEntries.length} entries`;
+  updateTotals(f);
+}
+
+function updateTotals(entries) {
+  const tfoot = document.getElementById('tfoot');
+  if (!entries.length) { tfoot.style.display='none'; return; }
+
+  // Group amounts by currency
+  const byCurrency = {};
+  entries.forEach(e => {
+    if (!e.amount) return;
+    const c = (e.currency || 'USD').toUpperCase();
+    byCurrency[c] = (byCurrency[c] || 0) + Number(e.amount);
+  });
+
+  const currencies = Object.keys(byCurrency);
+  if (!currencies.length) { tfoot.style.display='none'; return; }
+
+  // Primary total: largest currency by value (almost always USD)
+  currencies.sort((a,b) => byCurrency[b] - byCurrency[a]);
+  const primary = currencies[0];
+  document.getElementById('total-amount').textContent = fmt(byCurrency[primary], primary);
+
+  // If multiple currencies, show the others as a note
+  const others = currencies.slice(1).map(c => fmt(byCurrency[c], c)).join(' + ');
+  document.getElementById('total-note').textContent = others ? `+ ${others} (other currencies)` : '';
+
+  tfoot.style.display='table-footer-group';
 }
 
 const CURRENCY_SYMBOLS = {USD:'$',EUR:'€',GBP:'£',CAD:'CA$',AUD:'A$',MXN:'MX$',JPY:'¥',BRL:'R$',CHF:'Fr ',SEK:'kr '};
@@ -318,6 +381,7 @@ function renderRows(entries) {
       <td><span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
       <td class="td-amount">${fmt(e.amount, e.currency)}</td>
+      <td id="paid-${e.id}">${paymentBadge(e.id, e.payment_status)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
       <td id="cb-${e.id}">${cobrandBadge(e.id, e.cobrand)}</td>
@@ -366,6 +430,43 @@ async function toggleCobrand(id, current) {
     document.getElementById(`cb-${id}`).innerHTML = cobrandBadge(id, !!newVal);
     flashRow(id); toast('Saved');
   } else toast('Save failed', true);
+}
+
+function paymentBadge(id, val) {
+  const v = val || 'Unpaid';
+  const cls = v==='Paid'?'badge-paid':v==='Partial'?'badge-partial':'badge-unpaid';
+  return `<span class="badge ${cls}" onclick="openPaymentEdit(${id},this)">${v} <span class="edit-icon">▾</span></span>`;
+}
+
+function openPaymentEdit(id, badgeEl) {
+  const sel = document.createElement('select'); sel.className='status-select';
+  const entry = allEntries.find(e=>e.id===id);
+  const currentVal = entry ? (entry.payment_status || 'Unpaid') : 'Unpaid';
+  ['Unpaid','Partial','Paid'].forEach(v => {
+    const o=document.createElement('option'); o.value=v; o.textContent=v;
+    if (v===currentVal) o.selected=true;
+    sel.appendChild(o);
+  });
+  badgeEl.replaceWith(sel); sel.focus();
+  let committed = false;
+  const save = async () => {
+    if (committed) return; committed = true;
+    const newVal = sel.value; sel.classList.add('saving');
+    const res = await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:newVal})});
+    document.getElementById(`paid-${id}`).innerHTML = paymentBadge(id, newVal);
+    if (res.ok) {
+      pushUndo({type:'field', id, field:'payment_status', oldVal: currentVal});
+      if (entry) entry.payment_status = newVal;
+      flashRow(id); toast('Saved');
+    } else toast('Save failed', true);
+  };
+  const cancel = () => {
+    if (committed) return; committed = true;
+    document.getElementById(`paid-${id}`).innerHTML = paymentBadge(id, currentVal);
+  };
+  sel.addEventListener('change', save);
+  sel.addEventListener('keydown', e=>{ if(e.key==='Escape') cancel(); });
+  sel.addEventListener('blur', ()=>setTimeout(()=>{ if(!committed) cancel(); }, 200));
 }
 
 function statusBadge(id, field, val) {
