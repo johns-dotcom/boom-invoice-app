@@ -50,14 +50,14 @@
   <div class="header-right">
     <a href="/" class="btn-ghost">+ Add Invoice</a>
     <a href="/ledger" class="btn-ghost">Ledger</a>
-    <a href="/invoices" class="btn-ghost">📄 Invoices</a>
+    <a href="/invoices" class="btn-ghost">Invoices</a>
     <span class="nav-pill">W9 / W8</span>
     <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
     {% if is_admin %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
     {% if current_user == 'John' %}<a href="/history" class="btn-ghost">History</a>{% endif %}
     <a href="/export" class="btn-ghost" style="background:#f0fdf4;border-color:#86efac;color:#16a34a">Excel</a>
     <a href="/export-qbo" class="btn-ghost" style="background:#f0fdf4;border-color:#86efac;color:#16a34a">CSV</a>
-    <a href="/logout" class="btn-ghost">Sign out</a>
+    {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}<a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
 

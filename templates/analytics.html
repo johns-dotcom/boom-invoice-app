@@ -55,7 +55,7 @@
   <div class="header-right">
     <a href="/" class="btn-ghost">+ Add Invoice</a>
     <a href="/ledger" class="btn-ghost">📊 Ledger</a>
-    <a href="/invoices" class="btn-ghost">📄 Invoices</a>
+    <a href="/invoices" class="btn-ghost">Invoices</a>
     <a href="/w9s" class="btn-ghost">W9 / W8</a>
     <a href="/approvals" class="btn-approvals">
       Approvals
@@ -64,7 +64,8 @@
     <a href="/analytics" class="btn-active">Analytics</a>
     {% if current_user == 'John' %}<a href="/history" class="btn-ghost">History</a>{% endif %}
     <a href="/export" class="btn-export">Excel</a>
-    <a href="/logout" class="btn-ghost">Sign out</a>
+    <a href="/export-qbo" class="btn-export">CSV</a>
+    {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}<a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
 
