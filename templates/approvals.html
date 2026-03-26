@@ -83,6 +83,7 @@
       Approvals
       {% if pending_count > 0 %}<span class="badge-count">{{ pending_count }}</span>{% endif %}
     </a>
+    {% if is_admin %}<a href="/analytics" class="btn-ghost">📈 Analytics</a>{% endif %}
     <a href="/export" class="btn-export">⬇ Excel</a>
     <a href="/export-qbo" class="btn-export">⬇ CSV</a>
     <a href="/logout" class="btn-ghost">Sign out</a>
