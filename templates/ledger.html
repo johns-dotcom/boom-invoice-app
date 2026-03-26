@@ -191,8 +191,9 @@ function pushUndo(item) {
 }
 
 function undoLabel(item) {
-  if (item.type === 'field') return `Undo: ${item.field} change`;
-  if (item.type === 'file')  return `Undo: remove ${item.fileType} file`;
+  if (item.type === 'field')  return `Undo: ${item.field} change`;
+  if (item.type === 'file')   return `Undo: remove ${item.fileType} file`;
+  if (item.type === 'delete') return `Undo: delete ${item.payee || 'entry'}`;
   return 'Undo last change';
 }
 
@@ -263,6 +264,17 @@ async function undoLastChange() {
       }
       if (entry) document.getElementById(`files-${item.id}`).innerHTML = fileIcons(entry);
       flashRow(item.id); toast('File removed');
+    } else toast('Undo failed', true);
+
+  } else if (item.type === 'delete') {
+    const res = await fetch(`/restore/${item.id}`, {method:'POST'});
+    if (res.ok) {
+      // Re-fetch all entries so the restored row reappears correctly
+      const data = await fetch('/entries').then(r=>r.json());
+      allEntries = data;
+      filterTable();
+      toast(`${item.payee || 'Entry'} restored`);
+      setTimeout(() => flashRow(item.id), 50);
     } else toast('Undo failed', true);
   }
 
@@ -652,9 +664,13 @@ function closeConfirm() { pendingDeleteId=null; document.getElementById('confirm
 async function confirmDelete() {
   if (!pendingDeleteId) return;
   const id=pendingDeleteId; closeConfirm();
+  const entry = allEntries.find(e=>e.id===id);
   const res=await fetch(`/delete/${id}`,{method:'POST'});
-  if(res.ok){allEntries=allEntries.filter(e=>e.id!==id);const row=document.getElementById(`row-${id}`);if(row)row.remove();filterTable();toast('Entry deleted');}
-  else toast('Delete failed',true);
+  if(res.ok){
+    pushUndo({type:'delete', id, payee: entry ? entry.payee : ''});
+    allEntries=allEntries.filter(e=>e.id!==id);
+    const row=document.getElementById(`row-${id}`);if(row)row.remove();filterTable();toast('Entry deleted — click Undo to restore');
+  } else toast('Delete failed',true);
 }
 document.getElementById('confirm-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('confirm-overlay'))closeConfirm();});
 

@@ -142,7 +142,8 @@ def init_db():
                     "approved_at TIMESTAMP",
                     "currency TEXT DEFAULT 'USD'",
                     "payment_status TEXT DEFAULT 'Unpaid'",
-                    "created_by TEXT"]:
+                    "created_by TEXT",
+                    "deleted BOOLEAN DEFAULT FALSE"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -191,7 +192,8 @@ def init_db():
                     "approved_at TEXT",
                     "currency TEXT DEFAULT 'USD'",
                     "payment_status TEXT DEFAULT 'Unpaid'",
-                    "created_by TEXT"]:
+                    "created_by TEXT",
+                    "deleted INTEGER DEFAULT 0"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -676,10 +678,23 @@ def delete_entry(eid):
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"SELECT payee, invoice_number FROM expenses WHERE id={ph}", (eid,))
         row = cur.fetchone()
-        cur.execute(f"DELETE FROM expenses WHERE id={ph}", (eid,))
+        cur.execute(f"UPDATE expenses SET deleted=TRUE WHERE id={ph}", (eid,))
         conn.commit(); conn.close()
         log_action("invoice_deleted", eid, row[0] if row else None,
                    details=f"Invoice #{row[1]}" if row and row[1] else None)
+        return jsonify({"ok":True})
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/restore/<int:eid>", methods=["POST"])
+@login_required
+@admin_required
+def restore_entry(eid):
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"UPDATE expenses SET deleted=FALSE WHERE id={ph}", (eid,))
+        conn.commit(); conn.close()
+        log_action("invoice_restored", eid)
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -796,7 +811,7 @@ def recent():
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT invoice_date,payee,amount,artist,song,in_quickbooks,uploaded_to_stem
                        FROM expenses
-                       WHERE status = 'approved' OR status IS NULL
+                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY id DESC LIMIT 10""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"date":str(r[0] or ""),"payee":str(r[1] or ""),
@@ -817,7 +832,7 @@ def entries():
                               approved_by,approved_at,currency,payment_status,
                               created_at,created_by
                        FROM expenses
-                       WHERE status = 'approved' OR status IS NULL
+                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY invoice_date DESC, id DESC""")
         rows = cur.fetchall(); conn.close()
         return jsonify([{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
@@ -999,7 +1014,7 @@ def export_excel():
                               in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,
                               notes,cobrand,approved_by,approved_at,currency,created_at,created_by
                        FROM expenses
-                       WHERE status = 'approved' OR status IS NULL
+                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY invoice_date ASC, id ASC""")
         rows = cur.fetchall(); conn.close()
     except Exception as e: return jsonify({"error":str(e)}), 500
@@ -1018,7 +1033,7 @@ def export_qbo():
                               in_quickbooks,uploaded_to_stem,notes,cobrand,
                               approved_by,approved_at,currency,created_at,created_by
                        FROM expenses
-                       WHERE status = 'approved' OR status IS NULL
+                       WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY invoice_date ASC, id ASC""")
         rows = cur.fetchall(); conn.close()
     except Exception as e: return jsonify({"error":str(e)}), 500

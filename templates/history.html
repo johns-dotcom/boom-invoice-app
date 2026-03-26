@@ -65,6 +65,8 @@
   .user-john{background:#fef3c7;color:#92400e}
   .user-jesse{background:#ede9fe;color:#5b21b6}
   .user-felipe{background:#dcfce7;color:#166534}
+  .user-soli{background:#fce7f3;color:#9d174d}
+  .user-danny{background:#dbeafe;color:#1e40af}
   .user-admin{background:#f1f5f9;color:#334155}
 
   /* Time */
@@ -102,6 +104,8 @@
       <option>John</option>
       <option>Jesse</option>
       <option>Felipe</option>
+      <option>Soli</option>
+      <option>Danny</option>
       <option>Admin</option>
     </select>
     <select id="filter-action" onchange="applyFilters()">
@@ -157,6 +161,7 @@ const ACTION_LABELS = {
   w9_file_removed:        ['W9 Removed',           'badge-remove'],
   proof_file_removed:     ['Proof Removed',        'badge-remove'],
   w9_submitted:           ['W9 Submitted',         'badge-w9'],
+  invoice_restored:       ['Restored',             'badge-approve'],
 };
 
 function fmtTime(ts) {
@@ -170,9 +175,11 @@ function fmtTime(ts) {
 }
 
 function userPill(name) {
-  const cls = name === 'John' ? 'user-john'
-            : name === 'Jesse' ? 'user-jesse'
+  const cls = name === 'John'   ? 'user-john'
+            : name === 'Jesse'  ? 'user-jesse'
             : name === 'Felipe' ? 'user-felipe'
+            : name === 'Soli'   ? 'user-soli'
+            : name === 'Danny'  ? 'user-danny'
             : 'user-admin';
   return `<span class="user ${cls}">${name || '—'}</span>`;
 }
