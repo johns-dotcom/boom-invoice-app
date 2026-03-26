@@ -128,7 +128,24 @@
           <label>Category</label>
           <select id="category"><option value="">— Select —</option>{% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
         </div>
-        <div class="form-group"><label>Amount ($)</label><input type="number" id="amount" step="0.01" placeholder="0.00"/></div>
+        <div class="form-group">
+          <label>Amount</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="currency" style="border:1.5px solid var(--border);border-radius:7px;padding:9px 8px;font-size:13px;font-family:inherit;background:#fff;color:#111;outline:none;flex-shrink:0;width:88px">
+              <option value="USD">USD $</option>
+              <option value="EUR">EUR €</option>
+              <option value="GBP">GBP £</option>
+              <option value="CAD">CAD $</option>
+              <option value="AUD">AUD $</option>
+              <option value="MXN">MXN $</option>
+              <option value="JPY">JPY ¥</option>
+              <option value="BRL">BRL R$</option>
+              <option value="CHF">CHF Fr</option>
+              <option value="SEK">SEK kr</option>
+            </select>
+            <input type="number" id="amount" step="0.01" placeholder="0.00" style="flex:1"/>
+          </div>
+        </div>
         <div class="form-group"><label>Artist / Project</label><input type="text" id="artist" placeholder="Artist or project name"/></div>
         <div class="form-group"><label>Song <span class="optional">(optional)</span></label><input type="text" id="song" placeholder="Specific song if applicable"/></div>
         <div class="form-group">
@@ -380,6 +397,8 @@ function populateForm(f) {
   set('artist', f.artist); set('song', f.song);
   const catEl = document.getElementById('category');
   if (f.category) { for (let o of catEl.options) { if (o.value === f.category) { o.selected=true; break; } } }
+  const curEl = document.getElementById('currency');
+  if (f.currency) { for (let o of curEl.options) { if (o.value === f.currency.toUpperCase()) { o.selected=true; break; } } }
 }
 
 async function submitForm() {
@@ -390,7 +409,7 @@ async function submitForm() {
   const payload = {
     invoice_date:g('invoice_date'), invoice_number:g('invoice_number'),
     payee:g('payee'), description:g('description'), category:g('category'),
-    amount:g('amount'), artist:g('artist'), song:g('song'),
+    amount:g('amount'), currency:document.getElementById('currency').value, artist:g('artist'), song:g('song'),
     payment_method:g('payment_method'), payment_date:g('payment_date'),
     in_quickbooks:g('in_quickbooks'), uploaded_to_stem:g('uploaded_to_stem'), notes:g('notes'),
     invoice_filename: storedFileName || null,
@@ -414,6 +433,7 @@ function resetForm() {
   ['invoice_date','invoice_number','payee','description','amount','artist','song','payment_date','notes']
     .forEach(id => document.getElementById(id).value='');
   document.getElementById('category').value='';
+  document.getElementById('currency').value='USD';
   document.getElementById('payment_method').value='';
   document.getElementById('in_quickbooks').value='No';
   document.getElementById('uploaded_to_stem').value='No';

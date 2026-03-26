@@ -271,9 +271,15 @@ function filterTable() {
   document.getElementById('row-count').textContent = `${f.length} of ${allEntries.length} entries`;
 }
 
-function fmt(v) {
+const CURRENCY_SYMBOLS = {USD:'$',EUR:'€',GBP:'£',CAD:'CA$',AUD:'A$',MXN:'MX$',JPY:'¥',BRL:'R$',CHF:'Fr ',SEK:'kr '};
+
+function fmt(v, currency) {
   if (!v && v!==0) return '—';
-  return '$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const num = Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const code = (currency || 'USD').toUpperCase();
+  const sym = CURRENCY_SYMBOLS[code];
+  if (sym) return sym + num;
+  return code + '\u00a0' + num; // unknown currency: show code prefix
 }
 
 function fileIcons(e) {
@@ -311,7 +317,7 @@ function renderRows(entries) {
       <td><span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span></td>
       <td><span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
-      <td class="td-amount">${fmt(e.amount)}</td>
+      <td class="td-amount">${fmt(e.amount, e.currency)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
       <td id="cb-${e.id}">${cobrandBadge(e.id, e.cobrand)}</td>
