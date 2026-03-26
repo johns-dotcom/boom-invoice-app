@@ -138,7 +138,7 @@
   <table id="ledger-table" style="display:none">
     <thead>
       <tr>
-        <th>Date</th><th>Payee</th><th>Description</th><th>Category</th>
+        <th>Date</th><th>Payee</th><th>Email</th><th>Description</th><th>Category</th>
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
         <th>Paid?</th><th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Proof?</th><th>Notes</th>
@@ -388,9 +388,9 @@ function renderRows(entries) {
   tbody.innerHTML = entries.map(e => `
     <tr id="row-${e.id}">
       <td class="td-date">${e.invoice_date||'—'}</td>
-      <td class="td-payee">
-        ${e.payee||'—'}
-        ${e.vendor_submitted ? `<span class="vendor-badge">VENDOR</span>` : ''}
+      <td class="td-payee">${e.payee||'—'}</td>
+      <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        <span class="editable-cell" onclick="editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>
       </td>
       <td class="td-trunc" title="${esc(e.description)}">${e.description||'—'}</td>
       <td>${e.category||'—'}</td>

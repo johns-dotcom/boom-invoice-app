@@ -454,20 +454,31 @@ def add_expense():
     cobrand = 1 if d.get("cobrand") else 0
     currency = (v("currency") or "USD").upper().strip()[:3]
     added_by = session.get("user_name") or session.get("role") or "unknown"
+    contact_email = v("contact_email") or None
     row = (parse_date(v("invoice_date")), v("payee"), v("description"), v("category"),
            v("artist"), v("song"), v("invoice_number"), parse_amount(v("amount",0)),
            v("payment_method"), parse_date(v("payment_date")), v("in_quickbooks","No"),
            parse_date(v("qb_entry_date")), v("uploaded_to_stem","No"),
            parse_date(v("stem_upload_date")), v("notes"),
            v("invoice_filename") or None, v("invoice_b64") or None, cobrand,
-           v("w9_filename") or None, v("w9_b64") or None, currency, added_by)
+           v("w9_filename") or None, v("w9_b64") or None, currency, added_by, contact_email)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        # Duplicate check — only if invoice_number is provided and force not set
+        if v("invoice_number") and not d.get("force"):
+            cur.execute(f"""SELECT id FROM expenses WHERE invoice_number={ph} AND payee={ph}
+                            AND (deleted IS NULL OR deleted=FALSE OR deleted=0) LIMIT 1""",
+                        (v("invoice_number"), v("payee")))
+            existing = cur.fetchone()
+            if existing:
+                conn.close()
+                return jsonify({"duplicate": True,
+                                "message": f"Invoice #{v('invoice_number')} from {v('payee')} is already in the ledger (entry #{existing[0]})."}), 409
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data,cobrand,
-            w9_filename,w9_data,currency,created_by)
-            VALUES ({','.join([ph]*22)})""", row)
+            w9_filename,w9_data,currency,created_by,vendor_email)
+            VALUES ({','.join([ph]*23)})""", row)
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         log_action("invoice_added", new_id, v("payee"),
@@ -480,7 +491,7 @@ def add_expense():
 @login_required
 def update_entry(eid):
     allowed = {"in_quickbooks","uploaded_to_stem","artist","song","notes",
-               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status"}
+               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status","vendor_email"}
     updates = {k:v for k,v in request.json.items() if k in allowed}
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
@@ -834,7 +845,7 @@ def entries():
                               vendor_submitted,vendor_name,w9_filename,
                               invoice_filename,proof_filename,cobrand,
                               approved_by,approved_at,currency,payment_status,
-                              created_at,created_by
+                              created_at,created_by,vendor_email
                        FROM expenses
                        WHERE (status = 'approved' OR status IS NULL) AND (deleted IS NULL OR deleted = FALSE OR deleted = 0)
                        ORDER BY invoice_date DESC, id DESC""")
@@ -853,7 +864,8 @@ def entries():
                          "currency":str(r[22] or "USD"),
                          "payment_status":str(r[23] or "Unpaid"),
                          "date_uploaded":str(r[24] or "")[:10],
-                         "created_by":str(r[25] or "")} for r in rows])
+                         "created_by":str(r[25] or ""),
+                         "contact_email":str(r[26] or "")} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 

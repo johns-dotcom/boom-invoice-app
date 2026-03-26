@@ -71,7 +71,7 @@
 <header>
   <div class="logo">boom.</div>
   <div class="header-right">
-    <a href="/ledger" class="btn-red">📋 Ledger</a>
+    <a href="/ledger" class="btn-red">Ledger</a>
     <a href="/invoices" class="btn-ghost">Invoices</a>
     <a href="/w9s" class="btn-ghost">W9 / W8</a>
     <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
@@ -125,6 +125,7 @@
         <div class="form-group"><label>Invoice Date</label><input type="text" id="invoice_date" placeholder="MM/DD/YYYY"/></div>
         <div class="form-group"><label>Invoice #</label><input type="text" id="invoice_number" placeholder="INV-001"/></div>
         <div class="form-group full"><label>Payee / Vendor</label><input type="text" id="payee" placeholder="Vendor name"/></div>
+        <div class="form-group full"><label>Contact Email <span style="font-weight:400;color:#999">(optional)</span></label><input type="email" id="contact_email" placeholder="vendor@example.com"/></div>
         <div class="form-group full"><label>Description</label><input type="text" id="description" placeholder="Brief description"/></div>
         <div class="form-group">
           <label>Category</label>
@@ -403,14 +404,15 @@ function populateForm(f) {
   if (f.currency) { for (let o of curEl.options) { if (o.value === f.currency.toUpperCase()) { o.selected=true; break; } } }
 }
 
-async function submitForm() {
+async function submitForm(force=false) {
   const g = id => document.getElementById(id).value.trim();
   if (!g('payee')) { alert('Payee is required.'); return; }
   const btn = document.getElementById('btn-submit');
   btn.disabled = true; btn.textContent = 'Saving…';
+  hideDuplicateWarning();
   const payload = {
     invoice_date:g('invoice_date'), invoice_number:g('invoice_number'),
-    payee:g('payee'), description:g('description'), category:g('category'),
+    payee:g('payee'), contact_email:g('contact_email'), description:g('description'), category:g('category'),
     amount:g('amount'), currency:document.getElementById('currency').value, artist:g('artist'), song:g('song'),
     payment_method:g('payment_method'), payment_date:g('payment_date'),
     in_quickbooks:g('in_quickbooks'), uploaded_to_stem:g('uploaded_to_stem'), notes:g('notes'),
@@ -418,12 +420,15 @@ async function submitForm() {
     invoice_b64: storedFileB64 || null,
     w9_filename: storedW9Name || null,
     w9_b64: storedW9B64 || null,
-    cobrand: cobrandValue
+    cobrand: cobrandValue,
+    force: force
   };
   try {
     const res = await fetch('/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     const data = await res.json();
-    if (data.ok) {
+    if (res.status === 409 && data.duplicate) {
+      showDuplicateWarning(data.message);
+    } else if (data.ok) {
       showSuccess(`✓ Saved — ${data.payee || 'Invoice'}${data.amount ? ' ($'+Number(data.amount).toFixed(2)+')' : ''}`);
       resetForm(); loadRecent(); loadStats();
     } else alert('Error: ' + (data.error || 'Unknown'));
@@ -431,8 +436,27 @@ async function submitForm() {
   btn.disabled = false; btn.textContent = 'Save Invoice';
 }
 
+function showDuplicateWarning(msg) {
+  let el = document.getElementById('duplicate-warning');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'duplicate-warning';
+    el.style.cssText = 'background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-top:12px;font-size:13px;color:#92400e;display:flex;align-items:center;gap:12px;';
+    document.getElementById('btn-submit').parentNode.insertBefore(el, document.getElementById('btn-submit').nextSibling);
+  }
+  el.innerHTML = `<span style="flex:1">⚠ ${msg}</span>
+    <button onclick="submitForm(true)" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Submit Anyway</button>
+    <button onclick="hideDuplicateWarning()" style="background:none;border:none;cursor:pointer;font-size:16px;color:#92400e;padding:0 4px">✕</button>`;
+  el.style.display = 'flex';
+}
+
+function hideDuplicateWarning() {
+  const el = document.getElementById('duplicate-warning');
+  if (el) el.style.display = 'none';
+}
+
 function resetForm() {
-  ['invoice_date','invoice_number','payee','description','amount','artist','song','payment_date','notes']
+  ['invoice_date','invoice_number','payee','contact_email','description','amount','artist','song','payment_date','notes']
     .forEach(id => document.getElementById(id).value='');
   document.getElementById('category').value='';
   document.getElementById('currency').value='USD';
@@ -454,6 +478,7 @@ function resetForm() {
   storedW9B64=null; storedW9Name=null;
   document.getElementById('remove-invoice').style.display='none';
   document.getElementById('remove-w9').style.display='none';
+  hideDuplicateWarning();
 }
 
 // ── Standalone document upload (W9 + Proof) ──────────────────
