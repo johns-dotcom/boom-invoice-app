@@ -94,6 +94,7 @@ def get_db():
         url = DATABASE_URL.replace("postgres://","postgresql://",1)
         return psycopg2.connect(url), "pg"
     else:
+        print("WARNING: DATABASE_URL not set — using SQLite. Data will be lost on redeploy!")
         import sqlite3
         conn = sqlite3.connect(str(Path(__file__).parent/"boom.db"))
         conn.row_factory = sqlite3.Row
@@ -358,11 +359,30 @@ def fmt_qbo_date(d):
 # ── Email ─────────────────────────────────────────────────────────────────────
 
 def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=None):
-    if not GMAIL_USER or not GMAIL_APP_PASS: return
+    client_id     = os.environ.get("GMAIL_CLIENT_ID", "")
+    client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
+    refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "")
+    sender        = os.environ.get("GMAIL_USER", "")
+    if not all([client_id, client_secret, refresh_token, sender]):
+        print("Email not configured — set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_USER")
+        return
     try:
-        import smtplib
+        import base64, urllib.request, urllib.parse, json
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
+
+        # Exchange refresh token for a fresh access token
+        token_resp = urllib.request.urlopen(urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=urllib.parse.urlencode({
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type":    "refresh_token",
+            }).encode(),
+            method="POST"
+        ))
+        access_token = json.loads(token_resp.read())["access_token"]
 
         review_url = f"{APP_URL}/approvals" if APP_URL else "https://boomap.com/approvals"
         amt = fields.get("amount", 0)
@@ -405,22 +425,42 @@ border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &a
 </div>"""
 
         recipients = [e.strip() for e in NOTIFY_EMAIL.split(",") if e.strip()]
-
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"New Invoice Pending Approval: {vendor_name} — {amt_str}"
-        msg["From"]    = f"Boom Records <{GMAIL_USER}>"
+        msg["From"]    = f"Boom Records <{sender}>"
         msg["To"]      = ", ".join(recipients)
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.login(GMAIL_USER, GMAIL_APP_PASS)
-            smtp.sendmail(GMAIL_USER, recipients, msg.as_string())
+        # Send via Gmail API (no SMTP, no extra libraries)
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        urllib.request.urlopen(urllib.request.Request(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            data=json.dumps({"raw": raw}).encode(),
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type":  "application/json",
+            },
+            method="POST"
+        ))
+        print(f"Vendor email sent to {recipients}")
 
     except Exception as e:
         print(f"Email error: {e}")
 
+
+# ── Health check ──────────────────────────────────────────────────────────────
+
+@app.route("/health")
+def health():
+    db_type = "postgresql" if DATABASE_URL else "sqlite (WARNING: no DATABASE_URL set!)"
+    try:
+        conn, kind = get_db()
+        conn.cursor().execute("SELECT 1")
+        conn.close()
+        status = "connected"
+    except Exception as e:
+        status = f"ERROR: {e}"
+    return jsonify({"database": db_type, "status": status, "database_url_set": bool(DATABASE_URL)})
 
 # ── Main app routes ───────────────────────────────────────────────────────────
 
