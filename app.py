@@ -151,7 +151,8 @@ def init_db():
                     "payment_status TEXT DEFAULT 'Unpaid'",
                     "created_by TEXT",
                     "deleted BOOLEAN DEFAULT FALSE",
-                    "vendor_address TEXT"]:
+                    "vendor_address TEXT",
+                    "is_reimbursement BOOLEAN DEFAULT FALSE"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -202,7 +203,8 @@ def init_db():
                     "payment_status TEXT DEFAULT 'Unpaid'",
                     "created_by TEXT",
                     "deleted INTEGER DEFAULT 0",
-                    "vendor_address TEXT"]:
+                    "vendor_address TEXT",
+                    "is_reimbursement INTEGER DEFAULT 0"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -371,7 +373,7 @@ def fmt_qbo_date(d):
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 
-def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=None):
+def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=None, is_reimbursement=False):
     client_id     = os.environ.get("GMAIL_CLIENT_ID", "")
     client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
     refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "")
@@ -414,10 +416,11 @@ def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=N
             return (f"<tr><td style='padding:7px 12px;{bg_s}color:#666;width:150px'>{label}</td>"
                     f"<td style='padding:7px 12px;{bg_s}'>{val}</td></tr>")
 
+        doc_type = "Reimbursement" if is_reimbursement else "Invoice"
         html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
 border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
   <div style='background:#e31e24;padding:18px 24px'>
-    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — New Invoice Pending Approval</h2>
+    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — New {doc_type} Pending Approval</h2>
   </div>
   <div style='padding:22px;color:#111'>
     <p style='margin:0 0 14px'>A vendor submitted an invoice — it's waiting in your approval queue.</p>
@@ -440,7 +443,7 @@ border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &a
 
         recipients = [e.strip() for e in NOTIFY_EMAIL.split(",") if e.strip()]
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"New Invoice Pending Approval: {vendor_name} — {amt_str}"
+        msg["Subject"] = f"New {doc_type} Pending Approval: {vendor_name} — {amt_str}"
         msg["From"]    = f"Boom.Records <{sender}>"
         msg["To"]      = ", ".join(recipients)
         msg.attach(MIMEText(html, "html"))
@@ -779,7 +782,8 @@ def approvals_page():
         cur.execute("""SELECT id, created_at, vendor_name, vendor_email,
                               invoice_date, payee, description, category,
                               invoice_number, amount, notes,
-                              invoice_filename, w9_filename, artist, song, cobrand
+                              invoice_filename, w9_filename, artist, song, cobrand,
+                              is_reimbursement
                        FROM expenses WHERE status = 'pending'
                        ORDER BY created_at ASC""")
         rows = cur.fetchall(); conn.close()
@@ -790,7 +794,7 @@ def approvals_page():
                   "amount":r[9],"notes":str(r[10] or ""),
                   "invoice_filename":str(r[11] or ""),"w9_filename":str(r[12] or ""),
                   "artist":str(r[13] or ""),"song":str(r[14] or ""),
-                  "cobrand":bool(r[15])} for r in rows]
+                  "cobrand":bool(r[15]),"is_reimbursement":bool(r[16])} for r in rows]
     except Exception as e:
         items = []
     return render_template("approvals.html", items=items, is_admin=is_admin())
@@ -903,7 +907,7 @@ def entries():
                               vendor_submitted,vendor_name,w9_filename,
                               invoice_filename,proof_filename,cobrand,
                               approved_by,approved_at,currency,payment_status,
-                              created_at,created_by,vendor_email
+                              created_at,created_by,vendor_email,is_reimbursement
                        FROM expenses
                        WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY invoice_date DESC, id DESC""")
@@ -923,7 +927,8 @@ def entries():
                          "payment_status":str(r[23] or "Unpaid"),
                          "date_uploaded":str(r[24] or "")[:10],
                          "created_by":str(r[25] or ""),
-                         "contact_email":str(r[26] or "")} for r in rows])
+                         "contact_email":str(r[26] or ""),
+                         "is_reimbursement":bool(r[27])} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
@@ -1301,11 +1306,12 @@ def validate_files():
         v = _validate_file(fb, mime, INVOICE_VALIDATE_PROMPT)
         if v:
             issues = list(v.get("issues") or [])
-            if not v.get("has_invoice_number"): issues.append("Invoice number is missing.")
-            if not v.get("has_amount"):         issues.append("Invoice amount is missing or unclear.")
-            if not v.get("has_date"):           issues.append("Invoice date is missing.")
+            is_reimb = request.form.get("is_reimbursement") == "yes"
+            if not v.get("has_invoice_number"): issues.append("Receipt number is missing." if is_reimb else "Invoice number is missing.")
+            if not v.get("has_amount"):         issues.append("Amount is missing or unclear.")
+            if not v.get("has_date"):           issues.append("Date is missing.")
             if not v.get("has_payee_name"):     issues.append("Vendor / payee name is missing.")
-            if not v.get("billed_to_boom"):     issues.append("Invoice must be billed to Boom.Records LLC.")
+            if not is_reimb and not v.get("billed_to_boom"): issues.append("Invoice must be billed to Boom.Records LLC.")
             result["invoice"] = list(dict.fromkeys(issues))  # dedupe, preserve order
 
     if "w9_file" in request.files and request.files["w9_file"].filename:
@@ -1360,16 +1366,17 @@ def submit_form():
 
 @app.route("/submit", methods=["POST"])
 def submit_invoice():
-    vendor_name    = request.form.get("vendor_name","").strip()
-    vendor_email   = request.form.get("vendor_email","").strip()
-    vendor_address = request.form.get("vendor_address","").strip()
-    vendor_artist  = request.form.get("artist","").strip()
-    vendor_song    = request.form.get("song","").strip()
-    vendor_category= request.form.get("category","").strip()
-    vendor_payment = request.form.get("payment_preference","").strip()
-    vendor_inv_num = request.form.get("invoice_number_hint","").strip()
-    cobrand        = request.form.get("cobrand") == "yes"
-    notes          = request.form.get("notes","").strip()
+    vendor_name      = request.form.get("vendor_name","").strip()
+    vendor_email     = request.form.get("vendor_email","").strip()
+    vendor_address   = request.form.get("vendor_address","").strip()
+    vendor_artist    = request.form.get("artist","").strip()
+    vendor_song      = request.form.get("song","").strip()
+    vendor_category  = request.form.get("category","").strip()
+    vendor_payment   = request.form.get("payment_preference","").strip()
+    vendor_inv_num   = request.form.get("invoice_number_hint","").strip()
+    cobrand          = request.form.get("cobrand") == "yes"
+    notes            = request.form.get("notes","").strip()
+    is_reimbursement = request.form.get("is_reimbursement") == "yes"
 
     def err(msg):
         return render_template("submit.html", error=msg, categories=CATEGORIES)
@@ -1377,23 +1384,27 @@ def submit_invoice():
     if not vendor_name:    return err("Please enter your legal / government name.")
     if not vendor_email:   return err("Please enter your email address.")
     if not vendor_address: return err("Please enter your mailing address.")
-    if not vendor_inv_num: return err("Please enter your invoice number.")
+    if not vendor_inv_num:
+        label = "receipt" if is_reimbursement else "invoice"
+        return err(f"Please enter your {label} number.")
     if not vendor_payment: return err("Please select your preferred payment method.")
     if not vendor_artist:  return err("Please enter the artist or project name.")
     if not vendor_category: return err("Please select a category.")
     if "file" not in request.files or not request.files["file"].filename:
-        return err("Please upload your invoice file.")
+        label = "receipt" if is_reimbursement else "invoice"
+        return err(f"Please upload your {label} file.")
 
-    # Check if W9 already exists for this vendor
+    # W9 not required for reimbursements
     w9_on_file = False
-    try:
-        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-        cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (vendor_name,))
-        w9_on_file = bool(cur.fetchone()); conn.close()
-    except: pass
+    if not is_reimbursement:
+        try:
+            conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+            cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (vendor_name,))
+            w9_on_file = bool(cur.fetchone()); conn.close()
+        except: pass
 
     has_new_w9 = "w9_file" in request.files and request.files["w9_file"].filename
-    if not has_new_w9 and not w9_on_file:
+    if not is_reimbursement and not has_new_w9 and not w9_on_file:
         return err("Please upload your W9 or W8 form.")
 
     file = request.files["file"]; file_bytes = file.read()
@@ -1422,20 +1433,20 @@ def submit_invoice():
            parse_amount(fields.get("amount",0)),
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
            True, vendor_name, vendor_email, vendor_address,
-           w9_fname, w9_b64, inv_fname, inv_b64, "pending", cobrand)
+           w9_fname, w9_b64, inv_fname, inv_b64, "pending", cobrand, is_reimbursement)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
             vendor_name,vendor_email,vendor_address,w9_filename,w9_data,invoice_filename,invoice_data,
-            status,cobrand)
-            VALUES ({','.join([ph]*25)})""", row)
+            status,cobrand,is_reimbursement)
+            VALUES ({','.join([ph]*26)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
         return err(f"Submission failed: {e}")
 
-    send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_fname)
+    send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_fname, is_reimbursement=is_reimbursement)
     return render_template("submit_success.html", vendor_name=vendor_name)
 
 @app.route("/status")

@@ -68,17 +68,33 @@
 </header>
 
 <div class="page">
-  <h1>Submit an Invoice</h1>
+  <h1 id="page-title">Submit an Invoice</h1>
   <div class="subtitle">All required fields are marked with <span style="color:#e31e24">*</span>. We'll review your submission and follow up if anything is needed.</div>
 
-  <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#7f1d1d;font-weight:700;line-height:1.5">
+  <!-- Mode toggle -->
+  <div style="display:flex;gap:0;margin-bottom:20px;border:1.5px solid #e2e2e2;border-radius:9px;overflow:hidden;background:#f9f9f9">
+    <button type="button" id="btn-invoice" onclick="setMode('invoice')"
+      style="flex:1;padding:11px;font-size:14px;font-weight:700;font-family:inherit;border:none;cursor:pointer;background:#e31e24;color:#fff;transition:all .15s">
+      📄 Invoice
+    </button>
+    <button type="button" id="btn-reimbursement" onclick="setMode('reimbursement')"
+      style="flex:1;padding:11px;font-size:14px;font-weight:700;font-family:inherit;border:none;cursor:pointer;background:#f9f9f9;color:#555;transition:all .15s">
+      💸 Reimbursement
+    </button>
+  </div>
+
+  <div id="boom-banner" style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#7f1d1d;font-weight:700;line-height:1.5">
     📋 Your invoice must be billed to <strong>Boom.Records LLC</strong> and include your invoice number, date, description, and total amount.
+  </div>
+  <div id="reimb-banner" style="display:none;background:#eff6ff;border:1.5px solid #93c5fd;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#1e3a8a;font-weight:700;line-height:1.5">
+    💸 For reimbursements, attach your receipt. No W9/W8 required.
   </div>
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
   <div class="card">
     <form method="POST" enctype="multipart/form-data" id="submit-form">
+      <input type="hidden" name="is_reimbursement" id="is-reimbursement" value="no"/>
 
       <!-- Vendor Info -->
       <div class="section-title">Your Info</div>
@@ -139,17 +155,17 @@
       <!-- Documents -->
       <div class="section-title">Documents</div>
       <div class="form-group full" style="margin-bottom:16px">
-        <label>Invoice Number <span class="req">*</span></label>
+        <label id="inv-num-label">Invoice Number <span class="req">*</span></label>
         <input type="text" name="invoice_number_hint" id="invoice-number" placeholder="e.g. INV-2024-001" autocomplete="off" required/>
         <div id="invoice-dup-banner" style="display:none;margin-top:8px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;font-weight:600">
           ⚠ We already have an invoice with this number on file. Please confirm this isn't a duplicate before submitting.
         </div>
       </div>
       <div class="form-group" style="margin-bottom:16px">
-        <label>Invoice File <span class="req">*</span></label>
+        <label id="inv-file-label">Invoice File <span class="req">*</span></label>
         <div class="drop-zone" id="dz-invoice" onclick="document.getElementById('file-invoice').click()">
           <div class="drop-icon">📄</div>
-          <div class="drop-title">Click or drop your invoice here</div>
+          <div class="drop-title" id="dz-invoice-title">Click or drop your invoice here</div>
           <div class="drop-sub">PDF, JPG, PNG — up to 25 MB</div>
           <div class="drop-filename" id="fn-invoice"></div>
         </div>
@@ -226,6 +242,46 @@ function showFile(dzId, fnId, name) {
 setupDropZone('dz-invoice', 'file-invoice', 'fn-invoice');
 setupDropZone('dz-w9', 'file-w9', 'fn-w9');
 
+// ── Mode toggle (Invoice / Reimbursement) ──────────────────────
+let currentMode = 'invoice';
+
+function setMode(mode) {
+  currentMode = mode;
+  const isReimb = mode === 'reimbursement';
+
+  // Hidden field
+  document.getElementById('is-reimbursement').value = isReimb ? 'yes' : 'no';
+
+  // Toggle buttons
+  document.getElementById('btn-invoice').style.background      = isReimb ? '#f9f9f9' : '#e31e24';
+  document.getElementById('btn-invoice').style.color           = isReimb ? '#555' : '#fff';
+  document.getElementById('btn-reimbursement').style.background = isReimb ? '#1d4ed8' : '#f9f9f9';
+  document.getElementById('btn-reimbursement').style.color      = isReimb ? '#fff' : '#555';
+
+  // Page title & banners
+  document.getElementById('page-title').textContent = isReimb ? 'Submit a Reimbursement' : 'Submit an Invoice';
+  document.getElementById('boom-banner').style.display  = isReimb ? 'none' : 'block';
+  document.getElementById('reimb-banner').style.display = isReimb ? 'block' : 'none';
+
+  // Document labels
+  document.getElementById('inv-num-label').innerHTML  = (isReimb ? 'Receipt / Reference Number' : 'Invoice Number') + ' <span class="req">*</span>';
+  document.getElementById('inv-file-label').innerHTML = (isReimb ? 'Receipt' : 'Invoice File') + ' <span class="req">*</span>';
+  document.getElementById('dz-invoice-title').textContent = isReimb ? 'Click or drop your receipt here' : 'Click or drop your invoice here';
+
+  // Submit button
+  document.getElementById('submit-btn').textContent = isReimb ? 'Submit Reimbursement' : 'Submit Invoice';
+
+  // W9 section — hidden for reimbursements (unless w9 is already on file logic applies)
+  if (isReimb) {
+    document.getElementById('w9-upload-section').style.display = 'none';
+    document.getElementById('w9-on-file-banner').style.display = 'none';
+  } else {
+    // Restore based on w9OnFile state
+    document.getElementById('w9-upload-section').style.display = w9OnFile ? 'none' : 'block';
+    document.getElementById('w9-on-file-banner').style.display = w9OnFile ? 'block' : 'none';
+  }
+}
+
 // ── Invoice duplicate lookup ───────────────────────────────────
 let invoiceDupTimer = null;
 
@@ -296,7 +352,7 @@ document.getElementById('submit-form').addEventListener('submit', async function
   if (!invoiceFile.files?.length) {
     showDropError('dz-invoice', 'Please attach your invoice file.'); valid = false;
   }
-  if (!w9OnFile && !w9File.files?.length) {
+  if (currentMode !== 'reimbursement' && !w9OnFile && !w9File.files?.length) {
     showDropError('dz-w9', 'Please attach your W9 or W8 form.'); valid = false;
   }
   if (!valid) return;
@@ -307,7 +363,8 @@ document.getElementById('submit-form').addEventListener('submit', async function
   try {
     const fd = new FormData();
     fd.append('invoice_file', invoiceFile.files[0]);
-    if (!w9OnFile && w9File.files[0]) fd.append('w9_file', w9File.files[0]);
+    fd.append('is_reimbursement', currentMode === 'reimbursement' ? 'yes' : 'no');
+    if (currentMode !== 'reimbursement' && !w9OnFile && w9File.files[0]) fd.append('w9_file', w9File.files[0]);
 
     const res = await fetch('/validate-files', { method: 'POST', body: fd });
     const data = await res.json();

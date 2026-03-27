@@ -429,6 +429,7 @@ function renderRows(entries) {
       <td style="font-size:12px;white-space:nowrap">
         <span style="color:var(--muted)">${fmtDate(e.date_uploaded)}</span>
         ${e.vendor_submitted ? '<br><span style="font-size:10px;color:#64748b">vendor</span>' : e.created_by ? `<br><span style="font-size:10px;color:#6366f1;font-weight:600">${e.created_by}</span>` : ''}
+        ${e.is_reimbursement ? '<br><span style="font-size:10px;background:#dbeafe;color:#1d4ed8;font-weight:700;padding:1px 5px;border-radius:4px">reimb.</span>' : ''}
       </td>
       <td id="datepaid-${e.id}" class="td-date">${datePaidCell(e.id, e.payment_date)}</td>
       <td id="files-${e.id}">${fileIcons(e)}</td>
