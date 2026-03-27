@@ -410,11 +410,12 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
     <p style='margin:0 0 14px'>A vendor submitted an invoice — it's waiting in your approval queue.</p>
     <table style='width:100%;border-collapse:collapse;font-size:13px'>
       {row(True,'Vendor',f"<strong>{vendor_name}</strong> ({vendor_email})")}
-      {row(False,'Invoice Date',fields.get('invoice_date') or '—')}
-      {row(True,'Invoice #',fields.get('invoice_number') or '—')}
-      {row(False,'Amount',f"<strong style='color:#e31e24'>{amt_str}</strong>")}
-      {row(True,'Description',fields.get('description') or '—')}
-      {row(False,'Category',fields.get('category') or '—')}
+      {row(False,'Artist / Project',f"<strong>{fields.get('artist') or '—'}</strong>")}
+      {row(True,'Invoice Date',fields.get('invoice_date') or '—')}
+      {row(False,'Invoice #',fields.get('invoice_number') or '—')}
+      {row(True,'Amount',f"<strong style='color:#e31e24'>{amt_str}</strong>")}
+      {row(False,'Description',fields.get('description') or '—')}
+      {row(True,'Category',fields.get('category') or '—')}
     </table>
     {w9_block}{warn_block}
     <div style='margin-top:20px'>
