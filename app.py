@@ -1308,6 +1308,21 @@ def validate_files():
 
     return jsonify({"ok": True, "issues": result})
 
+@app.route("/check-invoice")
+def check_invoice_dup():
+    number = request.args.get("number", "").strip()
+    if not number or len(number) < 1:
+        return jsonify({"duplicate": False})
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT id, payee FROM expenses WHERE LOWER(invoice_number)=LOWER({ph}) AND deleted IS NOT TRUE LIMIT 1", (number,))
+        row = cur.fetchone(); conn.close()
+        if row:
+            return jsonify({"duplicate": True, "payee": str(row[1] or "")})
+        return jsonify({"duplicate": False})
+    except Exception as e:
+        return jsonify({"duplicate": False})
+
 @app.route("/check-w9")
 def check_w9():
     name = request.args.get("name", "").strip()

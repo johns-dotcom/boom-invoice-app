@@ -121,8 +121,15 @@
 
       <!-- Files -->
       <div class="section-title">Documents</div>
+      <div class="form-group full" style="margin-bottom:16px">
+        <label>Invoice Number <span class="opt">(optional — helps us avoid duplicates)</span></label>
+        <input type="text" name="invoice_number_hint" id="invoice-number" placeholder="e.g. INV-2024-001" autocomplete="off"/>
+        <div id="invoice-dup-banner" style="display:none;margin-top:8px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;font-weight:600">
+          ⚠ We already have an invoice with this number on file. Please confirm this isn't a duplicate before submitting.
+        </div>
+      </div>
       <div class="form-group" style="margin-bottom:16px">
-        <label>Invoice <span class="req">*</span></label>
+        <label>Invoice File <span class="req">*</span></label>
         <div class="drop-zone" id="dz-invoice" onclick="document.getElementById('file-invoice').click()">
           <div class="drop-icon">📄</div>
           <div class="drop-title">Click or drop your invoice here</div>
@@ -200,6 +207,24 @@ function showFile(dzId, fnId, name) {
 
 setupDropZone('dz-invoice', 'file-invoice', 'fn-invoice');
 setupDropZone('dz-w9', 'file-w9', 'fn-w9');
+
+// ── Invoice duplicate lookup ───────────────────────────────────
+let invoiceDupTimer = null;
+
+document.getElementById('invoice-number').addEventListener('input', function() {
+  clearTimeout(invoiceDupTimer);
+  const num = this.value.trim();
+  if (!num) {
+    document.getElementById('invoice-dup-banner').style.display = 'none'; return;
+  }
+  invoiceDupTimer = setTimeout(async () => {
+    try {
+      const res = await fetch('/check-invoice?number=' + encodeURIComponent(num));
+      const data = await res.json();
+      document.getElementById('invoice-dup-banner').style.display = data.duplicate ? 'block' : 'none';
+    } catch(e) { /* silently ignore */ }
+  }, 500);
+});
 
 // ── W9 on-file lookup ──────────────────────────────────────────
 let w9OnFile = false;
