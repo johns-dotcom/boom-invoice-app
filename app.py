@@ -55,7 +55,7 @@ Return ONLY valid JSON — no markdown, no extra text:
 }
 Rules:
 - Set each boolean to true if that field is clearly present anywhere on the document.
-- "billed_to_boom" is true if the invoice is addressed or billed to "Boom Records", "Boom Records LLC", or a close variant. False if billed to a different company or person, or if no billing party is shown.
+- "billed_to_boom" is true if the invoice is addressed or billed to "Boom.Records", "Boom.Records LLC", or a close variant. False if billed to a different company or person, or if no billing party is shown.
 - The "issues" array must ONLY contain entries for fields above that are false. Do NOT flag formatting quirks, empty template fields, or address style.
 - If the document is not an invoice or receipt at all, set all to false and add one issue: "This does not appear to be an invoice or receipt."
 - Return an empty issues array if all fields are present."""
@@ -441,7 +441,7 @@ border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &a
         recipients = [e.strip() for e in NOTIFY_EMAIL.split(",") if e.strip()]
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"New Invoice Pending Approval: {vendor_name} — {amt_str}"
-        msg["From"]    = f"Boom Records <{sender}>"
+        msg["From"]    = f"Boom.Records <{sender}>"
         msg["To"]      = ", ".join(recipients)
         msg.attach(MIMEText(html, "html"))
 
@@ -1305,7 +1305,7 @@ def validate_files():
             if not v.get("has_amount"):         issues.append("Invoice amount is missing or unclear.")
             if not v.get("has_date"):           issues.append("Invoice date is missing.")
             if not v.get("has_payee_name"):     issues.append("Vendor / payee name is missing.")
-            if not v.get("billed_to_boom"):     issues.append("Invoice must be billed to Boom Records LLC.")
+            if not v.get("billed_to_boom"):     issues.append("Invoice must be billed to Boom.Records LLC.")
             result["invoice"] = list(dict.fromkeys(issues))  # dedupe, preserve order
 
     if "w9_file" in request.files and request.files["w9_file"].filename:
@@ -1444,5 +1444,5 @@ def status(): return jsonify({"ok":True})
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5100))
-    print(f"\n  Boom Records  →  http://localhost:{port}\n")
+    print(f"\n  Boom.Records  →  http://localhost:{port}\n")
     app.run(debug=False, host="0.0.0.0", port=port)
