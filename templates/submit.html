@@ -81,7 +81,10 @@
       <div class="form-grid">
         <div class="form-group full">
           <label>Your Name or Company <span class="req">*</span></label>
-          <input type="text" name="vendor_name" placeholder="e.g. Studio XYZ" required/>
+          <input type="text" name="vendor_name" id="vendor-name" placeholder="e.g. Studio XYZ" required autocomplete="off"/>
+          <div id="w9-on-file-banner" style="display:none;margin-top:8px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534;font-weight:600">
+            ✓ We have your W9 on file — no need to resubmit.
+          </div>
         </div>
         <div class="form-group full">
           <label>Email Address <span class="req">*</span></label>
@@ -129,8 +132,8 @@
         <input type="file" id="file-invoice" name="file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
       </div>
 
-      <div class="form-group">
-        <label>W9 or W8 Form <span class="req">*</span></label>
+      <div id="w9-upload-section" class="form-group">
+        <label>W9 or W8 Form <span class="req" id="w9-req">*</span></label>
         <div class="drop-zone" id="dz-w9" onclick="document.getElementById('file-w9').click()">
           <div class="drop-icon">📋</div>
           <div class="drop-title">Click or drop your W9 / W8 here</div>
@@ -198,6 +201,31 @@ function showFile(dzId, fnId, name) {
 setupDropZone('dz-invoice', 'file-invoice', 'fn-invoice');
 setupDropZone('dz-w9', 'file-w9', 'fn-w9');
 
+// ── W9 on-file lookup ──────────────────────────────────────────
+let w9OnFile = false;
+let w9LookupTimer = null;
+
+document.getElementById('vendor-name').addEventListener('input', function() {
+  clearTimeout(w9LookupTimer);
+  const name = this.value.trim();
+  if (name.length < 2) {
+    setW9OnFile(false); return;
+  }
+  w9LookupTimer = setTimeout(async () => {
+    try {
+      const res = await fetch('/check-w9?name=' + encodeURIComponent(name));
+      const data = await res.json();
+      setW9OnFile(data.has_w9);
+    } catch(e) { setW9OnFile(false); }
+  }, 500);
+});
+
+function setW9OnFile(hasW9) {
+  w9OnFile = hasW9;
+  document.getElementById('w9-on-file-banner').style.display = hasW9 ? 'block' : 'none';
+  document.getElementById('w9-upload-section').style.display = hasW9 ? 'none' : 'block';
+}
+
 // ── Submit validation ──────────────────────────────────────────
 document.getElementById('submit-form').addEventListener('submit', async function(e) {
   e.preventDefault();
@@ -210,7 +238,7 @@ document.getElementById('submit-form').addEventListener('submit', async function
   if (!invoiceFile.files?.length) {
     showDropError('dz-invoice', 'Please attach your invoice file.'); valid = false;
   }
-  if (!w9File.files?.length) {
+  if (!w9OnFile && !w9File.files?.length) {
     showDropError('dz-w9', 'Please attach your W9 or W8 form.'); valid = false;
   }
   if (!valid) return;
@@ -221,7 +249,7 @@ document.getElementById('submit-form').addEventListener('submit', async function
   try {
     const fd = new FormData();
     fd.append('invoice_file', invoiceFile.files[0]);
-    fd.append('w9_file', w9File.files[0]);
+    if (!w9OnFile && w9File.files[0]) fd.append('w9_file', w9File.files[0]);
 
     const res = await fetch('/validate-files', { method: 'POST', body: fd });
     const data = await res.json();

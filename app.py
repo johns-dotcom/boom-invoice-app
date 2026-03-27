@@ -986,6 +986,18 @@ def history():
         logs = []
     return render_template("history.html", logs=logs, is_admin=is_admin())
 
+@app.route("/clear-history", methods=["POST"])
+@login_required
+@john_required
+def clear_history():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("DELETE FROM audit_log")
+        conn.commit(); conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # ── Analytics route ───────────────────────────────────────────────────────────
 
@@ -1296,6 +1308,22 @@ def validate_files():
 
     return jsonify({"ok": True, "issues": result})
 
+@app.route("/check-w9")
+def check_w9():
+    name = request.args.get("name", "").strip()
+    if not name or len(name) < 2:
+        return jsonify({"has_w9": False})
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        if kind == "pg":
+            cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (name,))
+        else:
+            cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (name,))
+        row = cur.fetchone(); conn.close()
+        return jsonify({"has_w9": bool(row)})
+    except Exception as e:
+        return jsonify({"has_w9": False})
+
 @app.route("/submit", methods=["GET"])
 def submit_form():
     return render_template("submit.html", categories=CATEGORIES)
@@ -1319,7 +1347,17 @@ def submit_invoice():
     if not vendor_category: return err("Please select a category.")
     if "file" not in request.files or not request.files["file"].filename:
         return err("Please upload your invoice file.")
-    if "w9_file" not in request.files or not request.files["w9_file"].filename:
+
+    # Check if W9 already exists for this vendor
+    w9_on_file = False
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (vendor_name,))
+        w9_on_file = bool(cur.fetchone()); conn.close()
+    except: pass
+
+    has_new_w9 = "w9_file" in request.files and request.files["w9_file"].filename
+    if not has_new_w9 and not w9_on_file:
         return err("Please upload your W9 or W8 form.")
 
     file = request.files["file"]; file_bytes = file.read()
@@ -1331,9 +1369,13 @@ def submit_invoice():
     fields["category"] = vendor_category
     inv_b64 = base64.b64encode(file_bytes).decode()
 
-    w9_file = request.files["w9_file"]
-    w9_fname = w9_file.filename
-    w9_b64 = base64.b64encode(w9_file.read()).decode()
+    if has_new_w9:
+        w9_file = request.files["w9_file"]
+        w9_fname = w9_file.filename
+        w9_b64 = base64.b64encode(w9_file.read()).decode()
+    else:
+        w9_fname = None
+        w9_b64 = None
 
     unknowns = get_unknowns(fields)
     row = (parse_date(fields.get("invoice_date")), fields.get("payee",""),
