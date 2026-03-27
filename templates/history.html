@@ -94,7 +94,10 @@
 </nav>
 
 <div class="page">
-  <h1>Change History</h1>
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+    <h1 style="margin:0">Change History</h1>
+    <button onclick="clearHistory()" style="background:none;border:1.5px solid #e2e2e2;color:#999;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'" onmouseout="this.style.borderColor='#e2e2e2';this.style.color='#999'">Clear History</button>
+  </div>
   <p class="sub">All additions and changes, visible only to you.</p>
 
   <div class="filters">
@@ -123,6 +126,8 @@
       <option value="proof_file_removed">Proof Removed</option>
       <option value="w9_submitted">W9 Submitted</option>
     </select>
+    <input type="date" id="filter-from" onchange="applyFilters()" title="From date">
+    <input type="date" id="filter-to" onchange="applyFilters()" title="To date">
     <button class="btn-clear" onclick="clearFilters()">Clear</button>
     <span class="count" id="row-count"></span>
   </div>
@@ -226,10 +231,17 @@ function applyFilters() {
   const search = document.getElementById('search').value.toLowerCase();
   const user   = document.getElementById('filter-user').value;
   const action = document.getElementById('filter-action').value;
+  const from   = document.getElementById('filter-from').value;
+  const to     = document.getElementById('filter-to').value;
 
   filtered = LOGS.filter(l => {
-    if (user   && l.user_name !== user)          return false;
-    if (action && l.action    !== action)         return false;
+    if (user   && l.user_name !== user)  return false;
+    if (action && l.action    !== action) return false;
+    if (from || to) {
+      const d = l.timestamp ? l.timestamp.slice(0, 10) : '';
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+    }
     if (search) {
       const haystack = `${l.entry_payee} ${l.details} ${l.field} ${l.old_value} ${l.new_value}`.toLowerCase();
       if (!haystack.includes(search)) return false;
@@ -243,6 +255,8 @@ function clearFilters() {
   document.getElementById('search').value = '';
   document.getElementById('filter-user').value = '';
   document.getElementById('filter-action').value = '';
+  document.getElementById('filter-from').value = '';
+  document.getElementById('filter-to').value = '';
   filtered = [...LOGS];
   render();
 }
@@ -275,6 +289,17 @@ function render() {
 }
 
 render();
+
+async function clearHistory() {
+  if (!confirm('Clear all history? This cannot be undone.')) return;
+  const res = await fetch('/clear-history', {method:'POST'});
+  if ((await res.json()).ok) {
+    filtered = [];
+    LOGS.length = 0;
+    render();
+    document.getElementById('row-count').textContent = '0 entries';
+  }
+}
 </script>
 </body>
 </html>
