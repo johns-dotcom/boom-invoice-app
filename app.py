@@ -50,13 +50,15 @@ Return ONLY valid JSON — no markdown, no extra text:
   "has_amount": true or false,
   "has_date": true or false,
   "has_payee_name": true or false,
+  "billed_to_boom": true or false,
   "issues": []
 }
 Rules:
 - Set each boolean to true if that field is clearly present anywhere on the document.
-- The "issues" array must ONLY contain entries for the four fields above that are false. Do NOT flag formatting quirks, empty template fields, address style, or anything else — only report a missing required field.
+- "billed_to_boom" is true if the invoice is addressed or billed to "Boom Records", "Boom Records LLC", or a close variant. False if billed to a different company or person, or if no billing party is shown.
+- The "issues" array must ONLY contain entries for fields above that are false. Do NOT flag formatting quirks, empty template fields, or address style.
 - If the document is not an invoice or receipt at all, set all to false and add one issue: "This does not appear to be an invoice or receipt."
-- Return an empty issues array if all four fields are present."""
+- Return an empty issues array if all fields are present."""
 
 W9_VALIDATE_PROMPT = """Examine this tax form carefully.
 Return ONLY valid JSON — no markdown, no extra text:
@@ -148,7 +150,8 @@ def init_db():
                     "currency TEXT DEFAULT 'USD'",
                     "payment_status TEXT DEFAULT 'Unpaid'",
                     "created_by TEXT",
-                    "deleted BOOLEAN DEFAULT FALSE"]:
+                    "deleted BOOLEAN DEFAULT FALSE",
+                    "vendor_address TEXT"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -198,7 +201,8 @@ def init_db():
                     "currency TEXT DEFAULT 'USD'",
                     "payment_status TEXT DEFAULT 'Unpaid'",
                     "created_by TEXT",
-                    "deleted INTEGER DEFAULT 0"]:
+                    "deleted INTEGER DEFAULT 0",
+                    "vendor_address TEXT"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -1301,6 +1305,7 @@ def validate_files():
             if not v.get("has_amount"):         issues.append("Invoice amount is missing or unclear.")
             if not v.get("has_date"):           issues.append("Invoice date is missing.")
             if not v.get("has_payee_name"):     issues.append("Vendor / payee name is missing.")
+            if not v.get("billed_to_boom"):     issues.append("Invoice must be billed to Boom Records LLC.")
             result["invoice"] = list(dict.fromkeys(issues))  # dedupe, preserve order
 
     if "w9_file" in request.files and request.files["w9_file"].filename:
@@ -1357,18 +1362,24 @@ def submit_form():
 def submit_invoice():
     vendor_name    = request.form.get("vendor_name","").strip()
     vendor_email   = request.form.get("vendor_email","").strip()
+    vendor_address = request.form.get("vendor_address","").strip()
     vendor_artist  = request.form.get("artist","").strip()
     vendor_song    = request.form.get("song","").strip()
     vendor_category= request.form.get("category","").strip()
+    vendor_payment = request.form.get("payment_preference","").strip()
+    vendor_inv_num = request.form.get("invoice_number_hint","").strip()
     cobrand        = request.form.get("cobrand") == "yes"
     notes          = request.form.get("notes","").strip()
 
     def err(msg):
         return render_template("submit.html", error=msg, categories=CATEGORIES)
 
-    if not vendor_name:   return err("Please enter your company or name.")
-    if not vendor_email:  return err("Please enter your email address.")
-    if not vendor_artist: return err("Please enter the artist or project name.")
+    if not vendor_name:    return err("Please enter your legal / government name.")
+    if not vendor_email:   return err("Please enter your email address.")
+    if not vendor_address: return err("Please enter your mailing address.")
+    if not vendor_inv_num: return err("Please enter your invoice number.")
+    if not vendor_payment: return err("Please select your preferred payment method.")
+    if not vendor_artist:  return err("Please enter the artist or project name.")
     if not vendor_category: return err("Please select a category.")
     if "file" not in request.files or not request.files["file"].filename:
         return err("Please upload your invoice file.")
@@ -1390,8 +1401,10 @@ def submit_invoice():
     mime = ext_mime(inv_fname)
     fields = extract_fields(file_bytes, mime)
     if not fields.get("payee"): fields["payee"] = vendor_name
-    # Use vendor-provided category and artist (override AI extraction)
+    # Use vendor-provided values (override AI extraction)
     fields["category"] = vendor_category
+    if vendor_inv_num: fields["invoice_number"] = vendor_inv_num
+    if vendor_payment: fields["payment_method"] = vendor_payment
     inv_b64 = base64.b64encode(file_bytes).decode()
 
     if has_new_w9:
@@ -1408,16 +1421,16 @@ def submit_invoice():
            vendor_artist, vendor_song, fields.get("invoice_number",""),
            parse_amount(fields.get("amount",0)),
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
-           True, vendor_name, vendor_email,
+           True, vendor_name, vendor_email, vendor_address,
            w9_fname, w9_b64, inv_fname, inv_b64, "pending", cobrand)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
-            vendor_name,vendor_email,w9_filename,w9_data,invoice_filename,invoice_data,
+            vendor_name,vendor_email,vendor_address,w9_filename,w9_data,invoice_filename,invoice_data,
             status,cobrand)
-            VALUES ({','.join([ph]*24)})""", row)
+            VALUES ({','.join([ph]*25)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
         return err(f"Submission failed: {e}")

@@ -71,24 +71,42 @@
   <h1>Submit an Invoice</h1>
   <div class="subtitle">All required fields are marked with <span style="color:#e31e24">*</span>. We'll review your submission and follow up if anything is needed.</div>
 
+  <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:9px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#7f1d1d;font-weight:700;line-height:1.5">
+    📋 Your invoice must be billed to <strong>Boom Records LLC</strong> and include your invoice number, date, description, and total amount.
+  </div>
+
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
   <div class="card">
     <form method="POST" enctype="multipart/form-data" id="submit-form">
 
-      <!-- Contact -->
+      <!-- Vendor Info -->
       <div class="section-title">Your Info</div>
       <div class="form-grid">
         <div class="form-group full">
-          <label>Your Name or Company <span class="req">*</span></label>
-          <input type="text" name="vendor_name" id="vendor-name" placeholder="e.g. Studio XYZ" required autocomplete="off"/>
+          <label>Legal / Government Name <span class="req">*</span></label>
+          <input type="text" name="vendor_name" id="vendor-name" placeholder="Full legal name or company name (must match W9/W8)" required autocomplete="off"/>
           <div id="w9-on-file-banner" style="display:none;margin-top:8px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534;font-weight:600">
             ✓ We have your W9 on file — no need to resubmit.
           </div>
         </div>
         <div class="form-group full">
-          <label>Email Address <span class="req">*</span></label>
+          <label>Email Address <span class="req">*</span> <span class="opt">— used for 1099 delivery via QuickBooks</span></label>
           <input type="email" name="vendor_email" placeholder="your@email.com" required/>
+        </div>
+        <div class="form-group full">
+          <label>Mailing Address <span class="req">*</span></label>
+          <input type="text" name="vendor_address" id="vendor-address" placeholder="Street address, City, State, ZIP" required/>
+        </div>
+        <div class="form-group full">
+          <label>Preferred Payment Method <span class="req">*</span></label>
+          <select name="payment_preference" id="payment-preference" required>
+            <option value="">— Select payment method —</option>
+            <option value="ACH">ACH (Bank Transfer)</option>
+            <option value="Wire">Wire Transfer</option>
+            <option value="PayPal">PayPal</option>
+            <option value="Zelle">Zelle</option>
+          </select>
         </div>
       </div>
 
@@ -116,10 +134,9 @@
         </div>
       </div>
 
-
       <hr class="section-divider"/>
 
-      <!-- Files -->
+      <!-- Documents -->
       <div class="section-title">Documents</div>
       <div class="form-group full" style="margin-bottom:16px">
         <label>Invoice Number <span class="req">*</span></label>
@@ -141,6 +158,7 @@
 
       <div id="w9-upload-section" class="form-group">
         <label>W9 or W8 Form <span class="req" id="w9-req">*</span></label>
+        <div style="font-size:11px;color:#777;margin-bottom:6px">Must be completed, signed, and dated. USA vendors submit W9; international vendors submit W8.</div>
         <div class="drop-zone" id="dz-w9" onclick="document.getElementById('file-w9').click()">
           <div class="drop-icon">📋</div>
           <div class="drop-title">Click or drop your W9 / W8 here</div>
@@ -259,16 +277,22 @@ document.getElementById('submit-form').addEventListener('submit', async function
   const invoiceFile = document.getElementById('file-invoice');
   const w9File = document.getElementById('file-w9');
   const invoiceNum = document.getElementById('invoice-number').value.trim();
+  const address = document.getElementById('vendor-address').value.trim();
+  const payment = document.getElementById('payment-preference').value.trim();
   let valid = true;
 
-  if (!invoiceNum) {
+  function fieldError(inputId, msg) {
     const el = document.createElement('div');
     el.className = 'inline-error';
     el.style.cssText = 'color:#e31e24;font-size:12px;margin-top:4px;font-weight:600';
-    el.textContent = 'Invoice number is required.';
-    document.getElementById('invoice-number').after(el);
+    el.textContent = msg;
+    document.getElementById(inputId).after(el);
     valid = false;
   }
+
+  if (!address)    fieldError('vendor-address', 'Mailing address is required.');
+  if (!payment)    fieldError('payment-preference', 'Please select a payment method.');
+  if (!invoiceNum) fieldError('invoice-number', 'Invoice number is required.');
   if (!invoiceFile.files?.length) {
     showDropError('dz-invoice', 'Please attach your invoice file.'); valid = false;
   }
