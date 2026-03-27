@@ -122,8 +122,8 @@
       <!-- Files -->
       <div class="section-title">Documents</div>
       <div class="form-group full" style="margin-bottom:16px">
-        <label>Invoice Number <span class="opt">(optional — helps us avoid duplicates)</span></label>
-        <input type="text" name="invoice_number_hint" id="invoice-number" placeholder="e.g. INV-2024-001" autocomplete="off"/>
+        <label>Invoice Number <span class="req">*</span></label>
+        <input type="text" name="invoice_number_hint" id="invoice-number" placeholder="e.g. INV-2024-001" autocomplete="off" required/>
         <div id="invoice-dup-banner" style="display:none;margin-top:8px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;font-weight:600">
           ⚠ We already have an invoice with this number on file. Please confirm this isn't a duplicate before submitting.
         </div>
@@ -258,8 +258,17 @@ document.getElementById('submit-form').addEventListener('submit', async function
 
   const invoiceFile = document.getElementById('file-invoice');
   const w9File = document.getElementById('file-w9');
+  const invoiceNum = document.getElementById('invoice-number').value.trim();
   let valid = true;
 
+  if (!invoiceNum) {
+    const el = document.createElement('div');
+    el.className = 'inline-error';
+    el.style.cssText = 'color:#e31e24;font-size:12px;margin-top:4px;font-weight:600';
+    el.textContent = 'Invoice number is required.';
+    document.getElementById('invoice-number').after(el);
+    valid = false;
+  }
   if (!invoiceFile.files?.length) {
     showDropError('dz-invoice', 'Please attach your invoice file.'); valid = false;
   }
