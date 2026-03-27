@@ -280,6 +280,15 @@ def john_required(f):
         return f(*a, **kw)
     return dec
 
+def history_allowed(f):
+    """John and Jesse can view history."""
+    @wraps(f)
+    def dec(*a, **kw):
+        if session.get("user_name") not in ("John", "Jesse"):
+            return redirect("/")
+        return f(*a, **kw)
+    return dec
+
 def log_action(action, entry_id=None, entry_payee=None, field=None, old_value=None, new_value=None, details=None):
     try:
         user = session.get("user_name") or session.get("role") or "unknown"
@@ -967,7 +976,7 @@ def w9s_page():
 
 @app.route("/history")
 @login_required
-@john_required
+@history_allowed
 def history():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -984,7 +993,8 @@ def history():
                  "details":str(r[9] or "")} for r in rows]
     except Exception as e:
         logs = []
-    return render_template("history.html", logs=logs, is_admin=is_admin())
+    is_john = session.get("user_name") == "John"
+    return render_template("history.html", logs=logs, is_admin=is_admin(), is_john=is_john)
 
 @app.route("/clear-history", methods=["POST"])
 @login_required

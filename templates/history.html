@@ -96,9 +96,9 @@
 <div class="page">
   <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
     <h1 style="margin:0">Change History</h1>
-    <button onclick="clearHistory()" style="background:none;border:1.5px solid #e2e2e2;color:#999;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'" onmouseout="this.style.borderColor='#e2e2e2';this.style.color='#999'">Clear History</button>
+    {% if is_john %}<button onclick="clearHistory()" style="background:none;border:1.5px solid #e2e2e2;color:#999;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626'" onmouseout="this.style.borderColor='#e2e2e2';this.style.color='#999'">Clear History</button>{% endif %}
   </div>
-  <p class="sub">All additions and changes, visible only to you.</p>
+  <p class="sub">All additions and changes across the ledger.</p>
 
   <div class="filters">
     <input type="text" id="search" placeholder="Search payee, details…" oninput="applyFilters()">
