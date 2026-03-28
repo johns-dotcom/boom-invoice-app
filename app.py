@@ -1406,6 +1406,8 @@ def submit_invoice():
     has_new_w9 = "w9_file" in request.files and request.files["w9_file"].filename
     if not is_reimbursement and not has_new_w9 and not w9_on_file:
         return err("Please upload your W9 or W8 form.")
+    if is_reimbursement and ("receipt_file" not in request.files or not request.files["receipt_file"].filename):
+        return err("Please attach your supporting receipt.")
 
     file = request.files["file"]; file_bytes = file.read()
     inv_fname = file.filename
@@ -1426,6 +1428,16 @@ def submit_invoice():
         w9_fname = None
         w9_b64 = None
 
+    # Capture supporting receipt for reimbursements
+    has_receipt = is_reimbursement and "receipt_file" in request.files and request.files["receipt_file"].filename
+    if has_receipt:
+        receipt_file = request.files["receipt_file"]
+        receipt_fname = receipt_file.filename
+        receipt_b64 = base64.b64encode(receipt_file.read()).decode()
+    else:
+        receipt_fname = None
+        receipt_b64 = None
+
     unknowns = get_unknowns(fields)
     row = (parse_date(fields.get("invoice_date")), fields.get("payee",""),
            fields.get("description",""), vendor_category,
@@ -1433,15 +1445,15 @@ def submit_invoice():
            parse_amount(fields.get("amount",0)),
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
            True, vendor_name, vendor_email, vendor_address,
-           w9_fname, w9_b64, inv_fname, inv_b64, "pending", cobrand, is_reimbursement)
+           w9_fname, w9_b64, inv_fname, inv_b64, receipt_fname, receipt_b64, "pending", cobrand, is_reimbursement)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
             vendor_name,vendor_email,vendor_address,w9_filename,w9_data,invoice_filename,invoice_data,
-            status,cobrand,is_reimbursement)
-            VALUES ({','.join([ph]*26)})""", row)
+            proof_filename,proof_data,status,cobrand,is_reimbursement)
+            VALUES ({','.join([ph]*28)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
         return err(f"Submission failed: {e}")

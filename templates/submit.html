@@ -184,6 +184,19 @@
         <input type="file" id="file-w9" name="w9_file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
       </div>
 
+      <!-- Receipt dropzone — reimbursements only -->
+      <div id="receipt-upload-section" class="form-group" style="display:none;margin-top:16px">
+        <label>Supporting Receipt <span class="req">*</span></label>
+        <div style="font-size:11px;color:#777;margin-bottom:6px">Attach the original receipt showing the purchase (store receipt, email confirmation, etc.)</div>
+        <div class="drop-zone" id="dz-receipt" onclick="document.getElementById('file-receipt').click()">
+          <div class="drop-icon">🧾</div>
+          <div class="drop-title">Click or drop your receipt here</div>
+          <div class="drop-sub">PDF, JPG, PNG — up to 25 MB</div>
+          <div class="drop-filename" id="fn-receipt"></div>
+        </div>
+        <input type="file" id="file-receipt" name="receipt_file" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+      </div>
+
       <hr class="section-divider"/>
 
       <div class="form-group">
@@ -241,6 +254,7 @@ function showFile(dzId, fnId, name) {
 
 setupDropZone('dz-invoice', 'file-invoice', 'fn-invoice');
 setupDropZone('dz-w9', 'file-w9', 'fn-w9');
+setupDropZone('dz-receipt', 'file-receipt', 'fn-receipt');
 
 // ── Mode toggle (Invoice / Reimbursement) ──────────────────────
 let currentMode = 'invoice';
@@ -271,15 +285,17 @@ function setMode(mode) {
   // Submit button
   document.getElementById('submit-btn').textContent = isReimb ? 'Submit Reimbursement' : 'Submit Invoice';
 
-  // W9 section — hidden for reimbursements (unless w9 is already on file logic applies)
+  // W9 section — hidden for reimbursements
   if (isReimb) {
     document.getElementById('w9-upload-section').style.display = 'none';
     document.getElementById('w9-on-file-banner').style.display = 'none';
   } else {
-    // Restore based on w9OnFile state
     document.getElementById('w9-upload-section').style.display = w9OnFile ? 'none' : 'block';
     document.getElementById('w9-on-file-banner').style.display = w9OnFile ? 'block' : 'none';
   }
+
+  // Receipt section — shown only for reimbursements
+  document.getElementById('receipt-upload-section').style.display = isReimb ? 'block' : 'none';
 }
 
 // ── Invoice duplicate lookup ───────────────────────────────────
@@ -354,6 +370,12 @@ document.getElementById('submit-form').addEventListener('submit', async function
   }
   if (currentMode !== 'reimbursement' && !w9OnFile && !w9File.files?.length) {
     showDropError('dz-w9', 'Please attach your W9 or W8 form.'); valid = false;
+  }
+  if (currentMode === 'reimbursement') {
+    const receiptFile = document.getElementById('file-receipt');
+    if (!receiptFile.files?.length) {
+      showDropError('dz-receipt', 'Please attach your supporting receipt.'); valid = false;
+    }
   }
   if (!valid) return;
 
