@@ -277,10 +277,7 @@ function setMode(mode) {
   document.getElementById('boom-banner').style.display  = isReimb ? 'none' : 'block';
   document.getElementById('reimb-banner').style.display = isReimb ? 'block' : 'none';
 
-  // Document labels
-  document.getElementById('inv-num-label').innerHTML  = (isReimb ? 'Receipt / Reference Number' : 'Invoice Number') + ' <span class="req">*</span>';
-  document.getElementById('inv-file-label').innerHTML = (isReimb ? 'Receipt' : 'Invoice File') + ' <span class="req">*</span>';
-  document.getElementById('dz-invoice-title').textContent = isReimb ? 'Click or drop your receipt here' : 'Click or drop your invoice here';
+  // Document labels — invoice fields always stay as "Invoice"
 
   // Submit button
   document.getElementById('submit-btn').textContent = isReimb ? 'Submit Reimbursement' : 'Submit Invoice';

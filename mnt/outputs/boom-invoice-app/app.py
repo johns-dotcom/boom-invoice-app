@@ -1384,15 +1384,12 @@ def submit_invoice():
     if not vendor_name:    return err("Please enter your legal / government name.")
     if not vendor_email:   return err("Please enter your email address.")
     if not vendor_address: return err("Please enter your mailing address.")
-    if not vendor_inv_num:
-        label = "receipt" if is_reimbursement else "invoice"
-        return err(f"Please enter your {label} number.")
+    if not vendor_inv_num: return err("Please enter your invoice number.")
     if not vendor_payment: return err("Please select your preferred payment method.")
     if not vendor_artist:  return err("Please enter the artist or project name.")
     if not vendor_category: return err("Please select a category.")
     if "file" not in request.files or not request.files["file"].filename:
-        label = "receipt" if is_reimbursement else "invoice"
-        return err(f"Please upload your {label} file.")
+        return err("Please upload your invoice file.")
 
     # W9 not required for reimbursements
     w9_on_file = False
