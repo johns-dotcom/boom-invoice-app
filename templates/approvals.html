@@ -84,7 +84,7 @@
       {% if pending_count > 0 %}<span class="badge-count">{{ pending_count }}</span>{% endif %}
     </a>
     {% if is_admin %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
-    {% if current_user == 'John' or current_user == 'Jesse' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
+    {% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
     <a href="/export" class="btn-export">Excel</a>
     <a href="/export-qbo" class="btn-export">CSV</a>
     {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}<a href="/logout" class="btn-ghost">Sign out</a>

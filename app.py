@@ -22,18 +22,18 @@ NOTIFY_EMAIL   = os.environ.get("NOTIFY_EMAIL", "johns@boomrecords.co,jesse@boom
 APP_URL        = os.environ.get("APP_URL", "")
 
 # Named admin accounts — each gets their own password and display name.
-# Set JOHN_PASSWORD, JESSE_PASSWORD, FELIPE_PASSWORD as env vars in Railway.
+# Set JOHN_PASSWORD, JESSE_PASSWORD, FELIPE_PASSWORD, SOLI_PASSWORD as env vars in Railway.
 # ADMIN_PASSWORD kept as a generic fallback for backward compatibility.
 _ADMIN_ACCOUNTS_RAW = [
     (os.environ.get("JOHN_PASSWORD",""),   "John"),
     (os.environ.get("JESSE_PASSWORD",""),  "Jesse"),
     (os.environ.get("FELIPE_PASSWORD",""), "Felipe"),
+    (os.environ.get("SOLI_PASSWORD",""),   "Soli"),
     (os.environ.get("ADMIN_PASSWORD",""),  "Admin"),   # generic fallback
 ]
 ADMIN_ACCOUNTS = {pw: name for pw, name in _ADMIN_ACCOUNTS_RAW if pw}
 
 _USER_ACCOUNTS_RAW = [
-    (os.environ.get("SOLI_PASSWORD",""),  "Soli"),
     (os.environ.get("DANNY_PASSWORD",""), "Danny"),
 ]
 USER_ACCOUNTS = {pw: name for pw, name in _USER_ACCOUNTS_RAW if pw}
@@ -304,10 +304,10 @@ def danny_required(f):
     return dec
 
 def history_allowed(f):
-    """John and Jesse can view history."""
+    """John, Jesse, and Felipe can view history."""
     @wraps(f)
     def dec(*a, **kw):
-        if session.get("user_name") not in ("John", "Jesse"):
+        if session.get("user_name") not in ("John", "Jesse", "Felipe"):
             return redirect("/")
         return f(*a, **kw)
     return dec
