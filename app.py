@@ -267,8 +267,6 @@ def login():
             session["authenticated"] = True
             session["role"] = "user"
             session["user_name"] = USER_ACCOUNTS[pw]
-            if USER_ACCOUNTS[pw] == "Danny":
-                return redirect("/danny")
             return redirect("/")
         elif APP_PASSWORD and pw == APP_PASSWORD:
             session["authenticated"] = True
