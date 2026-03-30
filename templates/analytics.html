@@ -97,6 +97,22 @@
   @keyframes spin { to { transform:rotate(360deg); } }
   .note { font-size:11px; color:var(--muted); text-align:right; margin-top:-18px; margin-bottom:18px; }
   .no-data { text-align:center; color:var(--muted); padding:60px 0; font-size:14px; }
+
+  /* Overdue section */
+  .overdue-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:20px; overflow:hidden; }
+  .overdue-card-hdr { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .overdue-card-hdr h3 { font-size:14px; font-weight:800; margin:0; }
+  .overdue-count { background:var(--red); color:#fff; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; }
+  .overdue-empty { padding:24px 20px; color:var(--muted); font-size:13px; text-align:center; }
+  .overdue-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .overdue-table th { padding:9px 16px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); border-bottom:1.5px solid var(--border); background:#fafafa; white-space:nowrap; }
+  .overdue-table td { padding:10px 16px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+  .overdue-table tr:last-child td { border-bottom:none; }
+  .overdue-table tr:hover td { background:#fafafa; }
+  .tag-overdue { background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; white-space:nowrap; }
+  .tag-soon    { background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; white-space:nowrap; }
+  .tag-net15   { background:#dbeafe; color:#1d4ed8; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; }
+  .tag-net30   { background:#dcfce7; color:#15803d; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; }
 </style>
 </head>
 <body>
@@ -228,6 +244,15 @@
         <div class="chart-title">Uploaded to Stem</div>
         <div class="donut-wrap"><canvas id="chart-stem"></canvas></div>
       </div>
+    </div>
+
+    <!-- Overdue / due soon -->
+    <div class="overdue-card" id="overdue-card">
+      <div class="overdue-card-hdr">
+        <h3>⏰ Overdue &amp; Due Soon</h3>
+        <span class="overdue-count" id="overdue-count" style="display:none"></span>
+      </div>
+      <div id="overdue-body"><div class="overdue-empty">Loading…</div></div>
     </div>
 
     <div class="note">* Only USD amounts included in charts</div>
@@ -460,8 +485,75 @@ document.querySelectorAll('.filter-bar input, .filter-bar select').forEach(el =>
   el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
 });
 
+// ── Overdue / due-soon section ───────────────────────────────────────────────
+
+function dueDateFromTerms(invoiceDate, terms) {
+  if (!invoiceDate || !terms || terms === 'Hold') return null;
+  const days = terms === 'Net15' ? 15 : terms === 'Net30' ? 30 : null;
+  if (!days) return null;
+  const d = new Date(invoiceDate + 'T00:00:00');
+  if (isNaN(d)) return null;
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+async function loadOverdue() {
+  const res = await fetch('/entries');
+  const entries = await res.json();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const alerts = [];
+  entries.forEach(e => {
+    const due = dueDateFromTerms(e.invoice_date, e.payment_terms);
+    if (!due) return;
+    const diff = Math.round((due - today) / 86400000);
+    if (diff <= 7) alerts.push({e, diff, due});
+  });
+
+  const body    = document.getElementById('overdue-body');
+  const countEl = document.getElementById('overdue-count');
+
+  if (!alerts.length) {
+    body.innerHTML = '<div class="overdue-empty">No payments overdue or due within 7 days. ✓</div>';
+    countEl.style.display = 'none';
+    return;
+  }
+
+  alerts.sort((a, b) => a.diff - b.diff);
+  countEl.textContent = alerts.length;
+  countEl.style.display = 'inline-block';
+
+  const rows = alerts.map(({e, diff, due}) => {
+    const statusCls  = diff < 0 ? 'tag-overdue' : 'tag-soon';
+    const statusText = diff < 0
+      ? `${Math.abs(diff)}d overdue`
+      : diff === 0 ? 'Due today'
+      : `Due in ${diff}d`;
+    const dueStr = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    const termsCls = e.payment_terms === 'Net15' ? 'tag-net15' : 'tag-net30';
+    const amt = e.amount ? '$' + Number(e.amount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+    return `<tr>
+      <td style="font-weight:700">${e.payee||'—'}</td>
+      <td>${e.invoice_number||'—'}</td>
+      <td style="text-align:right;font-weight:700;color:#e31e24">${amt}</td>
+      <td><span class="${termsCls}">${e.payment_terms}</span></td>
+      <td>${dueStr}</td>
+      <td><span class="${statusCls}">${statusText}</span></td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `<table class="overdue-table">
+    <thead><tr>
+      <th>Payee</th><th>Invoice #</th><th style="text-align:right">Amount</th>
+      <th>Terms</th><th>Due Date</th><th>Status</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 // Initial load (no filters)
 load({});
+loadOverdue();
 </script>
 </body>
 </html>

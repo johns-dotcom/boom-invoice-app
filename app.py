@@ -158,7 +158,8 @@ def init_db():
                     "created_by TEXT",
                     "deleted BOOLEAN DEFAULT FALSE",
                     "vendor_address TEXT",
-                    "is_reimbursement BOOLEAN DEFAULT FALSE"]:
+                    "is_reimbursement BOOLEAN DEFAULT FALSE",
+                    "payment_terms TEXT"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -210,7 +211,8 @@ def init_db():
                     "created_by TEXT",
                     "deleted INTEGER DEFAULT 0",
                     "vendor_address TEXT",
-                    "is_reimbursement INTEGER DEFAULT 0"]:
+                    "is_reimbursement INTEGER DEFAULT 0",
+                    "payment_terms TEXT"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -554,7 +556,7 @@ def add_expense():
 @login_required
 def update_entry(eid):
     allowed = {"in_quickbooks","uploaded_to_stem","artist","song","notes",
-               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status","vendor_email"}
+               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status","vendor_email","payment_terms"}
     updates = {k:v for k,v in request.json.items() if k in allowed}
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
@@ -913,7 +915,8 @@ def entries():
                               vendor_submitted,vendor_name,w9_filename,
                               invoice_filename,proof_filename,cobrand,
                               approved_by,approved_at,currency,payment_status,
-                              created_at,created_by,vendor_email,is_reimbursement
+                              created_at,created_by,vendor_email,is_reimbursement,
+                              payment_terms
                        FROM expenses
                        WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY invoice_date DESC, id DESC""")
@@ -934,7 +937,8 @@ def entries():
                          "date_uploaded":str(r[24] or "")[:10],
                          "created_by":str(r[25] or ""),
                          "contact_email":str(r[26] or ""),
-                         "is_reimbursement":bool(r[27])} for r in rows])
+                         "is_reimbursement":bool(r[27]),
+                         "payment_terms":str(r[28] or "")} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 

@@ -82,6 +82,32 @@
   .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
   #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:12px 20px; border-radius:8px; font-weight:700; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
   #toast.show { opacity:1; transform:translateY(0); }
+  /* Due date badges */
+  .due-overdue  { background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+  .due-soon     { background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+  .due-ok       { background:#f1f5f9; color:#475569; font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+  .due-hold     { background:#ede9fe; color:#6d28d9; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+  /* Terms badge — clickable cycle */
+  .terms-badge  { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer; transition:opacity .15s; white-space:nowrap; user-select:none; }
+  .terms-badge:hover { opacity:.75; }
+  .terms-net15  { background:#dbeafe; color:#1d4ed8; }
+  .terms-net30  { background:#dcfce7; color:#15803d; }
+  .terms-hold   { background:#ede9fe; color:#6d28d9; }
+  .terms-none   { background:#f3f4f6; color:#9ca3af; }
+  /* Bell / payment-alert dropdown */
+  .bell-wrap { position:relative; }
+  .bell-btn { background:none; border:1.5px solid var(--border); border-radius:7px; padding:5px 11px; font-size:16px; cursor:pointer; line-height:1; position:relative; transition:border-color .15s; font-family:inherit; }
+  .bell-btn:hover { border-color:var(--red); }
+  .bell-badge { position:absolute; top:-6px; right:-6px; background:var(--red); color:#fff; font-size:9px; font-weight:900; min-width:16px; height:16px; border-radius:8px; display:none; align-items:center; justify-content:center; padding:0 3px; border:2px solid #fff; }
+  .bell-badge.on { display:flex; }
+  .bell-dropdown { display:none; position:absolute; right:0; top:calc(100% + 8px); width:310px; background:#fff; border:1.5px solid var(--border); border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.14); z-index:200; overflow:hidden; }
+  .bell-dropdown.open { display:block; }
+  .bell-hdr { padding:11px 16px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); border-bottom:1px solid var(--border); background:#fafafa; }
+  .bell-item { padding:10px 16px; border-bottom:1px solid #f3f4f6; font-size:13px; line-height:1.4; }
+  .bell-item:last-child { border-bottom:none; }
+  .bell-payee { font-weight:700; }
+  .bell-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .bell-empty { padding:22px 16px; text-align:center; color:var(--muted); font-size:13px; }
   #toast.error { background:#dc2626; }
 </style>
 </head>
@@ -100,6 +126,15 @@
     </a>
     <a href="/analytics" class="btn-ghost">Analytics</a>
     {% if current_user == 'John' or current_user == 'Jesse' %}<a href="/history" class="btn-ghost">History</a>{% endif %}
+    <div class="bell-wrap" id="bell-wrap">
+      <button class="bell-btn" id="bell-btn" onclick="toggleBell(event)" title="Payment alerts">
+        🔔<span class="bell-badge" id="bell-badge"></span>
+      </button>
+      <div class="bell-dropdown" id="bell-dropdown">
+        <div class="bell-hdr">Payment Alerts</div>
+        <div id="bell-items"></div>
+      </div>
+    </div>
     <a href="/export" class="btn-export">Excel</a>
     <a href="/export-qbo" class="btn-export">CSV</a>
     {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}<a href="/logout" class="btn-ghost">Sign out</a>
@@ -144,6 +179,7 @@
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
         <th>Method</th>
+        <th>Terms</th><th>Due</th>
         <th>Paid?</th><th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Proof?</th><th>Notes</th>
         <th>Approved By</th>
         <th>Uploaded</th><th>Date Paid</th>
@@ -235,6 +271,11 @@ async function undoLastChange() {
       else if (item.field==='cobrand') {
         if (entry) entry.cobrand = item.oldVal;
         document.getElementById(`cb-${item.id}`).innerHTML = cobrandBadge(item.id, item.oldVal);
+      } else if (item.field==='payment_terms') {
+        if (entry) entry.payment_terms = item.oldVal || null;
+        document.getElementById(`terms-${item.id}`).innerHTML = termsBadge(item.id, item.oldVal || null);
+        document.getElementById(`due-${item.id}`).innerHTML = dueDateCell(entry ? entry.invoice_date : null, item.oldVal || null);
+        renderBell(allEntries);
       } else {
         // text fields — re-render the whole row to be safe
         filterTable();
@@ -325,6 +366,7 @@ function filterTable() {
   renderRows(f);
   document.getElementById('row-count').textContent = `${f.length} of ${allEntries.length} entries`;
   updateTotals(f);
+  renderBell(f);
 }
 
 function updateTotals(entries) {
@@ -402,6 +444,8 @@ function renderRows(entries) {
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
       <td class="td-amount">${fmt(e.amount, e.currency)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${e.payment_method||'—'}</td>
+      <td id="terms-${e.id}">${termsBadge(e.id, e.payment_terms)}</td>
+      <td id="due-${e.id}">${dueDateCell(e.invoice_date, e.payment_terms)}</td>
       <td id="paid-${e.id}">${paymentBadge(e.id, e.payment_status)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
@@ -684,6 +728,110 @@ function toast(msg,isError=false) {
   el.textContent=msg;el.className='show'+(isError?' error':'');
   setTimeout(()=>el.className='',2500);
 }
+
+// ── Due date / payment terms ─────────────────────────────────────────────────
+
+function dueDateFromTerms(invoiceDate, terms) {
+  if (!invoiceDate || !terms || terms === 'Hold') return null;
+  const days = terms === 'Net15' ? 15 : terms === 'Net30' ? 30 : null;
+  if (!days) return null;
+  const d = new Date(invoiceDate + 'T00:00:00');
+  if (isNaN(d)) return null;
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function dueDateCell(invoiceDate, terms) {
+  if (!terms) return '<span style="color:#ccc;font-size:12px">—</span>';
+  if (terms === 'Hold') return '<span class="due-hold">On Hold</span>';
+  const due = dueDateFromTerms(invoiceDate, terms);
+  if (!due) return '<span style="color:#ccc;font-size:12px">—</span>';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((due - today) / 86400000);
+  const label = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  if (diff < 0)  return `<span class="due-overdue" title="${diff*-1} days overdue">⚠ ${label}</span>`;
+  if (diff <= 7) return `<span class="due-soon" title="Due in ${diff} day${diff===1?'':'s'}">${label}</span>`;
+  return `<span class="due-ok">${label}</span>`;
+}
+
+function termsBadge(id, terms) {
+  const label = terms || '—';
+  const cls = terms === 'Net15' ? 'terms-net15'
+            : terms === 'Net30' ? 'terms-net30'
+            : terms === 'Hold'  ? 'terms-hold'
+            : 'terms-none';
+  return `<span class="terms-badge ${cls}" onclick="cycleTerms(${id})" title="Click to change terms">${label}</span>`;
+}
+
+const TERMS_CYCLE = [null, 'Net15', 'Net30', 'Hold'];
+
+async function cycleTerms(id) {
+  const entry = allEntries.find(e => e.id === id);
+  const current = entry ? (entry.payment_terms || null) : null;
+  const idx = TERMS_CYCLE.indexOf(current);
+  const next = TERMS_CYCLE[(idx + 1) % TERMS_CYCLE.length];
+  const res = await fetch(`/update/${id}`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({payment_terms: next || ''})
+  });
+  if (res.ok) {
+    pushUndo({type: 'field', id, field: 'payment_terms', oldVal: current || ''});
+    if (entry) entry.payment_terms = next;
+    document.getElementById(`terms-${id}`).innerHTML = termsBadge(id, next);
+    document.getElementById(`due-${id}`).innerHTML = dueDateCell(entry ? entry.invoice_date : null, next);
+    flashRow(id); toast('Terms updated');
+    renderBell(allEntries);
+  } else toast('Save failed', true);
+}
+
+function renderBell(entries) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const alerts = [];
+  entries.forEach(e => {
+    const due = dueDateFromTerms(e.invoice_date, e.payment_terms);
+    if (!due) return;
+    const diff = Math.round((due - today) / 86400000);
+    if (diff <= 7) alerts.push({e, diff, due});
+  });
+
+  const badge = document.getElementById('bell-badge');
+  const itemsEl = document.getElementById('bell-items');
+
+  if (alerts.length) {
+    badge.textContent = alerts.length;
+    badge.classList.add('on');
+  } else {
+    badge.classList.remove('on');
+  }
+
+  if (!alerts.length) {
+    itemsEl.innerHTML = '<div class="bell-empty">All payments on track.</div>';
+    return;
+  }
+
+  alerts.sort((a, b) => a.diff - b.diff);
+  itemsEl.innerHTML = alerts.map(({e, diff, due}) => {
+    const urgency = diff < 0
+      ? `<span style="color:#b91c1c;font-weight:700">${Math.abs(diff)} day${Math.abs(diff)===1?'':'s'} overdue</span>`
+      : diff === 0
+        ? `<span style="color:#b45309;font-weight:700">Due today</span>`
+        : `<span style="color:#b45309;font-weight:700">Due in ${diff} day${diff===1?'':'s'}</span>`;
+    const dueStr = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    return `<div class="bell-item">
+      <div class="bell-payee">${e.payee||'—'}</div>
+      <div class="bell-meta">${urgency} &middot; ${dueStr} &middot; ${e.payment_terms}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBell(ev) {
+  ev.stopPropagation();
+  document.getElementById('bell-dropdown').classList.toggle('open');
+}
+
+document.addEventListener('click', () => {
+  document.getElementById('bell-dropdown').classList.remove('open');
+});
 
 loadEntries();
 </script>
