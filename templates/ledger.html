@@ -120,7 +120,7 @@
       Approvals
       {% if pending_count > 0 %}<span class="approval-badge">{{ pending_count }}</span>{% endif %}
     </a>
-    <a href="/analytics" class="btn-ghost">Analytics</a>
+    {% if current_user != 'Danny' %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
     {% if current_user == 'John' or current_user == 'Jesse' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
     <div class="bell-wrap" id="bell-wrap">
       <button class="bell-btn" id="bell-btn" onclick="toggleBell(event)" title="Payment alerts">

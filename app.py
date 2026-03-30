@@ -970,8 +970,13 @@ def danny_entries():
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind == "pg" else "?"
         cur.execute(f"""SELECT id, invoice_date, payee, description, category, artist, song,
-                               invoice_number, amount, currency, payment_status, payment_date,
-                               invoice_filename
+                               invoice_number, amount, payment_method, payment_date,
+                               in_quickbooks, uploaded_to_stem, notes,
+                               vendor_submitted, vendor_name, w9_filename,
+                               invoice_filename, proof_filename, cobrand,
+                               approved_by, approved_at, currency, payment_status,
+                               created_at, created_by, vendor_email, is_reimbursement,
+                               payment_terms
                         FROM expenses
                         WHERE (status = 'approved' OR status IS NULL)
                           AND deleted IS NOT TRUE
@@ -983,8 +988,17 @@ def danny_entries():
             "description": str(r[3] or ""), "category": str(r[4] or ""),
             "artist": str(r[5] or ""), "song": str(r[6] or ""),
             "invoice_number": str(r[7] or ""), "amount": r[8],
-            "currency": str(r[9] or "USD"), "payment_status": str(r[10] or "Unpaid"),
-            "payment_date": str(r[11] or ""), "has_invoice": bool(r[12])
+            "payment_method": str(r[9] or ""), "payment_date": str(r[10] or ""),
+            "in_quickbooks": str(r[11] or ""), "uploaded_to_stem": str(r[12] or ""),
+            "notes": str(r[13] or ""), "vendor_submitted": bool(r[14]),
+            "vendor_name": str(r[15] or ""), "w9_filename": str(r[16] or ""),
+            "has_invoice": bool(r[17]), "has_proof": bool(r[18]),
+            "cobrand": bool(r[19]) if r[19] else False,
+            "approved_by": str(r[20] or ""), "approved_at": str(r[21] or ""),
+            "currency": str(r[22] or "USD"), "payment_status": str(r[23] or "Unpaid"),
+            "date_uploaded": str(r[24] or "")[:10], "created_by": str(r[25] or ""),
+            "contact_email": str(r[26] or ""), "is_reimbursement": bool(r[27]),
+            "payment_terms": str(r[28] or "")
         } for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -107,7 +107,7 @@
           </div>
         </div>
         <div class="form-group full">
-          <label>Email Address <span class="req">*</span> <span class="opt">— used for 1099 delivery via QuickBooks</span></label>
+          <label>Email Address <span class="req">*</span> <span class="opt" id="label-1099"> — used for 1099 delivery via QuickBooks</span></label>
           <input type="email" name="vendor_email" placeholder="your@email.com" required/>
         </div>
         <div class="form-group full">
@@ -293,6 +293,9 @@ function setMode(mode) {
 
   // Receipt section — shown only for reimbursements
   document.getElementById('receipt-upload-section').style.display = isReimb ? 'block' : 'none';
+
+  // 1099 label — hidden for reimbursements
+  document.getElementById('label-1099').style.display = isReimb ? 'none' : '';
 }
 
 // ── Invoice duplicate lookup ───────────────────────────────────
