@@ -68,9 +68,15 @@ Return ONLY valid JSON — no markdown, no extra text:
   "has_tin_ssn_ein": true or false,
   "has_signature": true or false,
   "has_signed_date": true or false,
-  "issues": ["list each specific missing or incomplete field as a short plain-English sentence"]
+  "issues": []
 }
-Set a field to true ONLY if it is clearly present and completed. Look carefully for handwritten or typed signatures and dates in Part II of a W-9."""
+Rules:
+- "is_w9_or_w8" is true if this is a W-9, W-8BEN, W-8BEN-E, W-8ECI, W-8EXP, W-8IMY, or any variant.
+- "has_name" is true if any name (individual or entity) is filled in.
+- "has_tin_ssn_ein" is true if ANY tax identifier is present — including SSN, EIN, ITIN, or a foreign tax identifying number (FTIN). W-8 forms often use a foreign TIN instead of a US SSN/EIN; that counts as true.
+- "has_signature" is true if a handwritten or typed signature appears anywhere on the form.
+- "has_signed_date" is true if a date accompanies the signature.
+- Always return "issues" as an empty array []. Do not add your own issue commentary."""
 
 EXTRACT_PROMPT = """Extract the following fields from this invoice or receipt.
 Return ONLY valid JSON — no markdown, no extra text:
@@ -1319,13 +1325,13 @@ def validate_files():
         fb = f.read(); mime = ext_mime(f.filename)
         v = _validate_file(fb, mime, W9_VALIDATE_PROMPT)
         if v:
-            issues = list(v.get("issues") or [])
-            if not v.get("is_w9_or_w8"):      issues.append("This doesn't appear to be a W-9 or W-8 form.")
-            if not v.get("has_name"):          issues.append("Name field is blank or missing.")
-            if not v.get("has_tin_ssn_ein"):   issues.append("Tax ID (SSN / EIN) is missing.")
-            if not v.get("has_signature"):     issues.append("Signature is missing — the form must be signed.")
-            if not v.get("has_signed_date"):   issues.append("Signature date is missing.")
-            result["w9"] = list(dict.fromkeys(issues))
+            issues = []  # ignore AI-generated issues; use only our explicit checks
+            if not v.get("is_w9_or_w8"):    issues.append("This doesn't appear to be a W-9 or W-8 form.")
+            if not v.get("has_name"):        issues.append("Name field is blank or missing.")
+            if not v.get("has_tin_ssn_ein"): issues.append("Tax ID is missing — provide your SSN, EIN, ITIN, or foreign TIN.")
+            if not v.get("has_signature"):   issues.append("Signature is missing — the form must be signed.")
+            if not v.get("has_signed_date"): issues.append("Signature date is missing.")
+            result["w9"] = issues
 
     return jsonify({"ok": True, "issues": result})
 
