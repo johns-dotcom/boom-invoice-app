@@ -87,13 +87,9 @@
   .due-soon     { background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
   .due-ok       { background:#f1f5f9; color:#475569; font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; white-space:nowrap; }
   .due-hold     { background:#ede9fe; color:#6d28d9; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-  /* Terms badge — clickable cycle */
-  .terms-badge  { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; cursor:pointer; transition:opacity .15s; white-space:nowrap; user-select:none; }
-  .terms-badge:hover { opacity:.75; }
-  .terms-net15  { background:#dbeafe; color:#1d4ed8; }
-  .terms-net30  { background:#dcfce7; color:#15803d; }
-  .terms-hold   { background:#ede9fe; color:#6d28d9; }
-  .terms-none   { background:#f3f4f6; color:#9ca3af; }
+  /* Terms dropdown */
+  .terms-select { background:#fff; border:1.5px solid var(--border); border-radius:5px; font-size:12px; padding:3px 6px; font-family:inherit; color:var(--text); cursor:pointer; max-width:80px; }
+  .terms-select:focus { outline:none; border-color:var(--red); }
   /* Bell / payment-alert dropdown */
   .bell-wrap { position:relative; }
   .bell-btn { background:none; border:1.5px solid var(--border); border-radius:7px; padding:5px 11px; font-size:16px; cursor:pointer; line-height:1; position:relative; transition:border-color .15s; font-family:inherit; }
@@ -273,8 +269,9 @@ async function undoLastChange() {
         document.getElementById(`cb-${item.id}`).innerHTML = cobrandBadge(item.id, item.oldVal);
       } else if (item.field==='payment_terms') {
         if (entry) entry.payment_terms = item.oldVal || null;
-        document.getElementById(`terms-${item.id}`).innerHTML = termsBadge(item.id, item.oldVal || null);
-        document.getElementById(`due-${item.id}`).innerHTML = dueDateCell(entry ? entry.invoice_date : null, item.oldVal || null);
+        const sel = document.querySelector(`#terms-${item.id} select`);
+        if (sel) sel.value = item.oldVal || '';
+        document.getElementById(`due-${item.id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, item.oldVal || null);
         renderBell(allEntries);
       } else {
         // text fields — re-render the whole row to be safe
@@ -444,8 +441,8 @@ function renderRows(entries) {
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
       <td class="td-amount">${fmt(e.amount, e.currency)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${e.payment_method||'—'}</td>
-      <td id="terms-${e.id}">${termsBadge(e.id, e.payment_terms)}</td>
-      <td id="due-${e.id}">${dueDateCell(e.invoice_date, e.payment_terms)}</td>
+      <td id="terms-${e.id}">${termsSelect(e.id, e.payment_terms)}</td>
+      <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms)}</td>
       <td id="paid-${e.id}">${paymentBadge(e.id, e.payment_status)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
@@ -754,41 +751,38 @@ function dueDateCell(invoiceDate, terms) {
   return `<span class="due-ok">${label}</span>`;
 }
 
-function termsBadge(id, terms) {
-  const label = terms || '—';
-  const cls = terms === 'Net15' ? 'terms-net15'
-            : terms === 'Net30' ? 'terms-net30'
-            : terms === 'Hold'  ? 'terms-hold'
-            : 'terms-none';
-  return `<span class="terms-badge ${cls}" onclick="cycleTerms(${id})" title="Click to change terms">${label}</span>`;
+function termsSelect(id, terms) {
+  const opts = ['', 'Net15', 'Net30', 'Hold'].map(v =>
+    `<option value="${v}"${(terms || '') === v ? ' selected' : ''}>${v || '—'}</option>`
+  ).join('');
+  return `<select class="terms-select" onchange="saveTerms(${id}, this)">${opts}</select>`;
 }
 
-const TERMS_CYCLE = [null, 'Net15', 'Net30', 'Hold'];
-
-async function cycleTerms(id) {
+async function saveTerms(id, sel) {
+  const next  = sel.value || null;
   const entry = allEntries.find(e => e.id === id);
-  const current = entry ? (entry.payment_terms || null) : null;
-  const idx = TERMS_CYCLE.indexOf(current);
-  const next = TERMS_CYCLE[(idx + 1) % TERMS_CYCLE.length];
-  const res = await fetch(`/update/${id}`, {
+  const prev  = entry ? (entry.payment_terms || null) : null;
+  const res   = await fetch(`/update/${id}`, {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({payment_terms: next || ''})
   });
   if (res.ok) {
-    pushUndo({type: 'field', id, field: 'payment_terms', oldVal: current || ''});
+    pushUndo({type: 'field', id, field: 'payment_terms', oldVal: prev || ''});
     if (entry) entry.payment_terms = next;
-    document.getElementById(`terms-${id}`).innerHTML = termsBadge(id, next);
-    document.getElementById(`due-${id}`).innerHTML = dueDateCell(entry ? entry.invoice_date : null, next);
+    document.getElementById(`due-${id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, next);
     flashRow(id); toast('Terms updated');
     renderBell(allEntries);
-  } else toast('Save failed', true);
+  } else {
+    sel.value = prev || '';
+    toast('Save failed', true);
+  }
 }
 
 function renderBell(entries) {
   const today = new Date(); today.setHours(0,0,0,0);
   const alerts = [];
   entries.forEach(e => {
-    const due = dueDateFromTerms(e.invoice_date, e.payment_terms);
+    const due = dueDateFromTerms(e.date_uploaded, e.payment_terms);
     if (!due) return;
     const diff = Math.round((due - today) / 86400000);
     if (diff <= 7) alerts.push({e, diff, due});

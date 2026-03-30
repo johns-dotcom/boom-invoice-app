@@ -267,6 +267,8 @@ def login():
             session["authenticated"] = True
             session["role"] = "user"
             session["user_name"] = USER_ACCOUNTS[pw]
+            if USER_ACCOUNTS[pw] == "Danny":
+                return redirect("/danny")
             return redirect("/")
         elif APP_PASSWORD and pw == APP_PASSWORD:
             session["authenticated"] = True
@@ -290,6 +292,15 @@ def john_required(f):
     @wraps(f)
     def dec(*a, **kw):
         if session.get("user_name") != "John":
+            return redirect("/")
+        return f(*a, **kw)
+    return dec
+
+def danny_required(f):
+    """Danny (or admins) only."""
+    @wraps(f)
+    def dec(*a, **kw):
+        if session.get("user_name") not in ("Danny",) and not is_admin():
             return redirect("/")
         return f(*a, **kw)
     return dec
@@ -947,6 +958,38 @@ def entries():
 def ledger():
     return render_template("ledger.html", categories=CATEGORIES,
                            payment_methods=PAYMENT_METHODS, is_admin=is_admin())
+
+@app.route("/danny")
+@login_required
+@danny_required
+def danny():
+    return render_template("danny.html", current_user=session.get("user_name"))
+
+@app.route("/danny-entries")
+@login_required
+@danny_required
+def danny_entries():
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind == "pg" else "?"
+        cur.execute(f"""SELECT id, invoice_date, payee, description, category, artist, song,
+                               invoice_number, amount, currency, payment_status, payment_date,
+                               invoice_filename
+                        FROM expenses
+                        WHERE (status = 'approved' OR status IS NULL)
+                          AND deleted IS NOT TRUE
+                          AND LOWER(payment_method) = LOWER({ph})
+                        ORDER BY invoice_date DESC, id DESC""", ("PayPal",))
+        rows = cur.fetchall(); conn.close()
+        return jsonify([{
+            "id": r[0], "invoice_date": str(r[1] or ""), "payee": str(r[2] or ""),
+            "description": str(r[3] or ""), "category": str(r[4] or ""),
+            "artist": str(r[5] or ""), "song": str(r[6] or ""),
+            "invoice_number": str(r[7] or ""), "amount": r[8],
+            "currency": str(r[9] or "USD"), "payment_status": str(r[10] or "Unpaid"),
+            "payment_date": str(r[11] or ""), "has_invoice": bool(r[12])
+        } for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/invoices")
 @login_required

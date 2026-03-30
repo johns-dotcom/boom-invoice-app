@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom.Records — PayPal Summary</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root { --red:#e31e24; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+
+  header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
+  .header-right { display:flex; gap:8px; align-items:center; }
+  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
+  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
+
+  .page { max-width:960px; margin:0 auto; padding:28px 24px 60px; }
+
+  /* KPI strip */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .kpi { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; }
+  .kpi-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:5px; }
+  .kpi-value { font-size:24px; font-weight:900; color:var(--text); line-height:1; }
+  .kpi-value.red   { color:var(--red); }
+  .kpi-value.green { color:var(--green); }
+  .kpi-value.amber { color:#d97706; }
+
+  /* Search bar */
+  .toolbar { display:flex; gap:10px; align-items:center; margin-bottom:16px; }
+  .search-input { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 12px; color:var(--text); font-size:13px; font-family:inherit; width:260px; }
+  .search-input:focus { outline:none; border-color:var(--red); }
+  .filter-select { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 10px; font-size:13px; font-family:inherit; color:var(--text); }
+  .filter-select:focus { outline:none; border-color:var(--red); }
+  .count { color:var(--muted); font-size:13px; margin-left:auto; }
+
+  /* Table */
+  .table-wrap { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:#fafafa; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:10px 14px; text-align:left; border-bottom:1.5px solid var(--border); white-space:nowrap; }
+  tbody tr { border-bottom:1px solid var(--border); }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:#fafafa; }
+  tbody td { padding:10px 14px; vertical-align:middle; }
+  .td-date { white-space:nowrap; color:var(--muted); font-size:12px; }
+  .td-payee { font-weight:700; }
+  .td-trunc { color:var(--muted); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-amount { text-align:right; font-weight:700; color:var(--red); white-space:nowrap; }
+  .badge-paid    { background:#dcfce7; color:#15803d; }
+  .badge-unpaid  { background:#fee2e2; color:#b91c1c; }
+  .badge-partial { background:#fef3c7; color:#b45309; }
+  .badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; white-space:nowrap; }
+  a.inv-link { color:#6366f1; font-weight:700; text-decoration:none; font-size:12px; }
+  a.inv-link:hover { text-decoration:underline; }
+
+  .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .empty { text-align:center; padding:50px; color:var(--muted); }
+
+  /* Footer total row */
+  tfoot td { padding:10px 14px; font-size:13px; border-top:2px solid var(--border); background:#fafafa; }
+
+  /* PayPal pill in header */
+  .pp-pill { background:#003087; color:#fff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; letter-spacing:.04em; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">boom. <span class="pp-pill">PayPal</span></div>
+  <div class="header-right">
+    {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}
+    <a href="/logout" class="btn-ghost">Sign out</a>
+  </div>
+</header>
+
+<div class="page">
+  <div style="margin-bottom:20px">
+    <div style="font-size:20px;font-weight:900">PayPal Summary</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:3px">All approved PayPal invoices · read-only</div>
+  </div>
+
+  <div class="kpi-row" id="kpi-row" style="display:none">
+    <div class="kpi">
+      <div class="kpi-label">Total</div>
+      <div class="kpi-value red" id="kpi-total">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Paid</div>
+      <div class="kpi-value green" id="kpi-paid">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Unpaid</div>
+      <div class="kpi-value amber" id="kpi-unpaid">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Invoices</div>
+      <div class="kpi-value" id="kpi-count">—</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input class="search-input" id="search" placeholder="Search payee, description, artist…" oninput="filter()"/>
+    <select class="filter-select" id="filter-status" onchange="filter()">
+      <option value="">All statuses</option>
+      <option value="Unpaid">Unpaid</option>
+      <option value="Partial">Partial</option>
+      <option value="Paid">Paid</option>
+    </select>
+    <span class="count" id="row-count"></span>
+  </div>
+
+  <div class="table-wrap">
+    <div class="spinner" id="spinner"></div>
+    <table id="main-table" style="display:none">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Payee</th>
+          <th>Description</th>
+          <th>Artist</th>
+          <th>Inv #</th>
+          <th style="text-align:right">Amount</th>
+          <th>Status</th>
+          <th>Date Paid</th>
+          <th>Invoice</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+      <tfoot id="tfoot" style="display:none">
+        <tr>
+          <td colspan="5" style="font-weight:700;color:#555;text-align:right">TOTAL SHOWN</td>
+          <td id="foot-total" style="text-align:right;font-weight:900;color:var(--red)"></td>
+          <td colspan="3"></td>
+        </tr>
+      </tfoot>
+    </table>
+    <div class="empty" id="empty" style="display:none">No entries found.</div>
+  </div>
+</div>
+
+<script>
+let all = [];
+
+function fmt(v, currency) {
+  if (!v && v !== 0) return '—';
+  const sym = {USD:'$', EUR:'€', GBP:'£', CAD:'CA$', AUD:'A$'}[currency] || (currency + ' ');
+  return sym + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function fmtDate(d) {
+  if (!d || d === 'None') return '—';
+  try { const [y,m,day] = d.slice(0,10).split('-'); return `${m}/${day}/${y}`; }
+  catch { return d; }
+}
+
+function payBadge(status) {
+  const v = status || 'Unpaid';
+  const cls = v === 'Paid' ? 'badge-paid' : v === 'Partial' ? 'badge-partial' : 'badge-unpaid';
+  return `<span class="badge ${cls}">${v}</span>`;
+}
+
+async function load() {
+  const res = await fetch('/danny-entries');
+  all = await res.json();
+
+  // KPIs over full dataset
+  let total = 0, paid = 0, unpaid = 0;
+  all.forEach(e => {
+    const a = Number(e.amount) || 0;
+    total += a;
+    if ((e.payment_status || 'Unpaid') === 'Paid')       paid   += a;
+    else if ((e.payment_status || 'Unpaid') === 'Unpaid') unpaid += a;
+  });
+  document.getElementById('kpi-total').textContent   = fmt(total,   'USD');
+  document.getElementById('kpi-paid').textContent    = fmt(paid,    'USD');
+  document.getElementById('kpi-unpaid').textContent  = fmt(unpaid,  'USD');
+  document.getElementById('kpi-count').textContent   = all.length;
+  document.getElementById('kpi-row').style.display   = 'grid';
+
+  document.getElementById('spinner').style.display = 'none';
+  filter();
+}
+
+function filter() {
+  const q      = document.getElementById('search').value.toLowerCase();
+  const status = document.getElementById('filter-status').value;
+  const f = all.filter(e => {
+    if (q && !`${e.payee} ${e.description} ${e.artist} ${e.invoice_number}`.toLowerCase().includes(q)) return false;
+    if (status && (e.payment_status || 'Unpaid') !== status) return false;
+    return true;
+  });
+  render(f);
+}
+
+function render(entries) {
+  const tbody = document.getElementById('tbody');
+  const table = document.getElementById('main-table');
+  const empty = document.getElementById('empty');
+  const tfoot = document.getElementById('tfoot');
+
+  document.getElementById('row-count').textContent = `${entries.length} of ${all.length} entries`;
+
+  if (!entries.length) {
+    tbody.innerHTML = '';
+    table.style.display = 'none';
+    tfoot.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  table.style.display = 'table';
+
+  let shownTotal = 0;
+  tbody.innerHTML = entries.map(e => {
+    shownTotal += Number(e.amount) || 0;
+    return `<tr>
+      <td class="td-date">${fmtDate(e.invoice_date)}</td>
+      <td class="td-payee">${e.payee || '—'}</td>
+      <td class="td-trunc" title="${(e.description||'').replace(/"/g,'&quot;')}">${e.description || '—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${e.artist || '—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${e.invoice_number || '—'}</td>
+      <td class="td-amount">${fmt(e.amount, e.currency)}</td>
+      <td>${payBadge(e.payment_status)}</td>
+      <td class="td-date">${fmtDate(e.payment_date)}</td>
+      <td>${e.has_invoice ? `<a class="inv-link" href="/invoice/${e.id}" target="_blank">View ↗</a>` : '<span style="color:#ccc;font-size:12px">—</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('foot-total').textContent = fmt(shownTotal, 'USD');
+  tfoot.style.display = 'table-footer-group';
+}
+
+load();
+</script>
+</body>
+</html>

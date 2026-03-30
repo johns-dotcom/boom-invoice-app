@@ -504,7 +504,7 @@ async function loadOverdue() {
 
   const alerts = [];
   entries.forEach(e => {
-    const due = dueDateFromTerms(e.invoice_date, e.payment_terms);
+    const due = dueDateFromTerms(e.date_uploaded, e.payment_terms);
     if (!due) return;
     const diff = Math.round((due - today) / 86400000);
     if (diff <= 7) alerts.push({e, diff, due});
