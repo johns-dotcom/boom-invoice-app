@@ -1835,43 +1835,61 @@ def submit_invoice():
 @app.route("/vendors")
 @login_required
 def vendors_page():
+    vendors = []
+    conn = None
     try:
-        conn, kind = get_db(); cur = conn.cursor()
-        ph = "%s" if kind == "pg" else "?"
-        cur.execute("""SELECT payee,
-                              COUNT(*) as invoice_count,
-                              SUM(amount) as total_spent,
-                              MAX(invoice_date) as latest_date,
-                              MAX(vendor_email) as vendor_email,
-                              MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END) as has_w9,
-                              STRING_AGG(DISTINCT payment_method, ', ') as methods
-                       FROM expenses
-                       WHERE (status = 'approved' OR status IS NULL)
-                         AND deleted IS NOT TRUE
-                         AND payee IS NOT NULL
-                       GROUP BY LOWER(payee), payee
-                       ORDER BY total_spent DESC NULLS LAST""")
-        rows = cur.fetchall(); conn.close()
-        vendors = [{"payee": r[0], "count": r[1], "total": float(r[2] or 0),
-                    "latest": str(r[3] or ""), "email": str(r[4] or ""),
-                    "has_w9": bool(r[5]), "methods": str(r[6] or "")} for r in rows]
+        conn, kind = get_db()
+        cur = conn.cursor()
+        if kind == "pg":
+            cur.execute("""
+                SELECT payee,
+                       COUNT(*) AS invoice_count,
+                       SUM(amount) AS total_spent,
+                       MAX(invoice_date) AS latest_date,
+                       MAX(vendor_email) AS vendor_email,
+                       MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END) AS has_w9,
+                       STRING_AGG(DISTINCT payment_method, ', ') AS methods
+                FROM expenses
+                WHERE deleted IS NOT TRUE
+                  AND payee IS NOT NULL
+                  AND payee <> ''
+                GROUP BY payee
+                ORDER BY total_spent DESC NULLS LAST
+            """)
+        else:
+            cur.execute("""
+                SELECT payee,
+                       COUNT(*) AS invoice_count,
+                       SUM(amount) AS total_spent,
+                       MAX(invoice_date) AS latest_date,
+                       MAX(vendor_email) AS vendor_email,
+                       MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END) AS has_w9,
+                       '' AS methods
+                FROM expenses
+                WHERE deleted IS NOT TRUE
+                  AND payee IS NOT NULL
+                  AND payee <> ''
+                GROUP BY payee
+                ORDER BY total_spent DESC
+            """)
+        rows = cur.fetchall()
+        vendors = [{
+            "payee":     r[0],
+            "count":     int(r[1] or 0),
+            "total":     float(r[2] or 0),
+            "total_fmt": "${:,.0f}".format(float(r[2] or 0)),
+            "latest":    str(r[3] or ""),
+            "email":     str(r[4] or ""),
+            "has_w9":    bool(r[5]),
+            "methods":   str(r[6] or ""),
+        } for r in rows]
     except Exception as e:
-        # SQLite fallback (no STRING_AGG)
-        try:
-            conn, kind = get_db(); cur = conn.cursor()
-            cur.execute("""SELECT payee, COUNT(*) as invoice_count, SUM(amount) as total_spent,
-                                  MAX(invoice_date) as latest_date, MAX(vendor_email) as vendor_email,
-                                  MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END) as has_w9
-                           FROM expenses
-                           WHERE (status = 'approved' OR status IS NULL)
-                             AND deleted IS NOT TRUE AND payee IS NOT NULL
-                           GROUP BY LOWER(payee), payee ORDER BY total_spent DESC""")
-            rows = cur.fetchall(); conn.close()
-            vendors = [{"payee": r[0], "count": r[1], "total": float(r[2] or 0),
-                        "latest": str(r[3] or ""), "email": str(r[4] or ""),
-                        "has_w9": bool(r[5]), "methods": ""} for r in rows]
-        except:
-            vendors = []
+        app.logger.error("vendors_page error: %s", e, exc_info=True)
+        vendors = []
+    finally:
+        if conn:
+            try: conn.close()
+            except: pass
     return render_template("vendors.html", vendors=vendors,
                            is_admin=is_admin(), current_user=session.get("user_name"),
                            pending_count=get_pending_count())

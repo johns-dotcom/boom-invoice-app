@@ -143,7 +143,7 @@
         <div class="card-email">{{ v.email or '—' }}</div>
         <div class="card-stats">
           <div class="stat">
-            <div class="stat-val">${{ "{:,.0f}".format(v.total) }}</div>
+            <div class="stat-val">{{ v.total_fmt }}</div>
             <div class="stat-label">Total</div>
           </div>
           <div class="stat">
