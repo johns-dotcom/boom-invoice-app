@@ -65,6 +65,7 @@
     <a href="/ledger" class="btn-ghost">Ledger</a>
     <a href="/invoices" class="btn-ghost">Invoices</a>
     <span class="nav-pill">W9 / W8</span>
+    <a href="/vendors" class="btn-ghost">Vendors</a>
     <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
     {% if is_admin %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
     {% if current_user != 'Danny' %}<a href="/payments" class="btn-ghost">Payments</a>{% endif %}{% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
