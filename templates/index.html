@@ -52,18 +52,23 @@
   #success-banner { display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:14px 18px; margin-bottom:16px; font-size:13px; font-weight:600; color:var(--green); }
   #success-banner.show { display:block; }
   .side-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
-  .side-card-
+  .side-card-header { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); font-weight:700; font-size:13px; }
   .side-card-header a { font-size:11px; color:var(--red); text-decoration:none; font-weight:600; }
-  .recent-item { padding:12px 16px; border-bottom:1px solid var(--border); }
+  .recent-item { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .recent-item:last-child { border-bottom:none; }
-  .ri-payee { font-weight:700; font-size:13px; }
-  .ri-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .ri-left { flex:1; min-width:0; }
+  .ri-payee { font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ri-meta { font-size:11px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ri-right { text-align:right; flex-shrink:0; }
   .ri-amount { font-weight:700; color:var(--red); font-size:13px; }
-  .ri-badges { display:flex; gap:5px; margin-top:5px; }
+  .ri-badges { display:flex; gap:5px; margin-top:5px; justify-content:flex-end; }
   .ri-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
   .rb-yes { background:#dcfce7; color:#16a34a; }
   .rb-no { background:#fef3c7; color:#d97706; }
   .recent-empty { padding:28px; text-align:center; color:var(--muted); font-size:13px; }
+  .upload-row { display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:20px; }
+  .drop-zone-sm { border:2px dashed var(--border); border-radius:var(--radius); padding:20px 12px; text-align:center; cursor:pointer; transition:all .2s; background:#fff; }
+  .drop-zone-sm.has-file { border-color:var(--green); border-style:solid; background:#f0fdf4; }
 
   /* ── Mobile nav ─────────────────────────────────────────────────────────── */
   
@@ -78,7 +83,7 @@
     .stats { padding:10px 16px; gap:16px; }
     .layout { flex-direction:column; padding:16px; gap:16px; }
     .side-col { width:100%; }
-    .main-col > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; }
+    .upload-row { grid-template-columns:1fr; }
     .form-grid { grid-template-columns:1fr !important; }
     .form-group.full { grid-column:1; }
     .drop-zone { padding:24px 16px; }
@@ -101,7 +106,7 @@
 
 <div class="layout">
   <div class="main-col">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="upload-row">
       <div>
         <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
           <div class="drop-icon">📄</div>
@@ -113,11 +118,11 @@
         <button id="remove-invoice" onclick="removeInvoice()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
       <div>
-        <div class="drop-zone" id="drop-zone-w9" onclick="document.getElementById('file-input-w9').click()">
-          <div class="drop-icon">📋</div>
-          <div class="drop-title">W9 / W8</div>
-          <div class="drop-sub">Drop or click to upload</div>
-          <div class="drop-filename" id="drop-filename-w9"></div>
+        <div class="drop-zone drop-zone-sm" id="drop-zone-w9" onclick="document.getElementById('file-input-w9').click()">
+          <div class="drop-icon" style="font-size:22px">📋</div>
+          <div class="drop-title" style="font-size:13px">W9 / W8</div>
+          <div class="drop-sub" style="font-size:11px">optional</div>
+          <div class="drop-filename" id="drop-filename-w9" style="font-size:11px"></div>
         </div>
         <input type="file" id="file-input-w9" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
         <button id="remove-w9" onclick="removeW9()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
@@ -671,14 +676,16 @@ async function loadRecent() {
     if (!items.length) { el.innerHTML='<div class="recent-empty">No entries yet.</div>'; return; }
     el.innerHTML = items.map(i => `
       <div class="recent-item">
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="ri-left">
           <div class="ri-payee">${i.payee||'—'}</div>
-          <div class="ri-amount">${i.amount ? '$'+Number(i.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</div>
+          <div class="ri-meta">${i.date||''}${i.artist ? ' · '+i.artist : ''}${i.song ? ' · '+i.song : ''}</div>
+          <div class="ri-badges">
+            <span class="ri-badge ${i.qb==='Yes'?'rb-yes':'rb-no'}">QB: ${i.qb||'No'}</span>
+            <span class="ri-badge ${i.stem==='Yes'?'rb-yes':'rb-no'}">Stem: ${i.stem||'No'}</span>
+          </div>
         </div>
-        <div class="ri-meta">${i.date||''} ${i.artist ? '· '+i.artist : ''} ${i.song ? '· '+i.song : ''}</div>
-        <div class="ri-badges">
-          <span class="ri-badge ${i.qb==='Yes'?'rb-yes':'rb-no'}">QB: ${i.qb||'No'}</span>
-          <span class="ri-badge ${i.stem==='Yes'?'rb-yes':'rb-no'}">Stem: ${i.stem||'No'}</span>
+        <div class="ri-right">
+          <div class="ri-amount">${i.amount ? '$'+Number(i.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</div>
         </div>
       </div>`).join('');
   } catch(e) {}
