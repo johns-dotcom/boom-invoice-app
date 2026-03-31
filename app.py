@@ -170,7 +170,8 @@ def init_db():
                     "vendor_address TEXT",
                     "is_reimbursement BOOLEAN DEFAULT FALSE",
                     "payment_terms TEXT",
-                    "artist_breakdown TEXT"]:
+                    "artist_breakdown TEXT",
+                    "parent_id INTEGER"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -224,7 +225,8 @@ def init_db():
                     "vendor_address TEXT",
                     "is_reimbursement INTEGER DEFAULT 0",
                     "payment_terms TEXT",
-                    "artist_breakdown TEXT"]:
+                    "artist_breakdown TEXT",
+                    "parent_id INTEGER"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -837,15 +839,94 @@ def approve_entry(eid):
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         approver = session.get("user_name") or "Admin"
         now = datetime.now()
-        cur.execute(f"SELECT payee, invoice_number, amount FROM expenses WHERE id={ph}", (eid,))
-        payee_row = cur.fetchone()
-        cur.execute(f"""UPDATE expenses SET status='approved', approved_by={ph}, approved_at={ph}
-                        WHERE id={ph}""", (approver, now, eid))
+
+        # Fetch full row so we can clone it for split entries
+        cur.execute(f"""SELECT payee, invoice_number, amount, artist_breakdown,
+                               invoice_date, description, category,
+                               payment_method, notes, vendor_name, vendor_email,
+                               vendor_address, w9_filename, w9_data,
+                               invoice_filename, invoice_data,
+                               proof_filename, proof_data,
+                               cobrand, is_reimbursement, currency, payment_terms, created_at
+                        FROM expenses WHERE id={ph}""", (eid,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"error": "Entry not found"}), 404
+
+        (payee, inv_num, total_amount, breakdown_str,
+         inv_date, desc, category,
+         pay_method, notes, vendor_name, vendor_email,
+         vendor_addr, w9_fname, w9_data_val,
+         inv_fname, inv_data_val,
+         proof_fname, proof_data_val,
+         cobrand, is_reimb, currency, pay_terms, created_at_val) = row
+
+        breakdown = _parse_json_list(breakdown_str)
+
+        if breakdown and len(breakdown) > 1:
+            # ── Multi-artist split ───────────────────────────────────────────
+            n = len(breakdown)
+            raw_amounts = [e.get("amount") for e in breakdown]
+            # "Has amounts" = at least one row has a non-zero, non-null amount
+            has_any_amount = any(
+                a is not None and str(a).strip() not in ("", "0", "0.0", "0.00")
+                for a in raw_amounts
+            )
+            if has_any_amount:
+                split_amounts = []
+                for a in raw_amounts:
+                    try:
+                        split_amounts.append(
+                            round(float(str(a).replace(",","").strip()), 2)
+                            if a not in (None, "") else 0.0
+                        )
+                    except:
+                        split_amounts.append(0.0)
+            else:
+                # Even split — give any rounding remainder to the first artist
+                base = float(total_amount or 0)
+                per  = round(base / n, 2)
+                remainder = round(base - per * n, 2)
+                split_amounts = [round(per + remainder, 2)] + [per] * (n - 1)
+
+            # Update original row → first artist's data, clear breakdown
+            cur.execute(f"""UPDATE expenses
+                             SET status='approved', approved_by={ph}, approved_at={ph},
+                                 artist={ph}, song={ph}, amount={ph}, artist_breakdown=NULL
+                            WHERE id={ph}""",
+                        (approver, now,
+                         breakdown[0].get("artist",""), breakdown[0].get("song",""),
+                         split_amounts[0], eid))
+
+            # Insert a cloned row for each remaining artist
+            for i, entry in enumerate(breakdown[1:], 1):
+                cur.execute(f"""INSERT INTO expenses (
+                    invoice_date, payee, description, category, invoice_number,
+                    payment_method, notes, vendor_name, vendor_email, vendor_address,
+                    w9_filename, w9_data, invoice_filename, invoice_data,
+                    proof_filename, proof_data,
+                    cobrand, is_reimbursement, currency, payment_terms, created_at,
+                    artist, song, amount,
+                    status, approved_by, approved_at, parent_id
+                ) VALUES ({','.join([ph]*28)})""",
+                (inv_date, payee, desc, category, inv_num,
+                 pay_method, notes, vendor_name, vendor_email, vendor_addr,
+                 w9_fname, w9_data_val, inv_fname, inv_data_val,
+                 proof_fname, proof_data_val,
+                 cobrand, is_reimb, currency, pay_terms, created_at_val,
+                 entry.get("artist",""), entry.get("song",""), split_amounts[i],
+                 "approved", approver, now, eid))
+        else:
+            # ── Single artist — standard approval ────────────────────────────
+            cur.execute(f"""UPDATE expenses SET status='approved', approved_by={ph}, approved_at={ph}
+                            WHERE id={ph}""", (approver, now, eid))
+
         conn.commit(); conn.close()
         detail_parts = []
-        if payee_row and payee_row[1]: detail_parts.append(f"Invoice #{payee_row[1]}")
-        if payee_row and payee_row[2]: detail_parts.append(f"${payee_row[2]}")
-        log_action("invoice_approved", eid, payee_row[0] if payee_row else None,
+        if inv_num: detail_parts.append(f"Invoice #{inv_num}")
+        if total_amount: detail_parts.append(f"${total_amount}")
+        log_action("invoice_approved", eid, payee,
                    details=" | ".join(detail_parts) if detail_parts else None)
         return jsonify({"ok":True, "approved_by": approver, "approved_at": now.strftime("%Y-%m-%d %H:%M")})
     except Exception as e:
@@ -938,7 +1019,7 @@ def entries():
                               invoice_filename,proof_filename,cobrand,
                               approved_by,approved_at,currency,payment_status,
                               created_at,created_by,vendor_email,is_reimbursement,
-                              payment_terms
+                              payment_terms,parent_id
                        FROM expenses
                        WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY invoice_date DESC, id DESC""")
@@ -960,9 +1041,17 @@ def entries():
                          "created_by":str(r[25] or ""),
                          "contact_email":str(r[26] or ""),
                          "is_reimbursement":bool(r[27]),
-                         "payment_terms":str(r[28] or "")} for r in rows])
+                         "payment_terms":str(r[28] or ""),
+                         "parent_id":r[29]} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
+
+@app.route("/payments")
+@login_required
+def payments():
+    return render_template("payments.html",
+                           is_admin=is_admin(),
+                           current_user=session.get("user_name"))
 
 @app.route("/ledger")
 @login_required
@@ -989,7 +1078,7 @@ def danny_entries():
                                invoice_filename, proof_filename, cobrand,
                                approved_by, approved_at, currency, payment_status,
                                created_at, created_by, vendor_email, is_reimbursement,
-                               payment_terms
+                               payment_terms, parent_id
                         FROM expenses
                         WHERE (status = 'approved' OR status IS NULL)
                           AND deleted IS NOT TRUE
@@ -1011,7 +1100,7 @@ def danny_entries():
             "currency": str(r[22] or "USD"), "payment_status": str(r[23] or "Unpaid"),
             "date_uploaded": str(r[24] or "")[:10], "created_by": str(r[25] or ""),
             "contact_email": str(r[26] or ""), "is_reimbursement": bool(r[27]),
-            "payment_terms": str(r[28] or "")
+            "payment_terms": str(r[28] or ""), "parent_id": r[29]
         } for r in rows])
     except Exception as e:
         return jsonify({"error": str(e)}), 500

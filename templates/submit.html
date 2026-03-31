@@ -141,7 +141,7 @@
         <div class="form-group full">
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
             <label style="margin-bottom:0">Artist / Project <span class="req">*</span></label>
-            <span style="font-size:11px;color:#aaa;font-weight:400">Add a row for each artist on this invoice</span>
+            <span style="font-size:11px;color:#aaa;font-weight:400">Leave amount blank to split total evenly</span>
           </div>
           <div id="artist-rows"></div>
           <div id="artist-row-error" style="display:none;color:#e31e24;font-size:12px;margin-top:4px;font-weight:600">Please enter at least one artist or project.</div>
@@ -271,14 +271,22 @@ function addArtistRow() {
   const row       = document.createElement('div');
   row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:flex-start';
 
-  const inputStyle = 'flex:1;min-width:0;border:1.5px solid #e2e2e2;border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff';
+  const inputStyle  = 'width:100%;border:1.5px solid #e2e2e2;border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff';
   const removeStyle = 'flex-shrink:0;background:none;border:1.5px solid #e2e2e2;border-radius:7px;padding:0 11px;height:42px;cursor:pointer;font-size:13px;color:#ccc;transition:all .15s;font-family:inherit;line-height:1';
 
   row.innerHTML = `
-    <input type="text" class="artist-input" placeholder="${isFirst ? 'Artist / Project name' : 'Artist / Project (optional)'}"
-      style="${inputStyle}" onfocus="this.style.borderColor='#e31e24'" onblur="this.style.borderColor='#e2e2e2'"/>
-    <input type="text" class="song-input" placeholder="Song / Track"
-      style="${inputStyle}" onfocus="this.style.borderColor='#e31e24'" onblur="this.style.borderColor='#e2e2e2'"/>
+    <div style="flex:2;min-width:0">
+      <input type="text" class="artist-input" placeholder="${isFirst ? 'Artist / Project name' : 'Artist / Project'}"
+        style="${inputStyle}" onfocus="this.style.borderColor='#e31e24'" onblur="this.style.borderColor='#e2e2e2'"/>
+    </div>
+    <div style="flex:1.5;min-width:0">
+      <input type="text" class="song-input" placeholder="Song / Track"
+        style="${inputStyle}" onfocus="this.style.borderColor='#e31e24'" onblur="this.style.borderColor='#e2e2e2'"/>
+    </div>
+    <div style="flex:0.9;min-width:0">
+      <input type="text" class="amount-input" placeholder="Amount"
+        style="${inputStyle}" onfocus="this.style.borderColor='#e31e24'" onblur="this.style.borderColor='#e2e2e2'"/>
+    </div>
     ${isFirst
       ? '<div style="width:42px;flex-shrink:0"></div>'
       : `<button type="button" onclick="removeArtistRow(this)" style="${removeStyle}"
@@ -305,7 +313,9 @@ function populateArtistFields() {
   rows.forEach(r => {
     const a = r.querySelector('.artist-input').value.trim();
     const s = r.querySelector('.song-input').value.trim();
-    if (a) entries.push({artist: a, song: s});
+    const rawAmt = (r.querySelector('.amount-input').value || '').trim().replace(/[$,\s]/g,'');
+    const amt = rawAmt ? parseFloat(rawAmt) : null;
+    if (a) entries.push({artist: a, song: s, amount: amt});
   });
   if (!entries.length) return;
   document.getElementById('field-artist').value = entries[0].artist;

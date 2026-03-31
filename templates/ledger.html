@@ -121,7 +121,7 @@
       {% if pending_count > 0 %}<span class="approval-badge">{{ pending_count }}</span>{% endif %}
     </a>
     {% if current_user != 'Danny' %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
-    {% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
+    {% if current_user != 'Danny' %}<a href="/payments" class="btn-ghost">Payments</a>{% endif %}{% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
     <div class="bell-wrap" id="bell-wrap">
       <button class="bell-btn" id="bell-btn" onclick="toggleBell(event)" title="Payment alerts">
         🔔<span class="bell-badge" id="bell-badge"></span>
@@ -428,7 +428,7 @@ function renderRows(entries) {
   document.getElementById('ledger-table').style.display='table';
 
   tbody.innerHTML = entries.map(e => `
-    <tr id="row-${e.id}">
+    <tr id="row-${e.id}"${e.parent_id ? ' style="background:#faf8ff"' : ''}>
       <td class="td-date">${e.invoice_date||'—'}</td>
       <td class="td-payee">${e.payee||'—'}</td>
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -436,7 +436,10 @@ function renderRows(entries) {
       </td>
       <td class="td-trunc" title="${esc(e.description)}">${e.description||'—'}</td>
       <td>${e.category||'—'}</td>
-      <td><span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span></td>
+      <td>
+        <span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span>
+        ${e.parent_id ? '<span style="font-size:10px;background:#ede9fe;color:#7c3aed;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:5px;white-space:nowrap" title="Split from multi-artist invoice">↳ split</span>' : ''}
+      </td>
       <td><span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
       <td class="td-amount">${fmt(e.amount, e.currency)}</td>
@@ -448,8 +451,8 @@ function renderRows(entries) {
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
       <td id="cb-${e.id}">${cobrandBadge(e.id, e.cobrand)}</td>
       <td id="inv-onfile-${e.id}" style="text-align:center;white-space:nowrap">
-        ${e.has_invoice
-          ? `<a href="/invoice/${e.id}" target="_blank" style="color:#15803d;font-weight:700;font-size:12px;text-decoration:none" title="View invoice">Yes ↗</a>`
+        ${(e.has_invoice || e.parent_id)
+          ? `<a href="/invoice/${e.parent_id || e.id}" target="_blank" style="color:#15803d;font-weight:700;font-size:12px;text-decoration:none" title="View invoice">Yes ↗</a>`
           : `<span style="color:#b45309;font-size:12px;cursor:pointer;border-bottom:1px dotted #b45309" onclick="triggerInvoiceUpload(${e.id})" title="Click to attach invoice">No +</span><input type="file" id="inv-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadInvoiceFile(${e.id},this)"/>`}
       </td>
       <td id="w9-onfile-${e.id}" style="text-align:center;white-space:nowrap">
