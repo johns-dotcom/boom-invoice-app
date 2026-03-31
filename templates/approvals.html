@@ -18,41 +18,43 @@
   
   
 
-  .page { max-width:900px; margin:32px auto; padding:0 20px 60px; }
-  h1 { font-size:20px; font-weight:900; color:#111; margin-bottom:4px; }
-  .subtitle { font-size:13px; color:var(--muted); margin-bottom:24px; }
+  .page { max-width:860px; margin:28px auto; padding:0 20px 80px; }
+  .page-heading { display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+  h1 { font-size:20px; font-weight:900; color:#111; }
+  .count-pill { background:#fef2f2; color:var(--red); font-size:12px; font-weight:700; padding:2px 9px; border-radius:20px; border:1px solid #fca5a5; }
+  .subtitle { font-size:13px; color:var(--muted); margin-bottom:20px; }
 
   .empty-state { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:60px; text-align:center; }
   .empty-icon { font-size:40px; margin-bottom:12px; }
   .empty-title { font-size:16px; font-weight:700; color:#111; margin-bottom:6px; }
   .empty-sub { font-size:13px; color:var(--muted); }
 
-  .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px; overflow:hidden; }
-  .card-header { padding:16px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:12px; }
-  .vendor-avatar { width:40px; height:40px; border-radius:50%; background:#fef2f2; border:2px solid #fca5a5; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:var(--red); flex-shrink:0; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:12px; margin-bottom:14px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .card-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; background:#fafafa; }
+  .vendor-avatar { width:38px; height:38px; border-radius:50%; background:#fef2f2; border:1.5px solid #fca5a5; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; color:var(--red); flex-shrink:0; }
   .vendor-info { flex:1; min-width:0; }
-  .vendor-name { font-weight:700; font-size:15px; color:#111; }
-  .vendor-email { font-size:12px; color:var(--muted); margin-top:2px; }
-  .submitted-time { font-size:11px; color:var(--muted); white-space:nowrap; margin-top:2px; }
+  .vendor-name { font-weight:700; font-size:14px; color:#111; }
+  .vendor-email { font-size:12px; color:var(--muted); margin-top:1px; }
+  .submitted-time { font-size:11px; color:var(--muted); white-space:nowrap; }
 
-  .card-body { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
+  .card-body { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px 28px; }
   .field { }
-  .field-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:2px; }
-  .field-value { font-size:13px; color:#111; font-weight:600; }
-  .field-value.muted { font-weight:400; color:var(--muted); font-style:italic; }
-  .field-value.amount { color:var(--red); font-size:15px; font-weight:900; }
+  .field-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#aaa; margin-bottom:3px; }
+  .field-value { font-size:13px; color:#111; font-weight:600; line-height:1.4; }
+  .field-value.muted { font-weight:400; color:#bbb; font-style:italic; }
+  .field-value.amount { color:var(--red); font-size:16px; font-weight:900; }
   .notes-row { grid-column:1/-1; }
 
-  .card-files { padding:12px 20px; background:#fafafa; border-top:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; }
-  a.file-pill { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1.5px solid var(--border); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; color:#111; text-decoration:none; transition:all .15s; }
+  .card-files { padding:10px 20px; background:#f9f9f9; border-top:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap; }
+  a.file-pill { display:inline-flex; align-items:center; gap:5px; background:#fff; border:1.5px solid var(--border); border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; color:#444; text-decoration:none; transition:all .15s; }
   a.file-pill:hover { border-color:var(--red); color:var(--red); }
-  a.file-pill span { font-size:14px; }
+  a.file-pill span { font-size:13px; }
 
-  .card-actions { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:center; justify-content:flex-end; }
-  .btn-approve { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:9px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; display:flex; align-items:center; gap:6px; }
+  .card-actions { padding:12px 20px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:center; justify-content:flex-end; background:#fff; }
+  .btn-approve { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:8px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; display:flex; align-items:center; gap:6px; }
   .btn-approve:hover { background:#15803d; }
   .btn-approve:disabled { background:#86efac; cursor:not-allowed; }
-  .btn-reject { background:#fff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:7px; padding:9px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .15s; }
+  .btn-reject { background:#fff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:7px; padding:8px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .15s; }
   .btn-reject:hover { background:#fef2f2; border-color:#dc2626; }
   .btn-reject:disabled { opacity:.5; cursor:not-allowed; }
   .action-note { font-size:12px; color:var(--muted); margin-right:auto; }
@@ -70,7 +72,7 @@
   #toast.error { background:#dc2626; }
 
   /* Bulk approve floating bar */
-  .bulk-bar { display:none; position:fixed; bottom:24px; left:24px; right:24px; max-width:500px; margin:0 auto; background:var(--red); color:#fff; padding:14px 20px; border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:998; display:flex; align-items:center; justify-content:space-between; }
+  .bulk-bar { display:none; position:fixed; bottom:24px; left:24px; right:24px; max-width:500px; margin:0 auto; background:var(--red); color:#fff; padding:14px 20px; border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:998; align-items:center; justify-content:space-between; }
   .bulk-bar.show { display:flex; animation:slideUp .3s ease; }
   @keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
   .bulk-status { flex:1; font-weight:700; font-size:14px; }
@@ -114,7 +116,10 @@
 
 
 <div class="page">
-  <h1>Pending Approvals</h1>
+  <div class="page-heading">
+    <h1>Pending Approvals</h1>
+    {% if items %}<span class="count-pill">{{ items|length }}</span>{% endif %}
+  </div>
   <div class="subtitle">Review vendor-submitted invoices before they appear in the ledger.</div>
 
   {% if not items %}
