@@ -519,11 +519,11 @@ def health():
 @app.route("/")
 @login_required
 def index():
-    return redirect(url_for("add_invoice"))
+    return redirect(url_for("invoice_form"))
 
 @app.route("/add")
 @login_required
-def add_invoice():
+def invoice_form():
     return render_template("index.html", categories=CATEGORIES,
                            payment_methods=PAYMENT_METHODS,
                            api_configured=bool(ANTHROPIC_KEY),
