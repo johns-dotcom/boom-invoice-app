@@ -27,31 +27,34 @@
   
   .badge-cobrand { background:#fce7f3; color:#9d174d; }
   .badge-cobrand-no { background:#f3f4f6; color:#6b7280; }
-  .toolbar { padding:12px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:#fff; }
-  .search-input, .filter-select { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; color:var(--text); font-size:13px; font-family:inherit; }
-  .search-input { width:220px; }
-  .search-input:focus, .filter-select:focus { outline:none; border-color:var(--red); }
-  .count { color:var(--muted); font-size:13px; margin-left:auto; }
+  .toolbar { padding:10px 20px; display:flex; gap:12px; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:#fff; flex-wrap:wrap; }
+  .toolbar-left { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:1; min-width:0; }
+  .toolbar-right { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+  .toolbar-divider { width:1px; height:20px; background:var(--border); margin:0 2px; }
+  .search-input, .filter-select { background:#fafafa; border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; color:var(--text); font-size:13px; font-family:inherit; transition:border-color .15s; }
+  .search-input { width:210px; }
+  .search-input:focus, .filter-select:focus { outline:none; border-color:var(--red); background:#fff; }
+  .count { color:var(--muted); font-size:12px; white-space:nowrap; }
   .table-wrap { overflow-x:auto; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
-  thead th { background:#fff; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:1; }
-  tbody tr { border-bottom:1px solid var(--border); background:#fff; transition:background .1s; }
+  thead th { background:#f8f9fa; color:#9ca3af; font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:1; }
+  tbody tr { border-bottom:1px solid #f3f4f6; background:#fff; transition:background .1s; }
   tbody tr:hover { background:#fafafa; }
-  tbody td { padding:9px 12px; vertical-align:middle; }
-  .td-date { white-space:nowrap; color:var(--muted); font-size:12px; }
+  tbody td { padding:11px 14px; vertical-align:middle; }
+  .td-date { white-space:nowrap; color:#9ca3af; font-size:12px; font-weight:600; }
   .td-payee { font-weight:700; }
-  .td-payee a { color:var(--text); text-decoration:none; font-weight:700; transition:opacity .15s; }
-  .td-payee a:hover { color:var(--red); text-decoration:underline; }
-  .td-trunc { color:var(--muted); max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .td-amount { text-align:right; font-weight:700; color:var(--red); white-space:nowrap; }
-  .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; transition:opacity .15s; user-select:none; }
+  .td-payee a { color:var(--text); text-decoration:none; font-weight:700; transition:color .15s; }
+  .td-payee a:hover { color:var(--red); }
+  .td-trunc { color:#9ca3af; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  .td-amount { text-align:right; font-weight:900; color:var(--red); white-space:nowrap; font-size:14px; letter-spacing:-.01em; }
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:5px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; transition:opacity .15s; user-select:none; }
   .badge:hover { opacity:.75; }
-  .badge-yes { background:#dcfce7; color:#15803d; }
-  .badge-no  { background:#fef3c7; color:#b45309; }
-  .badge-na  { background:#f3f4f6; color:#6b7280; }
-  .badge-paid    { background:#dcfce7; color:#15803d; }
-  .badge-unpaid  { background:#fee2e2; color:#b91c1c; }
-  .badge-partial { background:#fef3c7; color:#b45309; }
+  .badge-yes { background:#d1fae5; color:#065f46; }
+  .badge-no  { background:#fef9c3; color:#92400e; }
+  .badge-na  { background:#f1f5f9; color:#64748b; }
+  .badge-paid    { background:#d1fae5; color:#065f46; }
+  .badge-unpaid  { background:#fee2e2; color:#991b1b; }
+  .badge-partial { background:#fef9c3; color:#92400e; }
   .badge .edit-icon { font-size:9px; opacity:.5; }
   .status-select { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:3px 7px; cursor:pointer; font-family:inherit; }
   .status-select:focus { outline:none; }
@@ -215,20 +218,6 @@
 <body>
 
 {% include '_nav.html' %}
-<!-- Mobile nav drawer -->
-<nav class="mob-nav" id="mob-nav">
-  <a href="/">+ Add Invoice</a>
-  <a href="/ledger" style="color:var(--red)">Ledger</a>
-  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
-  <a href="/invoices">Invoices</a>
-  <a href="/w9s">W9 / W8</a>
-  <a href="/vendors">Vendors</a>
-  {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
-  {% if current_user == 'John' %}<a href="/calendar">Calendar</a>{% endif %}
-  {% if is_admin %}<a href="/1099">1099 Summary</a>{% endif %}
-  <a href="/export" style="color:var(--green)">Export Excel</a>
-  <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
-</nav>
 
 <!-- Mobile search toolbar -->
 <div class="m-toolbar">
@@ -240,44 +229,49 @@
 <div id="mobile-list"></div>
 
 <div class="toolbar">
-  <input class="search-input" id="search" placeholder="Search payee, artist, song…" oninput="filterTable()"/>
-  <select class="filter-select" id="filter-qb" onchange="filterTable()">
-    <option value="">All QB statuses</option>
-    <option value="No">QB — Pending</option>
-    <option value="Yes">QB — Done</option>
-  </select>
-  <select class="filter-select" id="filter-stem" onchange="filterTable()">
-    <option value="">All Stem statuses</option>
-    <option value="No">Stem — Pending</option>
-    <option value="Yes">Stem — Done</option>
-  </select>
-  <select class="filter-select" id="filter-cat" onchange="filterTable()">
-    <option value="">All categories</option>
-  </select>
-  <select class="filter-select" id="filter-artist" onchange="filterTable()">
-    <option value="">All artists</option>
-  </select>
-  <select class="filter-select" id="filter-paid" onchange="filterTable()">
-    <option value="">All payment statuses</option>
-    <option value="Unpaid">Unpaid</option>
-    <option value="Partial">Partial</option>
-    <option value="Paid">Paid</option>
-  </select>
-  <span class="count" id="row-count"></span>
-  <button class="btn-clear" onclick="clearFilters()">✕ Clear filters</button>
-  <button class="btn-undo" id="undo-btn" onclick="undoLastChange()">↩ Undo</button>
-  <div class="btn-toolbar-wrap">
-    <button class="toolbar-button" onclick="toggleColumnsPanel()">⚙ Columns</button>
-    <div class="dropdown-panel" id="columns-panel">
-      <div id="columns-list"></div>
-      <div class="col-count"><span id="col-count-text"></span></div>
-    </div>
+  <div class="toolbar-left">
+    <input class="search-input" id="search" placeholder="Search payee, artist, song…" oninput="filterTable()"/>
+    <select class="filter-select" id="filter-qb" onchange="filterTable()">
+      <option value="">All QB</option>
+      <option value="No">QB — Pending</option>
+      <option value="Yes">QB — Done</option>
+    </select>
+    <select class="filter-select" id="filter-stem" onchange="filterTable()">
+      <option value="">All Stem</option>
+      <option value="No">Stem — Pending</option>
+      <option value="Yes">Stem — Done</option>
+    </select>
+    <select class="filter-select" id="filter-cat" onchange="filterTable()">
+      <option value="">All categories</option>
+    </select>
+    <select class="filter-select" id="filter-artist" onchange="filterTable()">
+      <option value="">All artists</option>
+    </select>
+    <select class="filter-select" id="filter-paid" onchange="filterTable()">
+      <option value="">All payments</option>
+      <option value="Unpaid">Unpaid</option>
+      <option value="Partial">Partial</option>
+      <option value="Paid">Paid</option>
+    </select>
   </div>
-  <div class="btn-toolbar-wrap">
-    <button class="toolbar-button" onclick="togglePresetsPanel()">Presets</button>
-    <div class="dropdown-panel" id="presets-panel">
-      <div id="presets-list"></div>
-      <div class="preset-item-save" onclick="savePreset()">+ Save current filters</div>
+  <div class="toolbar-right">
+    <span class="count" id="row-count"></span>
+    <div class="toolbar-divider"></div>
+    <button class="btn-clear" onclick="clearFilters()">Clear</button>
+    <button class="btn-undo" id="undo-btn" onclick="undoLastChange()">Undo</button>
+    <div class="btn-toolbar-wrap">
+      <button class="toolbar-button" onclick="toggleColumnsPanel()">Columns</button>
+      <div class="dropdown-panel" id="columns-panel">
+        <div id="columns-list"></div>
+        <div class="col-count"><span id="col-count-text"></span></div>
+      </div>
+    </div>
+    <div class="btn-toolbar-wrap">
+      <button class="toolbar-button" onclick="togglePresetsPanel()">Presets</button>
+      <div class="dropdown-panel" id="presets-panel">
+        <div id="presets-list"></div>
+        <div class="preset-item-save" onclick="savePreset()">+ Save current filters</div>
+      </div>
     </div>
   </div>
 </div>
