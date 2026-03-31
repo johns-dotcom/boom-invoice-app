@@ -100,15 +100,18 @@
   .split-labels span:nth-child(3) { flex:0 0 90px; }
   .split-labels span:last-child { width:28px; }
   .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
-  /* ── Split group styling (Option B) ── */
+  /* ── Split group styling ── */
+  tr.split-group-parent { cursor:pointer; }
   tr.split-group-parent td { background:#fafaff; }
-  tr.split-group-parent:hover td { background:#f3f4ff !important; }
+  tr.split-group-parent:hover td { background:#f0f1ff !important; }
   tr.split-group-top td { border-top: 2px solid #c7d2fe !important; }
   tr.split-group-child td { background:#f5f5ff; }
   tr.split-group-child:hover td { background:#eceeff !important; }
   tr.split-group-child td:first-child { border-left: 3px solid #c7d2fe; }
   tr.split-group-bottom td { border-bottom: 2px solid #c7d2fe !important; }
+  tr.split-group-child { transition: opacity .15s; }
   .tag-artists { display:inline-block; background:#dbeafe; color:#1d4ed8; font-size:10px; font-weight:800; padding:2px 7px; border-radius:20px; margin-left:6px; white-space:nowrap; letter-spacing:.02em; }
+  .split-toggle { font-size:10px; color:#a5b4fc; margin-left:5px; transition:transform .2s; display:inline-block; }
   .split-indent { color:#a5b4fc; font-size:11px; margin-right:4px; }
   #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:12px 20px; border-radius:8px; font-weight:700; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
   #toast.show { opacity:1; transform:translateY(0); }
@@ -409,6 +412,12 @@ function filterTable() {
     return true;
   });
   renderRows(f);
+  // Re-apply any previously expanded split groups
+  expandedGroups.forEach(pid => {
+    document.querySelectorAll(`tr.split-group-child[data-parent="${pid}"]`).forEach(r => r.style.display = '');
+    const arrow = document.getElementById(`toggle-${pid}`);
+    if (arrow) arrow.textContent = '▼';
+  });
   document.getElementById('row-count').textContent = `${f.length} of ${allEntries.length} entries`;
   updateTotals(f);
   renderBell(f);
@@ -501,21 +510,23 @@ function renderRows(entries) {
       isLastChild ? 'split-group-bottom' : ''
     ].join(' ').trim();
 
+    const allArtists = isParent ? [e.artist, ...children.map(c => c.artist)].filter(Boolean).join(', ') : '';
+
     return `
-    <tr id="row-${e.id}"${rowClass ? ` class="${rowClass}"` : ''}>
+    <tr id="row-${e.id}"${rowClass ? ` class="${rowClass}"` : ''}${isParent ? ` onclick="toggleSplitGroup(${e.id})"` : ''}${isChild ? ` data-parent="${e.parent_id}" style="display:none"` : ''}>
       <td class="td-date">${e.invoice_date||'—'}</td>
       <td class="td-payee">${isChild ? '' : e.payee||'—'}</td>
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-        ${isChild ? '' : `<span class="editable-cell" onclick="editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
+        ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
       <td class="td-trunc" title="${esc(e.description)}">${isChild ? '' : e.description||'—'}</td>
       <td>${isChild ? '' : e.category||'—'}</td>
       <td${isChild ? ' style="padding-left:26px"' : ''}>
         ${isChild ? '<span class="split-indent">↳</span>' : ''}
-        <span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span>
-        ${isParent ? `<span class="tag-artists">${artistCount} artists</span>` : ''}
+        <span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'artist',this,'${esc(e.artist)}')">${isParent ? esc(allArtists) : e.artist||'—'}</span>
+        ${isParent ? `<span class="tag-artists">${artistCount} artists</span><span class="split-toggle" id="toggle-${e.id}">▶</span>` : ''}
       </td>
-      <td><span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
+      <td><span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
       <td class="td-amount">${fmt(e.amount, e.currency)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${e.payment_method||'—'}</td>
@@ -781,6 +792,25 @@ async function uploadW9(id, input) {
 function flashRow(id) {
   const row=document.getElementById(`row-${id}`);
   if(row){row.classList.add('saved-flash');setTimeout(()=>row.classList.remove('saved-flash'),400);}
+}
+
+// ─── Collapsible split groups ─────────────────────────────────────────────────
+const expandedGroups = new Set();
+
+function toggleSplitGroup(parentId) {
+  const isExpanded = expandedGroups.has(parentId);
+  if (isExpanded) {
+    expandedGroups.delete(parentId);
+  } else {
+    expandedGroups.add(parentId);
+  }
+  // Show/hide child rows
+  document.querySelectorAll(`tr.split-group-child[data-parent="${parentId}"]`).forEach(row => {
+    row.style.display = isExpanded ? 'none' : '';
+  });
+  // Rotate toggle arrow
+  const arrow = document.getElementById(`toggle-${parentId}`);
+  if (arrow) arrow.textContent = isExpanded ? '▶' : '▼';
 }
 
 // ─── Split entry ──────────────────────────────────────────────────────────────
