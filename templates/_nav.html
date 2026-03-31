@@ -24,19 +24,26 @@
       <a href="/danny" class="{{ 'nav-active' if p == '/danny' else 'nav-link' }}">PayPal</a>
     {% endif %}
 
+    {# Secondary links — collapsed into "More" dropdown for admins/power users #}
     {% if is_admin or current_user in ['John', 'Jesse', 'Felipe'] %}
       <div class="nav-divider"></div>
-    {% endif %}
-
-    {% if is_admin %}
-      <a href="/analytics" class="{{ 'nav-active' if p == '/analytics' else 'nav-link' }}">Analytics</a>
-      <a href="/1099"      class="{{ 'nav-active' if p == '/1099' else 'nav-link' }}">1099</a>
-    {% endif %}
-    {% if current_user == 'John' %}
-      <a href="/calendar" class="{{ 'nav-active' if p == '/calendar' else 'nav-link' }}">Calendar</a>
-    {% endif %}
-    {% if current_user in ['John', 'Jesse', 'Felipe'] %}
-      <a href="/history" class="{{ 'nav-active' if p == '/history' else 'nav-link' }}">History</a>
+      <div class="nav-more-wrap">
+        <button class="nav-more-btn{{ ' nav-more-active' if p in ['/analytics', '/1099', '/calendar', '/history'] else '' }}" onclick="toggleNavMore(event)">
+          More <span class="caret">▾</span>
+        </button>
+        <div class="nav-more-dropdown" id="nav-more-dropdown">
+          {% if is_admin %}
+            <a href="/analytics" class="{{ 'active' if p == '/analytics' else '' }}">Analytics</a>
+            <a href="/1099"      class="{{ 'active' if p == '/1099' else '' }}">1099</a>
+          {% endif %}
+          {% if current_user == 'John' %}
+            <a href="/calendar"  class="{{ 'active' if p == '/calendar' else '' }}">Calendar</a>
+          {% endif %}
+          {% if current_user in ['John', 'Jesse', 'Felipe'] %}
+            <a href="/history"   class="{{ 'active' if p == '/history' else '' }}">History</a>
+          {% endif %}
+        </div>
+      </div>
     {% endif %}
 
     <div class="nav-divider"></div>
@@ -88,9 +95,15 @@
 function toggleNavExport(e) {
   e.stopPropagation();
   document.getElementById('nav-export-dropdown').classList.toggle('open');
+  document.getElementById('nav-more-dropdown')?.classList.remove('open');
+}
+function toggleNavMore(e) {
+  e.stopPropagation();
+  document.getElementById('nav-more-dropdown').classList.toggle('open');
+  document.getElementById('nav-export-dropdown')?.classList.remove('open');
 }
 document.addEventListener('click', function() {
-  const d = document.getElementById('nav-export-dropdown');
-  if (d) d.classList.remove('open');
+  document.getElementById('nav-export-dropdown')?.classList.remove('open');
+  document.getElementById('nav-more-dropdown')?.classList.remove('open');
 });
 </script>
