@@ -603,7 +603,16 @@ function rowHtml(e) {
       ${esc(e.artist)||'—'}
       ${isSplit ? '<span class="tag tag-split">↳ split</span>' : ''}
     </td>
-    <td style="color:#bbb;font-size:12px">${esc(e.invoice_number)||'—'}</td>
+    <td><input
+      class="inv-num-input"
+      value="${esc(e.invoice_number||'')}"
+      placeholder="—"
+      data-id="${e.id}"
+      data-orig="${esc(e.invoice_number||'')}"
+      style="width:82px;border:none;border-bottom:1px dashed #bbb;background:transparent;font-size:0.82rem;text-align:center;padding:2px 4px;outline:none;cursor:text;color:#555"
+      onblur="saveInvNum(this)"
+      onkeydown="if(event.key==='Enter'){this.blur()}"
+    /></td>
     <td class="amt ${isPaid ? 'amt-muted' : ''}">${fmt(e.amount, e.currency)}</td>
     <td><span class="tag tag-method">${esc(e.payment_method)||'—'}</span></td>
     <td>${dueBadge(e)}</td>
@@ -675,6 +684,32 @@ function clearSelection() {
 }
 
 // ─── Mark paid ────────────────────────────────────────────────────────────────
+async function saveInvNum(input) {
+  const id   = +input.dataset.id;
+  const val  = input.value.trim();
+  const orig = input.dataset.orig;
+  if (val === orig) return;
+  input.style.borderBottomColor = '#aaa';
+  try {
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({invoice_number: val})
+    });
+    if (!r.ok) throw new Error();
+    input.dataset.orig = val;
+    // Update allEntries so search/filter reflects new value
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) entry.invoice_number = val;
+    input.style.borderBottomColor = '#4caf50';
+    setTimeout(() => input.style.borderBottomColor = '#bbb', 1200);
+  } catch {
+    input.style.borderBottomColor = '#e53935';
+    input.value = orig;
+    setTimeout(() => input.style.borderBottomColor = '#bbb', 1500);
+  }
+}
+
 async function markOnePaid(id) {
   const entry = allEntries.find(e => e.id === id);
   if (!entry || entry.payment_status === 'Paid') return;
