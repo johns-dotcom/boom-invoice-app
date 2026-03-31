@@ -273,6 +273,15 @@
         <div class="preset-item-save" onclick="savePreset()">+ Save current filters</div>
       </div>
     </div>
+    <div class="btn-toolbar-wrap" style="position:relative">
+      <button class="toolbar-button" onclick="toggleBell()" style="padding:7px 10px" title="Due soon">
+        🔔<span class="bell-badge" id="bell-badge"></span>
+      </button>
+      <div class="bell-dropdown" id="bell-dropdown">
+        <div style="padding:12px 16px;font-size:12px;font-weight:700;border-bottom:1px solid var(--border)">Due within 7 days</div>
+        <div id="bell-items" style="max-height:320px;overflow-y:auto"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1159,6 +1168,10 @@ async function saveTerms(id, sel) {
 }
 
 function renderBell(entries) {
+  const badge = document.getElementById('bell-badge');
+  const itemsEl = document.getElementById('bell-items');
+  if (!badge || !itemsEl) return;
+
   const today = new Date(); today.setHours(0,0,0,0);
   const alerts = [];
   entries.forEach(e => {
@@ -1167,9 +1180,6 @@ function renderBell(entries) {
     const diff = Math.round((due - today) / 86400000);
     if (diff <= 7) alerts.push({e, diff, due});
   });
-
-  const badge = document.getElementById('bell-badge');
-  const itemsEl = document.getElementById('bell-items');
 
   if (alerts.length) {
     badge.textContent = alerts.length;
@@ -1199,12 +1209,12 @@ function renderBell(entries) {
 }
 
 function toggleBell(ev) {
-  ev.stopPropagation();
-  document.getElementById('bell-dropdown').classList.toggle('open');
+  if (ev) ev.stopPropagation();
+  document.getElementById('bell-dropdown')?.classList.toggle('open');
 }
 
 document.addEventListener('click', () => {
-  document.getElementById('bell-dropdown').classList.remove('open');
+  document.getElementById('bell-dropdown')?.classList.remove('open');
 });
 
 // ─── Column Visibility Toggle ────────────────────────────────────────────────
