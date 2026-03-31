@@ -66,9 +66,6 @@
   .rb-yes { background:#dcfce7; color:#16a34a; }
   .rb-no { background:#fef3c7; color:#d97706; }
   .recent-empty { padding:28px; text-align:center; color:var(--muted); font-size:13px; }
-  .upload-row { display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:20px; }
-  .drop-zone-sm { border:2px dashed var(--border); border-radius:var(--radius); padding:20px 12px; text-align:center; cursor:pointer; transition:all .2s; background:#fff; }
-  .drop-zone-sm.has-file { border-color:var(--green); border-style:solid; background:#f0fdf4; }
 
   /* ── Mobile nav ─────────────────────────────────────────────────────────── */
   
@@ -83,7 +80,7 @@
     .stats { padding:10px 16px; gap:16px; }
     .layout { flex-direction:column; padding:16px; gap:16px; }
     .side-col { width:100%; }
-    .upload-row { grid-template-columns:1fr; }
+    .main-col > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; }
     .form-grid { grid-template-columns:1fr !important; }
     .form-group.full { grid-column:1; }
     .drop-zone { padding:24px 16px; }
@@ -106,7 +103,7 @@
 
 <div class="layout">
   <div class="main-col">
-    <div class="upload-row">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
       <div>
         <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
           <div class="drop-icon">📄</div>
@@ -118,11 +115,11 @@
         <button id="remove-invoice" onclick="removeInvoice()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
       <div>
-        <div class="drop-zone drop-zone-sm" id="drop-zone-w9" onclick="document.getElementById('file-input-w9').click()">
-          <div class="drop-icon" style="font-size:22px">📋</div>
-          <div class="drop-title" style="font-size:13px">W9 / W8</div>
-          <div class="drop-sub" style="font-size:11px">optional</div>
-          <div class="drop-filename" id="drop-filename-w9" style="font-size:11px"></div>
+        <div class="drop-zone" id="drop-zone-w9" onclick="document.getElementById('file-input-w9').click()">
+          <div class="drop-icon">📋</div>
+          <div class="drop-title">W9 / W8</div>
+          <div class="drop-sub">Drop or click to upload</div>
+          <div class="drop-filename" id="drop-filename-w9"></div>
         </div>
         <input type="file" id="file-input-w9" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
         <button id="remove-w9" onclick="removeW9()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
