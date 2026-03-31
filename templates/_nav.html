@@ -36,25 +36,21 @@
     {% endif %}
 
     {# More dropdown: Analytics, 1099, Calendar, History #}
-    {% if is_admin or current_user in ['John', 'Jesse', 'Felipe'] %}
-      <div class="nav-dropdown-wrap">
-        <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if more_active else '' }}" onclick="toggleNavDropdown('nav-more-dropdown', event)">
-          More <span class="caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="nav-more-dropdown">
-          {% if is_admin %}
-            <a href="/analytics" class="{{ 'active' if p == '/analytics' else '' }}">Analytics</a>
-            <a href="/1099"      class="{{ 'active' if p == '/1099' else '' }}">1099</a>
-          {% endif %}
-          {% if current_user == 'John' %}
-            <a href="/calendar"  class="{{ 'active' if p == '/calendar' else '' }}">Calendar</a>
-          {% endif %}
-          {% if current_user in ['John', 'Jesse', 'Felipe'] %}
-            <a href="/history"   class="{{ 'active' if p == '/history' else '' }}">History</a>
-          {% endif %}
-        </div>
+    <div class="nav-dropdown-wrap">
+      <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if more_active else '' }}" onclick="toggleNavDropdown('nav-more-dropdown', event)">
+        More <span class="caret">▾</span>
+      </button>
+      <div class="nav-dropdown-menu" id="nav-more-dropdown">
+        {% if is_admin %}
+          <a href="/analytics" class="{{ 'active' if p == '/analytics' else '' }}">Analytics</a>
+          <a href="/1099"      class="{{ 'active' if p == '/1099' else '' }}">1099</a>
+        {% endif %}
+        <a href="/calendar"  class="{{ 'active' if p == '/calendar' else '' }}">Calendar</a>
+        {% if current_user in ['John', 'Jesse', 'Felipe'] %}
+          <a href="/history"   class="{{ 'active' if p == '/history' else '' }}">History</a>
+        {% endif %}
       </div>
-    {% endif %}
+    </div>
 
     <div class="nav-divider"></div>
 
@@ -94,7 +90,7 @@
   {% if current_user == 'Danny' %}<a href="/danny">PayPal Summary</a>{% endif %}
   {% if is_admin %}<a href="/analytics">Analytics</a>{% endif %}
   {% if is_admin %}<a href="/1099">1099 Summary</a>{% endif %}
-  {% if current_user == 'John' %}<a href="/calendar">Calendar</a>{% endif %}
+  <a href="/calendar">Calendar</a>
   {% if current_user in ['John', 'Jesse', 'Felipe'] %}<a href="/history">History</a>{% endif %}
   <a href="/export" style="color:#16a34a">Export Excel</a>
   <a href="/export-qbo" style="color:#16a34a">Export CSV</a>
