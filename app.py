@@ -83,7 +83,7 @@ Return ONLY valid JSON — no markdown, no extra text:
 Rules:
 - "is_w9_or_w8" is true if this is a W-9, W-8BEN, W-8BEN-E, W-8ECI, W-8EXP, W-8IMY, or any variant.
 - "has_name" is true if any name (individual or entity) is filled in.
-- "has_tin_ssn_ein" is true if ANY tax identifier is present — including SSN, EIN, ITIN, or a foreign tax identifying number (FTIN). W-8 forms often use a foreign TIN instead of a US SSN/EIN; that counts as true.
+- "has_tin_ssn_ein" is true if ANY of the following: (a) a US SSN, EIN, or ITIN is present in field 5; (b) a foreign tax identifying number (FTIN) is present in field 6a; (c) the "FTIN not legally required" checkbox (field 6b) is checked. Any one of these three satisfies the requirement — treat it as true even when fields 5 and 6a are blank if 6b is checked.
 - "has_signature" is true if a handwritten or typed signature appears anywhere on the form.
 - "has_signed_date" is true if a date accompanies the signature.
 - Always return "issues" as an empty array []. Do not add your own issue commentary."""
