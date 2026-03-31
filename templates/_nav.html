@@ -2,6 +2,8 @@
    Uses request.path to highlight the active link.
    Requires context: current_user, pending_count, is_admin (all auto-injected). #}
 {% set p = request.path %}
+{% set docs_active = p in ['/invoices', '/w9s'] or p.startswith('/vendor') %}
+{% set more_active = p in ['/analytics', '/1099', '/calendar', '/history'] %}
 <header>
   <a href="/ledger" class="logo">boom.</a>
   <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
@@ -13,9 +15,18 @@
     <a href="/approvals" class="{{ 'nav-active' if p == '/approvals' else 'nav-link' }}" style="position:relative">
       Approvals{% if pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
     </a>
-    <a href="/invoices"  class="{{ 'nav-active' if p == '/invoices' else 'nav-link' }}">Invoices</a>
-    <a href="/w9s"       class="{{ 'nav-active' if p == '/w9s' else 'nav-link' }}">W9 / W8</a>
-    <a href="/vendors"   class="{{ 'nav-active' if p.startswith('/vendor') else 'nav-link' }}">Vendors</a>
+
+    <!-- Docs dropdown: Invoices, W9/W8, Vendors -->
+    <div class="nav-dropdown-wrap">
+      <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if docs_active else '' }}" onclick="toggleNavDropdown('nav-docs-dropdown', event)">
+        Docs <span class="caret">▾</span>
+      </button>
+      <div class="nav-dropdown-menu" id="nav-docs-dropdown">
+        <a href="/invoices" class="{{ 'active' if p == '/invoices' else '' }}">Invoices</a>
+        <a href="/w9s"      class="{{ 'active' if p == '/w9s' else '' }}">W9 / W8</a>
+        <a href="/vendors"  class="{{ 'active' if p.startswith('/vendor') else '' }}">Vendors</a>
+      </div>
+    </div>
 
     {% if current_user != 'Danny' %}
       <a href="/payments" class="{{ 'nav-active' if p == '/payments' else 'nav-link' }}">Payments</a>
@@ -24,14 +35,13 @@
       <a href="/danny" class="{{ 'nav-active' if p == '/danny' else 'nav-link' }}">PayPal</a>
     {% endif %}
 
-    {# Secondary links — collapsed into "More" dropdown for admins/power users #}
+    {# More dropdown: Analytics, 1099, Calendar, History #}
     {% if is_admin or current_user in ['John', 'Jesse', 'Felipe'] %}
-      <div class="nav-divider"></div>
-      <div class="nav-more-wrap">
-        <button class="nav-more-btn{{ ' nav-more-active' if p in ['/analytics', '/1099', '/calendar', '/history'] else '' }}" onclick="toggleNavMore(event)">
+      <div class="nav-dropdown-wrap">
+        <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if more_active else '' }}" onclick="toggleNavDropdown('nav-more-dropdown', event)">
           More <span class="caret">▾</span>
         </button>
-        <div class="nav-more-dropdown" id="nav-more-dropdown">
+        <div class="nav-dropdown-menu" id="nav-more-dropdown">
           {% if is_admin %}
             <a href="/analytics" class="{{ 'active' if p == '/analytics' else '' }}">Analytics</a>
             <a href="/1099"      class="{{ 'active' if p == '/1099' else '' }}">1099</a>
@@ -49,11 +59,11 @@
     <div class="nav-divider"></div>
 
     <!-- Export dropdown -->
-    <div class="nav-export-wrap">
-      <button class="nav-export-btn" onclick="toggleNavExport(event)">
+    <div class="nav-dropdown-wrap">
+      <button class="nav-export-btn" onclick="toggleNavDropdown('nav-export-dropdown', event)">
         Export <span class="caret">▾</span>
       </button>
-      <div class="nav-export-dropdown" id="nav-export-dropdown">
+      <div class="nav-dropdown-menu nav-dropdown-right" id="nav-export-dropdown">
         <a href="/export">Excel (.xlsx)</a>
         <a href="/export-qbo">QuickBooks (.csv)</a>
       </div>
@@ -92,18 +102,15 @@
 </nav>
 
 <script>
-function toggleNavExport(e) {
+function toggleNavDropdown(id, e) {
   e.stopPropagation();
-  document.getElementById('nav-export-dropdown').classList.toggle('open');
-  document.getElementById('nav-more-dropdown')?.classList.remove('open');
-}
-function toggleNavMore(e) {
-  e.stopPropagation();
-  document.getElementById('nav-more-dropdown').classList.toggle('open');
-  document.getElementById('nav-export-dropdown')?.classList.remove('open');
+  const target = document.getElementById(id);
+  const wasOpen = target.classList.contains('open');
+  // Close all dropdowns
+  document.querySelectorAll('.nav-dropdown-menu').forEach(d => d.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
 }
 document.addEventListener('click', function() {
-  document.getElementById('nav-export-dropdown')?.classList.remove('open');
-  document.getElementById('nav-more-dropdown')?.classList.remove('open');
+  document.querySelectorAll('.nav-dropdown-menu').forEach(d => d.classList.remove('open'));
 });
 </script>
