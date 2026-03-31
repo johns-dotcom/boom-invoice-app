@@ -9,13 +9,13 @@
 
     <a href="/add" class="nav-add">+ Add</a>
 
-    <a href="/ledger"   class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
+    <a href="/ledger"    class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
     <a href="/approvals" class="{{ 'nav-active' if p == '/approvals' else 'nav-link' }}" style="position:relative">
       Approvals{% if pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
     </a>
-    <a href="/invoices" class="{{ 'nav-active' if p == '/invoices' else 'nav-link' }}">Invoices</a>
-    <a href="/w9s"      class="{{ 'nav-active' if p == '/w9s' else 'nav-link' }}">W9 / W8</a>
-    <a href="/vendors"  class="{{ 'nav-active' if p.startswith('/vendor') else 'nav-link' }}">Vendors</a>
+    <a href="/invoices"  class="{{ 'nav-active' if p == '/invoices' else 'nav-link' }}">Invoices</a>
+    <a href="/w9s"       class="{{ 'nav-active' if p == '/w9s' else 'nav-link' }}">W9 / W8</a>
+    <a href="/vendors"   class="{{ 'nav-active' if p.startswith('/vendor') else 'nav-link' }}">Vendors</a>
 
     {% if current_user != 'Danny' %}
       <a href="/payments" class="{{ 'nav-active' if p == '/payments' else 'nav-link' }}">Payments</a>
@@ -40,10 +40,28 @@
     {% endif %}
 
     <div class="nav-divider"></div>
-    <a href="/export"     class="nav-export">Excel</a>
-    <a href="/export-qbo" class="nav-export">CSV</a>
-    {% if current_user %}<span class="nav-user">{{ current_user }}</span>{% endif %}
-    <a href="/logout" class="nav-signout">Sign out</a>
+
+    <!-- Export dropdown -->
+    <div class="nav-export-wrap">
+      <button class="nav-export-btn" onclick="toggleNavExport(event)">
+        Export <span class="caret">▾</span>
+      </button>
+      <div class="nav-export-dropdown" id="nav-export-dropdown">
+        <a href="/export">Excel (.xlsx)</a>
+        <a href="/export-qbo">QuickBooks (.csv)</a>
+      </div>
+    </div>
+
+    <!-- User pill -->
+    {% if current_user %}
+    <div class="nav-user-wrap">
+      <div class="nav-avatar">{{ current_user[0].upper() }}</div>
+      <span class="nav-username">{{ current_user }}</span>
+      <a href="/logout" class="nav-signout">Sign out</a>
+    </div>
+    {% else %}
+    <a href="/logout" class="nav-signout" style="margin-left:8px">Sign out</a>
+    {% endif %}
 
   </div>
 </header>
@@ -62,5 +80,17 @@
   {% if current_user == 'John' %}<a href="/calendar">Calendar</a>{% endif %}
   {% if current_user in ['John', 'Jesse', 'Felipe'] %}<a href="/history">History</a>{% endif %}
   <a href="/export" style="color:#16a34a">Export Excel</a>
+  <a href="/export-qbo" style="color:#16a34a">Export CSV</a>
   <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
 </nav>
+
+<script>
+function toggleNavExport(e) {
+  e.stopPropagation();
+  document.getElementById('nav-export-dropdown').classList.toggle('open');
+}
+document.addEventListener('click', function() {
+  const d = document.getElementById('nav-export-dropdown');
+  if (d) d.classList.remove('open');
+});
+</script>
