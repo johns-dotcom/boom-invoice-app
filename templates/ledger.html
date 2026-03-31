@@ -79,6 +79,26 @@
   #confirm-box p { color:var(--muted); font-size:13px; margin-bottom:20px; line-height:1.5; }
   .confirm-actions { display:flex; gap:10px; }
   .btn-del-confirm { background:#dc2626; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  /* Split modal */
+  #split-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; }
+  #split-overlay.open { display:flex; }
+  #split-box { background:#fff; border-radius:12px; padding:28px; width:480px; max-width:95vw; box-shadow:0 12px 40px rgba(0,0,0,.18); }
+  #split-box h3 { font-size:15px; font-weight:800; margin-bottom:4px; }
+  #split-box .sub { color:#888; font-size:12px; margin-bottom:18px; }
+  .split-artist-row { display:flex; gap:8px; margin-bottom:10px; align-items:center; }
+  .split-artist-row input { flex:1; border:1px solid #ddd; border-radius:6px; padding:7px 10px; font-size:13px; font-family:inherit; }
+  .split-artist-row input.amt { flex:0 0 90px; }
+  .split-artist-row .rm-btn { background:none; border:none; color:#ccc; font-size:16px; cursor:pointer; padding:4px 6px; border-radius:4px; }
+  .split-artist-row .rm-btn:hover { color:#dc2626; background:#fef2f2; }
+  .btn-add-split-row { background:none; border:1.5px dashed #c7d2fe; color:#6366f1; border-radius:7px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; margin-bottom:18px; width:100%; }
+  .btn-add-split-row:hover { background:#eef2ff; }
+  .btn-split-confirm { background:#6366f1; color:#fff; border:none; border-radius:8px; padding:10px 22px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .btn-split-confirm:hover { background:#4f46e5; }
+  .split-labels { display:flex; gap:8px; margin-bottom:6px; font-size:11px; font-weight:700; color:#aaa; text-transform:uppercase; letter-spacing:.04em; }
+  .split-labels span:first-child { flex:1; }
+  .split-labels span:nth-child(2) { flex:1; }
+  .split-labels span:nth-child(3) { flex:0 0 90px; }
+  .split-labels span:last-child { width:28px; }
   .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
   #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:12px 20px; border-radius:8px; font-weight:700; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
   #toast.show { opacity:1; transform:translateY(0); }
@@ -204,6 +224,19 @@
     <div class="confirm-actions">
       <button class="btn-del-confirm" onclick="confirmDelete()">Delete</button>
       <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+<div id="split-overlay">
+  <div id="split-box">
+    <h3>Split entry into multiple artists</h3>
+    <div class="sub" id="split-sub"></div>
+    <div class="split-labels"><span>Artist</span><span>Song</span><span>Amount ($)</span><span></span></div>
+    <div id="split-rows"></div>
+    <button class="btn-add-split-row" onclick="addSplitRow()">+ Add artist</button>
+    <div class="confirm-actions">
+      <button class="btn-split-confirm" onclick="confirmSplit()">Split entry</button>
+      <button class="btn-cancel" onclick="closeSplit()">Cancel</button>
     </div>
   </div>
 </div>
@@ -485,7 +518,10 @@ function renderRows(entries) {
       </td>
       <td id="datepaid-${e.id}" class="td-date">${datePaidCell(e.id, e.payment_date)}</td>
       <td id="files-${e.id}">${fileIcons(e)}</td>
-      ${IS_ADMIN ? `<td><button class="btn-delete" onclick="askDelete(${e.id},'${esc(e.payee)}')">✕</button></td>` : ''}
+      ${IS_ADMIN ? `<td style="white-space:nowrap">
+        <button class="btn-delete" onclick="askDelete(${e.id},'${esc(e.payee)}')" title="Delete">✕</button>
+        ${!e.parent_id ? `<button class="btn-delete" onclick="openSplit(${e.id},'${esc(e.payee)}',${e.amount||0},'${esc(e.artist)}','${esc(e.song)}')" title="Split into multiple artists" style="color:#6366f1;border-color:transparent;margin-left:2px">⇄</button>` : ''}
+      </td>` : ''}
     </tr>`).join('');
 }
 
@@ -708,6 +744,63 @@ async function uploadW9(id, input) {
 function flashRow(id) {
   const row=document.getElementById(`row-${id}`);
   if(row){row.classList.add('saved-flash');setTimeout(()=>row.classList.remove('saved-flash'),400);}
+}
+
+// ─── Split entry ──────────────────────────────────────────────────────────────
+let pendingSplitId = null;
+
+function openSplit(id, payee, amount, artist, song) {
+  pendingSplitId = id;
+  document.getElementById('split-sub').textContent = `${payee} · Total: $${Number(amount).toFixed(2)}`;
+  const container = document.getElementById('split-rows');
+  container.innerHTML = '';
+  // Pre-fill first row with existing artist/song
+  addSplitRow(artist, song, '');
+  addSplitRow('', '', '');
+  document.getElementById('split-overlay').classList.add('open');
+}
+
+function addSplitRow(artist='', song='', amount='') {
+  const container = document.getElementById('split-rows');
+  const div = document.createElement('div');
+  div.className = 'split-artist-row';
+  div.innerHTML = `
+    <input type="text" placeholder="Artist / Project" class="sp-artist" value="${artist}">
+    <input type="text" placeholder="Song" class="sp-song" value="${song}">
+    <input type="number" placeholder="0.00" step="0.01" class="sp-amt amt" value="${amount}">
+    <button class="rm-btn" onclick="this.parentElement.remove()" title="Remove">×</button>
+  `;
+  container.appendChild(div);
+}
+
+function closeSplit() {
+  pendingSplitId = null;
+  document.getElementById('split-overlay').classList.remove('open');
+}
+
+async function confirmSplit() {
+  if (!pendingSplitId) return;
+  const rows = document.querySelectorAll('#split-rows .split-artist-row');
+  const breakdown = [];
+  rows.forEach(r => {
+    const artist = r.querySelector('.sp-artist').value.trim();
+    const song   = r.querySelector('.sp-song').value.trim();
+    const amt    = r.querySelector('.sp-amt').value.trim();
+    if (artist) breakdown.push({ artist, song, amount: amt ? parseFloat(amt) : null });
+  });
+  if (breakdown.length < 2) { alert('Enter at least 2 artists.'); return; }
+  try {
+    const res = await fetch(`/resplit/${pendingSplitId}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ breakdown })
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+    closeSplit();
+    await loadEntries();
+    toast(`Entry split into ${breakdown.length} rows`);
+  } catch(e) {
+    alert('Split failed: ' + e.message);
+  }
 }
 
 function askDelete(id, payee) {

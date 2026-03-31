@@ -932,6 +932,95 @@ def approve_entry(eid):
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
+@app.route("/resplit/<int:eid>", methods=["POST"])
+@login_required
+@admin_required
+def resplit_entry(eid):
+    """Retroactively split an already-approved single entry into multiple artist rows."""
+    try:
+        data = request.json or {}
+        breakdown = data.get("breakdown", [])
+        if not breakdown or len(breakdown) < 2:
+            return jsonify({"error": "Need at least 2 artists"}), 400
+
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+
+        # Fetch the full existing row
+        cur.execute(f"""SELECT payee, invoice_number, amount,
+                               invoice_date, description, category,
+                               payment_method, notes, vendor_name, vendor_email,
+                               vendor_address, w9_filename, w9_data,
+                               invoice_filename, invoice_data,
+                               proof_filename, proof_data,
+                               cobrand, is_reimbursement, currency, payment_terms,
+                               created_at, status, approved_by, approved_at
+                        FROM expenses WHERE id={ph}""", (eid,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"error": "Entry not found"}), 404
+
+        (payee, inv_num, total_amount,
+         inv_date, desc, category,
+         pay_method, notes, vendor_name, vendor_email,
+         vendor_addr, w9_fname, w9_data_val,
+         inv_fname, inv_data_val,
+         proof_fname, proof_data_val,
+         cobrand, is_reimb, currency, pay_terms,
+         created_at_val, status, approved_by, approved_at) = row
+
+        # Compute amounts — use provided amounts if any, else split evenly
+        raw_amounts = [e.get("amount") for e in breakdown]
+        has_any = any(a not in (None, "", 0, 0.0) for a in raw_amounts)
+        if has_any:
+            split_amounts = []
+            for a in raw_amounts:
+                try:
+                    split_amounts.append(round(float(str(a).replace(",","").strip()), 2) if a not in (None,"") else 0.0)
+                except:
+                    split_amounts.append(0.0)
+        else:
+            n = len(breakdown)
+            base = float(total_amount or 0)
+            per = round(base / n, 2)
+            remainder = round(base - per * n, 2)
+            split_amounts = [round(per + remainder, 2)] + [per] * (n - 1)
+
+        # Delete any existing child rows (in case this is a re-do)
+        cur.execute(f"DELETE FROM expenses WHERE parent_id={ph}", (eid,))
+
+        # Update original row to first artist
+        cur.execute(f"""UPDATE expenses
+                         SET artist={ph}, song={ph}, amount={ph}, artist_breakdown=NULL
+                        WHERE id={ph}""",
+                    (breakdown[0].get("artist",""), breakdown[0].get("song",""),
+                     split_amounts[0], eid))
+
+        # Insert cloned rows for remaining artists
+        for i, entry in enumerate(breakdown[1:], 1):
+            cur.execute(f"""INSERT INTO expenses (
+                invoice_date, payee, description, category, invoice_number,
+                payment_method, notes, vendor_name, vendor_email, vendor_address,
+                w9_filename, w9_data, invoice_filename, invoice_data,
+                proof_filename, proof_data,
+                cobrand, is_reimbursement, currency, payment_terms, created_at,
+                artist, song, amount,
+                status, approved_by, approved_at, parent_id
+            ) VALUES ({','.join([ph]*28)})""",
+            (inv_date, payee, desc, category, inv_num,
+             pay_method, notes, vendor_name, vendor_email, vendor_addr,
+             w9_fname, w9_data_val, inv_fname, inv_data_val,
+             proof_fname, proof_data_val,
+             cobrand, is_reimb, currency, pay_terms, created_at_val,
+             entry.get("artist",""), entry.get("song",""), split_amounts[i],
+             status, approved_by, approved_at, eid))
+
+        conn.commit(); conn.close()
+        log_action("entry_resplit", eid, payee, details=f"{len(breakdown)} artists")
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/reject/<int:eid>", methods=["POST"])
 @login_required
 @admin_required
