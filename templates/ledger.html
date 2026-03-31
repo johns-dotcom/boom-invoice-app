@@ -1230,31 +1230,21 @@ const COLUMN_NAMES = [
 let columnVisibility = {};
 
 function initializeColumnVisibility() {
-  const stored = localStorage.getItem('boom_col_vis');
-  if (stored) {
-    try {
-      columnVisibility = JSON.parse(stored);
-    } catch {
-      columnVisibility = {};
-    }
-  }
-  // Default: all visible if not stored
-  COLUMN_NAMES.forEach(col => {
-    if (!(col in columnVisibility)) columnVisibility[col] = true;
-  });
+  // Always start with all columns visible — no persistence across page loads
+  localStorage.removeItem('boom_col_vis');
+  columnVisibility = {};
+  COLUMN_NAMES.forEach(col => columnVisibility[col] = true);
   applyColumnVisibility();
   renderColumnsPanel();
 }
 
 function toggleColumn(colName) {
   columnVisibility[colName] = !columnVisibility[colName];
-  localStorage.setItem('boom_col_vis', JSON.stringify(columnVisibility));
   applyColumnVisibility();
   renderColumnsPanel();
 }
 
 function resetColumnVisibility() {
-  localStorage.removeItem('boom_col_vis');
   columnVisibility = {};
   COLUMN_NAMES.forEach(col => columnVisibility[col] = true);
   applyColumnVisibility();
