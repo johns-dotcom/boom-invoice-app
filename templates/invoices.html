@@ -44,7 +44,7 @@
   .card-footer { display:flex; gap:6px; }
   a.btn-view-card { flex:1; background:var(--red); color:#fff; text-align:center; padding:7px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; transition:background .15s; display:block; }
   a.btn-view-card:hover { background:var(--red-dark); }
-  a.btn-dl { background:#f4f4f4; color:var(--text); text-align:center; padding:7px 10px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; border:1.5px solid var(--border); transition:all .15s; display:block; }
+  a.btn-dl { background:#f4f4f4; color:var(--text); text-align:center; padding:7px 10px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; border:1.5px solid var(--border); transition:all .15s; display:inline-block; }
   a.btn-dl:hover { border-color:var(--red); color:var(--red); }
 
   /* ── List / table view ── */
@@ -152,9 +152,11 @@
           <td class="tl-amount" style="text-align:right">{% if item.amount %}${{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}</td>
           <td class="tl-file" title="{{ item.invoice_filename or '' }}">{{ item.invoice_filename or '—' }}</td>
           <td>{% if item.vendor_submitted %}<span class="tag-vendor">Vendor</span>{% else %}<span class="tl-muted">Internal</span>{% endif %}</td>
-          <td style="white-space:nowrap">
+          <td>
+            <div style="display:flex;gap:6px;align-items:center">
             <a href="/invoice/{{ item.id }}" target="_blank" class="btn-view">View</a>
-            <a href="/invoice/{{ item.id }}" download="{{ item.invoice_filename }}" class="btn-dl" style="margin-left:4px">↓</a>
+            <a href="/invoice/{{ item.id }}" download="{{ item.invoice_filename }}" class="btn-dl">↓</a>
+            </div>
           </td>
         </tr>
         {% endfor %}
