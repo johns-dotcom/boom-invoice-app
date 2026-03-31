@@ -100,7 +100,7 @@
     {% else %}
     {% for v in vendors %}
     <a class="card"
-       href="/vendor/{{ v.payee | urlencode }}"
+       href="/vendor/{{ v.payee }}"
        data-search="{{ (v.payee + ' ' + v.email) | lower }}"
        data-spend="{{ v.total }}"
        data-name="{{ v.payee | lower }}"
