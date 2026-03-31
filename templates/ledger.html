@@ -57,11 +57,11 @@
   .editable-cell:hover { background:rgba(227,30,36,.08); }
   .editable-cell:hover::after { content:" ✎"; font-size:10px; color:var(--muted); }
   /* Description expand */
-  .desc-short { max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; color:var(--muted); font-size:12px; }
-  .desc-short:hover { color:var(--text); text-decoration:underline dotted var(--muted); }
-  .desc-popover { position:fixed; background:#fff; border:1px solid #e0e7ff; border-radius:10px; padding:14px 16px; max-width:320px; font-size:12px; line-height:1.6; color:#333; box-shadow:0 8px 28px rgba(0,0,0,.13); z-index:500; white-space:pre-wrap; word-break:break-word; }
-  .desc-popover-close { float:right; background:none; border:none; font-size:14px; color:#aaa; cursor:pointer; margin:-4px -4px 0 8px; line-height:1; }
-  .desc-popover-close:hover { color:#333; }
+  .desc-cell { font-size:12px; color:var(--muted); cursor:pointer; max-width:180px; }
+  .desc-collapsed { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .desc-expanded  { white-space:normal; word-break:break-word; line-height:1.5; color:#333; }
+  .desc-toggle { font-size:10px; color:#a5b4fc; margin-left:4px; white-space:nowrap; }
+  .desc-cell:hover .desc-toggle { color:#6366f1; }
   .inline-input { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:4px 8px; width:130px; font-family:inherit; }
   .inline-input:focus { outline:none; }
   .vendor-badge { background:#fef2f2; color:var(--red); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; border:1px solid #fca5a5; }
@@ -525,7 +525,7 @@ function renderRows(entries) {
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
-      <td>${isChild || !e.description ? (isChild ? '' : '<span style="color:#ddd">—</span>') : `<span class="desc-short" onclick="showDesc(event,${e.id})" title="Click to expand">${esc(e.description)}</span>`}</td>
+      <td>${isChild ? '' : e.description ? `<span class="desc-cell" id="desc-${e.id}" onclick="event.stopPropagation();toggleDesc(${e.id})"><span class="desc-collapsed">${esc(e.description)}</span><span class="desc-toggle">▶ more</span></span>` : '<span style="color:#ddd">—</span>'}</td>
       <td>${isChild ? '' : IS_ADMIN ? `<span class="editable-cell" onclick="event.stopPropagation();editCategory(${e.id},this,'${esc(e.category)}')">${esc(e.category)||'—'}</span>` : e.category||'—'}</td>
       <td${isChild ? ' style="padding-left:26px"' : ''}>
         ${isChild ? '<span class="split-indent">↳</span>' : ''}
@@ -717,36 +717,22 @@ function openStatusEdit(id, field, badgeEl) {
   sel.addEventListener('blur', ()=>setTimeout(()=>{ if(!committed) cancel(); }, 200));
 }
 
-// ─── Description popover ──────────────────────────────────────────────────────
-let activePopover = null;
+// ─── Description inline expand ────────────────────────────────────────────────
+const expandedDescs = new Set();
 
-function showDesc(event, id) {
-  event.stopPropagation();
-  closeDesc();
+function toggleDesc(id) {
+  const wrap = document.getElementById(`desc-${id}`);
+  if (!wrap) return;
   const entry = allEntries.find(e => e.id === id);
-  if (!entry || !entry.description) return;
-
-  const pop = document.createElement('div');
-  pop.className = 'desc-popover';
-  pop.innerHTML = `<button class="desc-popover-close" onclick="closeDesc()">✕</button>${esc(entry.description)}`;
-  document.body.appendChild(pop);
-  activePopover = pop;
-
-  // Position near the clicked cell
-  const rect = event.target.getBoundingClientRect();
-  let top = rect.bottom + 6;
-  let left = rect.left;
-  // Keep within viewport
-  if (left + 320 > window.innerWidth - 12) left = window.innerWidth - 332;
-  if (top + 160 > window.innerHeight) top = rect.top - 10 - pop.offsetHeight;
-  pop.style.top  = top  + 'px';
-  pop.style.left = left + 'px';
-
-  setTimeout(() => document.addEventListener('click', closeDesc, {once:true}), 0);
-}
-
-function closeDesc() {
-  if (activePopover) { activePopover.remove(); activePopover = null; }
+  if (!entry) return;
+  const isExpanded = expandedDescs.has(id);
+  if (isExpanded) {
+    expandedDescs.delete(id);
+    wrap.innerHTML = `<span class="desc-collapsed">${esc(entry.description)}</span><span class="desc-toggle">▶ more</span>`;
+  } else {
+    expandedDescs.add(id);
+    wrap.innerHTML = `<span class="desc-expanded">${esc(entry.description)}</span><span class="desc-toggle">▲ less</span>`;
+  }
 }
 
 // ─── Category dropdown (admin only) ───────────────────────────────────────────
