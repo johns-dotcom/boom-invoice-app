@@ -7,11 +7,11 @@
   <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
   <div class="header-right">
 
-    <a href="/add"     class="{{ 'nav-active' if p in ('/', '/add') else 'nav-link' }}">+ Add</a>
-    <a href="/ledger"  class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
+    <a href="/add" class="nav-add">+ Add</a>
+
+    <a href="/ledger"   class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
     <a href="/approvals" class="{{ 'nav-active' if p == '/approvals' else 'nav-link' }}" style="position:relative">
-      Approvals
-      {% if pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
+      Approvals{% if pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
     </a>
     <a href="/invoices" class="{{ 'nav-active' if p == '/invoices' else 'nav-link' }}">Invoices</a>
     <a href="/w9s"      class="{{ 'nav-active' if p == '/w9s' else 'nav-link' }}">W9 / W8</a>
@@ -24,11 +24,14 @@
       <a href="/danny" class="{{ 'nav-active' if p == '/danny' else 'nav-link' }}">PayPal</a>
     {% endif %}
 
+    {% if is_admin or current_user in ['John', 'Jesse', 'Felipe'] %}
+      <div class="nav-divider"></div>
+    {% endif %}
+
     {% if is_admin %}
       <a href="/analytics" class="{{ 'nav-active' if p == '/analytics' else 'nav-link' }}">Analytics</a>
       <a href="/1099"      class="{{ 'nav-active' if p == '/1099' else 'nav-link' }}">1099</a>
     {% endif %}
-
     {% if current_user == 'John' %}
       <a href="/calendar" class="{{ 'nav-active' if p == '/calendar' else 'nav-link' }}">Calendar</a>
     {% endif %}
@@ -36,10 +39,12 @@
       <a href="/history" class="{{ 'nav-active' if p == '/history' else 'nav-link' }}">History</a>
     {% endif %}
 
+    <div class="nav-divider"></div>
     <a href="/export"     class="nav-export">Excel</a>
     <a href="/export-qbo" class="nav-export">CSV</a>
     {% if current_user %}<span class="nav-user">{{ current_user }}</span>{% endif %}
-    <a href="/logout" class="nav-link">Sign out</a>
+    <a href="/logout" class="nav-signout">Sign out</a>
+
   </div>
 </header>
 

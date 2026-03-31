@@ -1,16 +1,39 @@
 {# Shared nav CSS — include inside <style> on every page #}
   /* ── Shared nav ───────────────────────────────────────────────────────────── */
-  header { background:#fff; border-bottom:1px solid var(--border); padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:52px; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:0; z-index:100; }
-  .logo { font-size:22px; font-weight:900; color:var(--red); letter-spacing:-0.5px; text-decoration:none; flex-shrink:0; }
-  .header-right { display:flex; gap:6px; align-items:center; }
-  .nav-link { background:none; border:1.5px solid var(--border); color:var(--muted); padding:6px 11px; border-radius:7px; font-size:12px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; white-space:nowrap; }
-  .nav-link:hover { border-color:var(--red); color:var(--red); }
-  .nav-active { background:var(--red); color:#fff; border:1.5px solid var(--red); padding:6px 11px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; display:inline-block; white-space:nowrap; }
-  .nav-export { background:#f0fdf4; border:1.5px solid #86efac; color:#16a34a; padding:6px 11px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; display:inline-block; transition:all .15s; white-space:nowrap; }
-  .nav-export:hover { background:#dcfce7; }
-  .nav-badge { background:#fff; color:var(--red); font-size:10px; font-weight:900; padding:1px 5px; border-radius:10px; margin-left:4px; vertical-align:middle; }
-  .nav-user { font-size:11px; color:#aaa; font-weight:700; padding:0 4px; }
-  /* Mobile nav */
+  header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:52px; position:sticky; top:0; z-index:100; }
+  .logo { font-size:21px; font-weight:900; color:var(--red); letter-spacing:-0.5px; text-decoration:none; flex-shrink:0; margin-right:8px; }
+  .header-right { display:flex; gap:2px; align-items:center; }
+
+  /* Plain text nav links */
+  .nav-link { background:none; border:none; color:var(--muted); padding:6px 10px; border-radius:6px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:color .15s; white-space:nowrap; }
+  .nav-link:hover { color:var(--text); }
+
+  /* Active page — red text, subtle underline */
+  .nav-active { background:none; border:none; color:var(--red); padding:6px 10px; border-radius:6px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; white-space:nowrap; position:relative; }
+  .nav-active::after { content:''; position:absolute; bottom:2px; left:10px; right:10px; height:2px; background:var(--red); border-radius:2px; }
+
+  /* "+ Add" stays as a filled CTA button */
+  .nav-add { background:var(--red); color:#fff; padding:6px 12px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:background .15s; white-space:nowrap; margin-right:6px; }
+  .nav-add:hover { background:var(--red-dark, #c41a1f); }
+
+  /* Approvals badge */
+  .nav-badge { background:var(--red); color:#fff; font-size:9px; font-weight:900; padding:1px 5px; border-radius:10px; margin-left:3px; vertical-align:middle; }
+
+  /* Divider between nav groups */
+  .nav-divider { width:1px; height:16px; background:var(--border); margin:0 6px; flex-shrink:0; }
+
+  /* Export links — subdued */
+  .nav-export { color:#9ca3af; font-size:12px; font-weight:600; text-decoration:none; padding:6px 8px; border-radius:6px; transition:color .15s; white-space:nowrap; }
+  .nav-export:hover { color:var(--green, #16a34a); }
+
+  /* Username */
+  .nav-user { font-size:11px; color:#c4c4c4; font-weight:700; padding:0 6px; white-space:nowrap; }
+
+  /* Sign out */
+  .nav-signout { color:#d1d5db; font-size:12px; font-weight:600; text-decoration:none; padding:6px 8px; border-radius:6px; transition:color .15s; white-space:nowrap; }
+  .nav-signout:hover { color:#dc2626; }
+
+  /* Mobile */
   .mob-menu-btn { display:none; background:none; border:1.5px solid var(--border); border-radius:7px; padding:5px 10px; font-size:17px; cursor:pointer; color:var(--muted); line-height:1; flex-shrink:0; }
   .mob-nav { display:none; flex-direction:column; background:#fff; border-bottom:1px solid var(--border); }
   .mob-nav.open { display:flex; }
@@ -24,3 +47,4 @@
   /* ── Shared page layout ──────────────────────────────────────────────────── */
   .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
   .page-header h1 { font-size:20px; font-weight:900; }
+
