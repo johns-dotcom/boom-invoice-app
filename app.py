@@ -1890,9 +1890,7 @@ def vendors_page():
         if conn:
             try: conn.close()
             except: pass
-    return render_template("vendors.html", vendors=vendors,
-                           is_admin=is_admin(), current_user=session.get("user_name"),
-                           pending_count=get_pending_count())
+    return render_template("vendors.html", vendors=vendors, is_admin=is_admin())
 
 @app.route("/vendor/<payee>")
 @login_required
