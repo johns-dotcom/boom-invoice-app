@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pathlib import Path
 from functools import wraps
 
-from flask import Flask, request, jsonify, render_template, session, redirect, send_file, Response
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_file, Response
 import anthropic
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -276,22 +276,22 @@ def login():
             session["authenticated"] = True
             session["role"] = "admin"
             session["user_name"] = ADMIN_ACCOUNTS[pw]
-            return redirect("/")
+            return redirect("/ledger")
         elif pw in USER_ACCOUNTS:
             session["authenticated"] = True
             session["role"] = "user"
             session["user_name"] = USER_ACCOUNTS[pw]
-            return redirect("/")
+            return redirect("/ledger")
         elif APP_PASSWORD and pw == APP_PASSWORD:
             session["authenticated"] = True
             session["role"] = "user"
             session["user_name"] = None
-            return redirect("/")
+            return redirect("/ledger")
         elif not APP_PASSWORD and not ADMIN_ACCOUNTS:
             session["authenticated"] = True
             session["role"] = "admin"
             session["user_name"] = "Admin"
-            return redirect("/")
+            return redirect("/ledger")
         else:
             err = "Incorrect password."
     return render_template("login.html", error=err)
@@ -519,6 +519,11 @@ def health():
 @app.route("/")
 @login_required
 def index():
+    return redirect(url_for("add_invoice"))
+
+@app.route("/add")
+@login_required
+def add_invoice():
     return render_template("index.html", categories=CATEGORIES,
                            payment_methods=PAYMENT_METHODS,
                            api_configured=bool(ANTHROPIC_KEY),

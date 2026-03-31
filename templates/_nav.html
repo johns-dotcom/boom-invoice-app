@@ -3,11 +3,11 @@
    Requires context: current_user, pending_count, is_admin (all auto-injected). #}
 {% set p = request.path %}
 <header>
-  <a href="/" class="logo">boom.</a>
+  <a href="/ledger" class="logo">boom.</a>
   <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
   <div class="header-right">
 
-    <a href="/"        class="{{ 'nav-active' if p == '/' else 'nav-link' }}">+ Add</a>
+    <a href="/add"     class="{{ 'nav-active' if p in ('/', '/add') else 'nav-link' }}">+ Add</a>
     <a href="/ledger"  class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
     <a href="/approvals" class="{{ 'nav-active' if p == '/approvals' else 'nav-link' }}" style="position:relative">
       Approvals
@@ -44,7 +44,7 @@
 </header>
 
 <nav class="mob-nav" id="mob-nav">
-  <a href="/">+ Add Invoice</a>
+  <a href="/add">+ Add Invoice</a>
   <a href="/ledger">Ledger</a>
   <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
   <a href="/invoices">Invoices</a>
