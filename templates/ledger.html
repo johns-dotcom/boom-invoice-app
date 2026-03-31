@@ -529,12 +529,12 @@ function renderRows(entries) {
       <td>${isChild ? '' : IS_ADMIN ? `<span class="editable-cell" onclick="event.stopPropagation();editCategory(${e.id},this,'${esc(e.category)}')">${esc(e.category)||'—'}</span>` : e.category||'—'}</td>
       <td${isChild ? ' style="padding-left:26px"' : ''}>
         ${isChild ? '<span class="split-indent">↳</span>' : ''}
-        <span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'artist',this,'${esc(e.artist)}')">${isParent ? esc(allArtists) : e.artist||'—'}</span>
+        <span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'artist',this,'${esc(e.artist)}')">${isParent ? '<span style="color:#6366f1;font-weight:700">Multi</span>' : e.artist||'—'}</span>
         ${isParent ? `<span class="tag-artists">${artistCount} artists</span><span class="split-toggle" id="toggle-${e.id}">▶</span>` : ''}
       </td>
-      <td><span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
+      <td><span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'song',this,'${esc(e.song)}')">${isParent ? '<span style="color:#6366f1;font-weight:700">Multi</span>' : e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
-      <td class="td-amount">${fmt(e.amount, e.currency)}</td>
+      <td class="td-amount">${isParent ? fmt(children.reduce((s,c) => s + (Number(c.amount)||0), Number(e.amount)||0), e.currency) : fmt(e.amount, e.currency)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${e.payment_method||'—'}</td>
       <td id="terms-${e.id}">${termsSelect(e.id, e.payment_terms)}</td>
       <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms)}</td>
