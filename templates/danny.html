@@ -651,12 +651,13 @@ function exportCSV() {
     if (currentView === 'overdue') return dueStatus(e.dueDate) === 'overdue';
     return true;
   });
-  const headers = ['Date','Payee','Artist','Song','Invoice #','Amount','Currency','Terms','Due Date','Status','Notes'];
+  const headers = ['Date','Payee','Artist','Song','Invoice #','Amount','Currency','Terms','Due Date','Status','Notes','Has Invoice'];
   const rows = filtered.map(e => [
     e.invoice_date, e.payee, e.artist, e.song, e.invoice_number,
     e.amount, e.currency||'USD', e.payment_terms,
     e.dueDate ? e.dueDate.toISOString().slice(0,10) : '',
-    e.payment_status||'Unpaid', e.notes
+    e.payment_status||'Unpaid', e.notes,
+    (e.has_invoice || e.parent_id) ? 'Yes' : 'No'
   ]);
   const csv = [headers,...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');

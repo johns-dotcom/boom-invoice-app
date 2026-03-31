@@ -305,6 +305,7 @@ tr.split-row:hover td { background: #f3eeff; }
             <th onclick="sortBy('due')" id="th-due">Due Date</th>
             <th onclick="sortBy('payment_status')" id="th-payment_status">Status</th>
             <th>Notes</th>
+            <th style="text-align:center">Invoice</th>
             <th style="text-align:center">Proof</th>
             {% if is_admin %}<th style="text-align:center">Action</th>{% endif %}
           </tr>
@@ -560,7 +561,7 @@ function renderTable(entries, groupBy) {
 
   let html = '';
   const sum = arr => arr.filter(e => (e.payment_status||'Unpaid') === 'Unpaid').reduce((s,e) => s + (Number(e.amount)||0), 0);
-  const colCount = IS_ADMIN ? 12 : 11;
+  const colCount = IS_ADMIN ? 13 : 12;
 
   keys.forEach(key => {
     const grp = groups[key];
@@ -605,6 +606,11 @@ function rowHtml(e) {
     <td>${dueBadge(e)}</td>
     <td><span class="tag ${isPaid ? 'tag-paid' : 'tag-unpaid'}">${e.payment_status||'Unpaid'}</span></td>
     <td style="color:var(--muted);font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.notes)}">${esc(e.notes)||'—'}</td>
+    <td style="text-align:center">
+      ${(e.has_invoice || e.parent_id)
+        ? `<a href="/invoice/${e.parent_id || e.id}" target="_blank" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none" title="View invoice">View ↗</a>`
+        : '<span style="color:#ddd;font-size:12px">—</span>'}
+    </td>
     <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
     ${IS_ADMIN ? `<td style="text-align:center">
       ${isPaid
@@ -719,12 +725,13 @@ function exportCSV() {
     if (currentView === 'overdue') return dueStatus(e.dueDate) === 'overdue';
     return true;
   });
-  const headers = ['Date','Payee','Artist','Song','Invoice #','Amount','Currency','Method','Terms','Due Date','Status','Notes'];
+  const headers = ['Date','Payee','Artist','Song','Invoice #','Amount','Currency','Method','Terms','Due Date','Status','Notes','Has Invoice'];
   const rows = filtered.map(e => [
     e.invoice_date, e.payee, e.artist, e.song, e.invoice_number, e.amount, e.currency||'USD',
     e.payment_method, e.payment_terms,
     e.dueDate ? e.dueDate.toISOString().slice(0,10) : '',
-    e.payment_status||'Unpaid', e.notes
+    e.payment_status||'Unpaid', e.notes,
+    (e.has_invoice || e.parent_id) ? 'Yes' : 'No'
   ]);
   const csv = [headers,...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
