@@ -432,7 +432,7 @@ function applyFilters() {
   let f = [...allEntries];
   if (currentView === 'unpaid')  f = f.filter(e => (e.payment_status||'Unpaid') === 'Unpaid');
   if (currentView === 'overdue') f = f.filter(e => dueStatus(e.dueDate) === 'overdue');
-  if (q)      f = f.filter(e => `${e.payee} ${e.artist} ${e.song} ${e.description} ${e.invoice_number}`.toLowerCase().includes(q));
+  if (q)      f = f.filter(e => `${e.payee} ${e.contact_email} ${e.artist} ${e.song} ${e.description} ${e.invoice_number}`.toLowerCase().includes(q));
   if (status) f = f.filter(e => (e.payment_status||'Unpaid') === status);
 
   // Sort
@@ -532,7 +532,10 @@ function rowHtml(e) {
   const invId = e.parent_id || e.id;
   return `<tr id="row-${e.id}" class="${isSplit ? 'split-row' : ''}">
     <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(e.invoice_date)}</td>
-    <td style="font-weight:700;white-space:nowrap">${esc(e.payee)||'—'}</td>
+    <td style="white-space:nowrap">
+      <div style="font-weight:700">${esc(e.payee)||'—'}</div>
+      ${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="font-size:11px;color:#6366f1;font-weight:600;text-decoration:none" title="${esc(e.contact_email)}">${esc(e.contact_email)}</a>` : ''}
+    </td>
     <td style="color:#555">
       ${esc(e.artist)||'—'}
       ${isSplit ? '<span class="tag tag-split">↳ split</span>' : ''}
