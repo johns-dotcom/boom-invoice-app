@@ -1965,6 +1965,134 @@ def calendar():
                          is_admin=is_admin(),
                          current_user=session.get("user_name"))
 
+@app.route("/1099")
+@login_required
+def summary_1099():
+    year = request.args.get("year", "2025")
+    try:
+        year_int = int(year)
+    except:
+        year_int = 2025
+
+    rows = []
+    conn = None
+    try:
+        conn, kind = get_db()
+        cur = conn.cursor()
+        # Cast invoice_date to get year — works in both PG and SQLite
+        if kind == "pg":
+            cur.execute("""
+                SELECT payee,
+                       MAX(vendor_email)  AS email,
+                       SUM(amount)        AS total,
+                       COUNT(*)           AS invoices,
+                       MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END) AS has_w9,
+                       STRING_AGG(DISTINCT payment_method, ', ') AS methods
+                FROM expenses
+                WHERE deleted IS NOT TRUE
+                  AND payee IS NOT NULL AND payee <> ''
+                  AND EXTRACT(YEAR FROM invoice_date::date) = %s
+                GROUP BY payee
+                ORDER BY total DESC NULLS LAST
+            """, (year_int,))
+        else:
+            cur.execute("""
+                SELECT payee,
+                       MAX(vendor_email)  AS email,
+                       SUM(amount)        AS total,
+                       COUNT(*)           AS invoices,
+                       MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END) AS has_w9,
+                       '' AS methods
+                FROM expenses
+                WHERE deleted IS NOT TRUE
+                  AND payee IS NOT NULL AND payee <> ''
+                  AND strftime('%Y', invoice_date) = ?
+                GROUP BY payee
+                ORDER BY total DESC
+            """, (str(year_int),))
+        for r in cur.fetchall():
+            total = float(r[2] or 0)
+            rows.append({
+                "payee":     r[0],
+                "email":     str(r[1] or ""),
+                "total":     total,
+                "total_fmt": "${:,.2f}".format(total),
+                "invoices":  int(r[3] or 0),
+                "has_w9":    bool(r[4]),
+                "methods":   str(r[5] or ""),
+                "needs_1099": total >= 2000,
+            })
+    except Exception as e:
+        app.logger.error("1099 route error: %s", e, exc_info=True)
+        rows = []
+    finally:
+        if conn:
+            try: conn.close()
+            except: pass
+
+    # Available years: 2023–current
+    import datetime
+    current_year = datetime.datetime.now().year
+    years = list(range(current_year, 2022, -1))
+
+    return render_template("1099.html",
+                           rows=rows,
+                           year=year_int,
+                           years=years,
+                           threshold=2000,
+                           is_admin=is_admin())
+
+@app.route("/1099/export")
+@login_required
+def export_1099():
+    year = request.args.get("year", "2025")
+    try: year_int = int(year)
+    except: year_int = 2025
+    rows = []
+    conn = None
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        if kind == "pg":
+            cur.execute("""
+                SELECT payee, MAX(vendor_email), SUM(amount), COUNT(*),
+                       MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END),
+                       STRING_AGG(DISTINCT payment_method, ', ')
+                FROM expenses
+                WHERE deleted IS NOT TRUE AND payee IS NOT NULL AND payee <> ''
+                  AND EXTRACT(YEAR FROM invoice_date::date) = %s
+                GROUP BY payee ORDER BY SUM(amount) DESC NULLS LAST
+            """, (year_int,))
+        else:
+            cur.execute("""
+                SELECT payee, MAX(vendor_email), SUM(amount), COUNT(*),
+                       MAX(CASE WHEN w9_filename IS NOT NULL THEN 1 ELSE 0 END), ''
+                FROM expenses
+                WHERE deleted IS NOT TRUE AND payee IS NOT NULL AND payee <> ''
+                  AND strftime('%Y', invoice_date) = ?
+                GROUP BY payee ORDER BY SUM(amount) DESC
+            """, (str(year_int),))
+        rows = cur.fetchall()
+    except Exception as e:
+        app.logger.error("1099 export error: %s", e, exc_info=True)
+    finally:
+        if conn:
+            try: conn.close()
+            except: pass
+    import csv, io
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["Vendor", "Email", "Total Paid", "Invoices", "W9 on File", "Payment Methods", "1099 Required (>=$2000)"])
+    for r in rows:
+        total = float(r[2] or 0)
+        w.writerow([r[0], r[1] or "", "${:.2f}".format(total), r[3],
+                    "Yes" if r[4] else "No", r[5] or "",
+                    "Yes" if total >= 2000 else "No"])
+    output = out.getvalue()
+    return output, 200, {
+        "Content-Type": "text/csv",
+        "Content-Disposition": f"attachment; filename=1099-summary-{year_int}.csv"
+    }
+
 @app.route("/status")
 def status(): return jsonify({"ok":True})
 

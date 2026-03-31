@@ -112,6 +112,7 @@
   <a href="/vendors">Vendors</a>
   {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
   {% if current_user == 'John' %}<a href="/calendar">Calendar</a>{% endif %}
+  {% if is_admin %}<a href="/1099">1099 Summary</a>{% endif %}
   {% if is_admin %}<a href="/analytics">Analytics</a>{% endif %}
   <a href="/export" style="color:#16a34a">Export Excel</a>
   <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
