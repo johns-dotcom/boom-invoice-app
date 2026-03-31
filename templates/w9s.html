@@ -9,15 +9,14 @@
   :root { --red:#e31e24; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
-  header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
-  .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
-  .header-right { display:flex; gap:8px; align-items:center; }
-  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
-  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
-  .nav-pill { background:var(--red); color:#fff; padding:7px 14px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; }
+  
+  
+  
+  
+  
+  
 
   .page { padding:28px 24px; max-width:1000px; }
-  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
   .page-header h1 { font-size:20px; font-weight:900; }
 
   .search-input { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 12px; font-size:13px; font-family:inherit; color:var(--text); outline:none; width:240px; }
@@ -43,48 +42,24 @@
   .empty-icon { font-size:48px; margin-bottom:12px; }
 
   /* ── Mobile nav ─────────────────────────────────────────────────────────── */
-  .mob-menu-btn { display:none; background:none; border:1.5px solid var(--border); border-radius:7px; padding:6px 10px; font-size:18px; cursor:pointer; color:var(--muted); line-height:1; flex-shrink:0; }
-  .mob-nav { display:none; flex-direction:column; gap:0; background:#fff; border-bottom:1px solid var(--border); }
-  .mob-nav.open { display:flex; }
-  .mob-nav a { font-size:14px; font-weight:600; padding:12px 20px; border-bottom:1px solid #f3f4f6; color:var(--text); text-decoration:none; }
-  .mob-nav a:last-child { border-bottom:none; }
-  .mob-nav a:active { background:#fef2f2; }
+  
+  
+  
+  
+  
+  
   @media (max-width:700px) {
-    .header-right { display:none !important; }
-    .mob-menu-btn { display:block; }
+    
+    
   }
+
+  {% include "_nav_styles.html" %}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">boom.</div>
-  <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
-  <div class="header-right">
-    <a href="/" class="btn-ghost">+ Add Invoice</a>
-    <a href="/ledger" class="btn-ghost">Ledger</a>
-    <a href="/invoices" class="btn-ghost">Invoices</a>
-    <span class="nav-pill">W9 / W8</span>
-    <a href="/vendors" class="btn-ghost">Vendors</a>
-    <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
-    {% if is_admin %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
-    {% if is_admin %}<a href="/1099" class="btn-ghost">1099</a>{% endif %}
-    {% if current_user != 'Danny' %}<a href="/payments" class="btn-ghost">Payments</a>{% endif %}{% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
-    <a href="/export" class="btn-ghost" style="background:#f0fdf4;border-color:#86efac;color:#16a34a">Excel</a>
-    <a href="/export-qbo" class="btn-ghost" style="background:#f0fdf4;border-color:#86efac;color:#16a34a">CSV</a>
-    {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}<a href="/logout" class="btn-ghost">Sign out</a>
-  </div>
-</header>
-<nav class="mob-nav" id="mob-nav">
-  <a href="/">+ Add Invoice</a>
-  <a href="/ledger">Ledger</a>
-  <a href="/invoices">Invoices</a>
-  <a href="/w9s" style="color:var(--red)">W9 / W8</a>
-  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
-  <a href="/vendors">Vendors</a>
-  {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
-  <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
-</nav>
+{% include '_nav.html' %}
+
 
 
 <div class="page">

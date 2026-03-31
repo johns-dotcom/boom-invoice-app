@@ -1,0 +1,61 @@
+{# Shared nav partial — included in every page.
+   Uses request.path to highlight the active link.
+   Requires context: current_user, pending_count, is_admin (all auto-injected). #}
+{% set p = request.path %}
+<header>
+  <a href="/" class="logo">boom.</a>
+  <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
+  <div class="header-right">
+
+    <a href="/"        class="{{ 'nav-active' if p == '/' else 'nav-link' }}">+ Add</a>
+    <a href="/ledger"  class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
+    <a href="/approvals" class="{{ 'nav-active' if p == '/approvals' else 'nav-link' }}" style="position:relative">
+      Approvals
+      {% if pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
+    </a>
+    <a href="/invoices" class="{{ 'nav-active' if p == '/invoices' else 'nav-link' }}">Invoices</a>
+    <a href="/w9s"      class="{{ 'nav-active' if p == '/w9s' else 'nav-link' }}">W9 / W8</a>
+    <a href="/vendors"  class="{{ 'nav-active' if p.startswith('/vendor') else 'nav-link' }}">Vendors</a>
+
+    {% if current_user != 'Danny' %}
+      <a href="/payments" class="{{ 'nav-active' if p == '/payments' else 'nav-link' }}">Payments</a>
+    {% endif %}
+    {% if current_user == 'Danny' %}
+      <a href="/danny" class="{{ 'nav-active' if p == '/danny' else 'nav-link' }}">PayPal</a>
+    {% endif %}
+
+    {% if is_admin %}
+      <a href="/analytics" class="{{ 'nav-active' if p == '/analytics' else 'nav-link' }}">Analytics</a>
+      <a href="/1099"      class="{{ 'nav-active' if p == '/1099' else 'nav-link' }}">1099</a>
+    {% endif %}
+
+    {% if current_user == 'John' %}
+      <a href="/calendar" class="{{ 'nav-active' if p == '/calendar' else 'nav-link' }}">Calendar</a>
+    {% endif %}
+    {% if current_user in ['John', 'Jesse', 'Felipe'] %}
+      <a href="/history" class="{{ 'nav-active' if p == '/history' else 'nav-link' }}">History</a>
+    {% endif %}
+
+    <a href="/export"     class="nav-export">Excel</a>
+    <a href="/export-qbo" class="nav-export">CSV</a>
+    {% if current_user %}<span class="nav-user">{{ current_user }}</span>{% endif %}
+    <a href="/logout" class="nav-link">Sign out</a>
+  </div>
+</header>
+
+<nav class="mob-nav" id="mob-nav">
+  <a href="/">+ Add Invoice</a>
+  <a href="/ledger">Ledger</a>
+  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
+  <a href="/invoices">Invoices</a>
+  <a href="/w9s">W9 / W8</a>
+  <a href="/vendors">Vendors</a>
+  {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
+  {% if current_user == 'Danny' %}<a href="/danny">PayPal Summary</a>{% endif %}
+  {% if is_admin %}<a href="/analytics">Analytics</a>{% endif %}
+  {% if is_admin %}<a href="/1099">1099 Summary</a>{% endif %}
+  {% if current_user == 'John' %}<a href="/calendar">Calendar</a>{% endif %}
+  {% if current_user in ['John', 'Jesse', 'Felipe'] %}<a href="/history">History</a>{% endif %}
+  <a href="/export" style="color:#16a34a">Export Excel</a>
+  <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
+</nav>

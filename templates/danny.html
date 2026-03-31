@@ -19,21 +19,11 @@ body { background: #f4f4f4; font-family: 'Nunito', system-ui, sans-serif; font-s
 }
 
 /* ─── Header ─── */
-header {
-  background: #fff; border-bottom: 1px solid var(--border);
-  padding: 0 24px; display: flex; align-items: center;
-  justify-content: space-between; height: 56px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06); gap: 8px; flex-wrap: wrap;
-}
-.logo { font-size: 22px; font-weight: 900; color: var(--red); letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
+
 .pp-pill { background: var(--pp-blue); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; letter-spacing: .04em; }
-.header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-a.btn-ghost { background: none; border: 1.5px solid var(--border); color: var(--muted); padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-block; transition: all .15s; }
-a.btn-ghost:hover { border-color: var(--red); color: var(--red); }
 
 /* ─── Layout ─── */
 .page { max-width: 1280px; margin: 0 auto; padding: 28px 20px 80px; }
-.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
 .page-title { font-size: 20px; font-weight: 900; color: #111; }
 .page-subtitle { font-size: 13px; color: var(--muted); margin-top: 3px; }
 .view-btns { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -66,10 +56,6 @@ a.btn-ghost:hover { border-color: var(--red); color: var(--red); }
 
 /* ─── Section card ─── */
 .section { background: #fff; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
-.section-header {
-  padding: 12px 18px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-}
 .section-title { font-size: 13px; font-weight: 900; color: #111; display: flex; align-items: center; gap: 8px; }
 .count-badge { background: #f0f0f0; color: #555; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
 .filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -176,41 +162,25 @@ tr.split-row:hover td { background: #f3eeff; }
 @media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
 
   /* ── Mobile nav ─────────────────────────────────────────────────────────── */
-  .mob-menu-btn { display:none; background:none; border:1.5px solid var(--border); border-radius:7px; padding:6px 10px; font-size:18px; cursor:pointer; color:var(--muted); line-height:1; flex-shrink:0; }
-  .mob-nav { display:none; flex-direction:column; gap:0; background:#fff; border-bottom:1px solid var(--border); }
-  .mob-nav.open { display:flex; }
-  .mob-nav a { font-size:14px; font-weight:600; padding:12px 20px; border-bottom:1px solid #f3f4f6; color:var(--text); text-decoration:none; }
-  .mob-nav a:last-child { border-bottom:none; }
-  .mob-nav a:active { background:#fef2f2; }
+  
+  
+  
+  
+  
+  
   @media (max-width:700px) {
-    .header-right { display:none !important; }
-    .mob-menu-btn { display:block; }
+    
+    
   }
+
+  {% include "_nav_styles.html" %}
 </style>
 </head>
 <body>
 
 <!-- ── Header ── -->
-<header>
-  <div class="logo">
-    boom.
-    <span class="pp-pill">PayPal</span>
-  </div>
-  <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
-  <div class="header-right">
-    <a href="/ledger" class="btn-ghost">← Ledger</a>
-    {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}
-    <a href="/logout" class="btn-ghost">Sign out</a>
-  </div>
-</header>
-<nav class="mob-nav" id="mob-nav">
-  <a href="/">+ Add Invoice</a>
-  <a href="/ledger">Ledger</a>
-  <a href="/approvals">Approvals</a>
-  <a href="/vendors">Vendors</a>
-  <a href="/danny" style="color:var(--red)">PayPal Summary</a>
-  <a href="/logout" style="color:#dc2626">Sign out</a>
-</nav>
+{% include '_nav.html' %}
+
 
 
 <!-- ── Page ── -->

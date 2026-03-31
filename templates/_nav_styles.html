@@ -1,0 +1,26 @@
+{# Shared nav CSS — include inside <style> on every page #}
+  /* ── Shared nav ───────────────────────────────────────────────────────────── */
+  header { background:#fff; border-bottom:1px solid var(--border); padding:0 20px; display:flex; align-items:center; justify-content:space-between; height:52px; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:0; z-index:100; }
+  .logo { font-size:22px; font-weight:900; color:var(--red); letter-spacing:-0.5px; text-decoration:none; flex-shrink:0; }
+  .header-right { display:flex; gap:6px; align-items:center; }
+  .nav-link { background:none; border:1.5px solid var(--border); color:var(--muted); padding:6px 11px; border-radius:7px; font-size:12px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; white-space:nowrap; }
+  .nav-link:hover { border-color:var(--red); color:var(--red); }
+  .nav-active { background:var(--red); color:#fff; border:1.5px solid var(--red); padding:6px 11px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; display:inline-block; white-space:nowrap; }
+  .nav-export { background:#f0fdf4; border:1.5px solid #86efac; color:#16a34a; padding:6px 11px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; display:inline-block; transition:all .15s; white-space:nowrap; }
+  .nav-export:hover { background:#dcfce7; }
+  .nav-badge { background:#fff; color:var(--red); font-size:10px; font-weight:900; padding:1px 5px; border-radius:10px; margin-left:4px; vertical-align:middle; }
+  .nav-user { font-size:11px; color:#aaa; font-weight:700; padding:0 4px; }
+  /* Mobile nav */
+  .mob-menu-btn { display:none; background:none; border:1.5px solid var(--border); border-radius:7px; padding:5px 10px; font-size:17px; cursor:pointer; color:var(--muted); line-height:1; flex-shrink:0; }
+  .mob-nav { display:none; flex-direction:column; background:#fff; border-bottom:1px solid var(--border); }
+  .mob-nav.open { display:flex; }
+  .mob-nav a { font-size:14px; font-weight:600; padding:13px 20px; border-bottom:1px solid #f3f4f6; color:var(--text); text-decoration:none; }
+  .mob-nav a:last-child { border-bottom:none; }
+  .mob-nav a:active { background:#fef2f2; }
+  @media (max-width:700px) {
+    .header-right { display:none !important; }
+    .mob-menu-btn { display:block; }
+  }
+  /* ── Shared page layout ──────────────────────────────────────────────────── */
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+  .page-header h1 { font-size:20px; font-weight:900; }

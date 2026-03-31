@@ -9,13 +9,13 @@
   :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
-  header { background:#fff; border-bottom:1px solid var(--border); padding:0 28px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
-  .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
-  .header-right { display:flex; gap:8px; align-items:center; }
-  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
-  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
-  a.btn-red { background:var(--red); color:#fff; border:none; padding:7px 14px; border-radius:7px; font-size:13px; font-weight:700; text-decoration:none; display:inline-block; transition:background .15s; }
-  a.btn-red:hover { background:var(--red-dark); }
+  
+  
+  
+  
+  
+  
+  
   .stats { background:#fff; border-bottom:1px solid var(--border); padding:10px 28px; display:flex; gap:28px; }
   .stat { font-size:12px; color:var(--muted); }
   .stat strong { color:var(--text); font-size:15px; font-weight:700; display:block; }
@@ -52,7 +52,7 @@
   #success-banner { display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:14px 18px; margin-bottom:16px; font-size:13px; font-weight:600; color:var(--green); }
   #success-banner.show { display:block; }
   .side-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
-  .side-card-header { padding:14px 16px; border-bottom:1px solid var(--border); font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:space-between; }
+  .side-card-
   .side-card-header a { font-size:11px; color:var(--red); text-decoration:none; font-weight:600; }
   .recent-item { padding:12px 16px; border-bottom:1px solid var(--border); }
   .recent-item:last-child { border-bottom:none; }
@@ -66,15 +66,15 @@
   .recent-empty { padding:28px; text-align:center; color:var(--muted); font-size:13px; }
 
   /* ── Mobile nav ─────────────────────────────────────────────────────────── */
-  .mob-menu-btn { display:none; background:none; border:1.5px solid var(--border); border-radius:7px; padding:6px 10px; font-size:18px; cursor:pointer; color:var(--muted); line-height:1; flex-shrink:0; }
-  .mob-nav { display:none; flex-direction:column; gap:0; background:#fff; border-bottom:1px solid var(--border); }
-  .mob-nav.open { display:flex; }
-  .mob-nav a { font-size:14px; font-weight:600; padding:12px 20px; border-bottom:1px solid #f3f4f6; color:var(--text); text-decoration:none; }
-  .mob-nav a:last-child { border-bottom:none; }
-  .mob-nav a:active { background:#fef2f2; }
+  
+  
+  
+  
+  
+  
   @media (max-width:700px) {
-    .header-right { display:none !important; }
-    .mob-menu-btn { display:block; }
+    
+    
     .stats { padding:10px 16px; gap:16px; }
     .layout { flex-direction:column; padding:16px; gap:16px; }
     .side-col { width:100%; }
@@ -83,40 +83,14 @@
     .form-group.full { grid-column:1; }
     .drop-zone { padding:24px 16px; }
   }
+
+  {% include "_nav_styles.html" %}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">boom.</div>
-  <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
-  <div class="header-right">
-    <a href="/ledger" class="btn-red">Ledger</a>
-    <a href="/invoices" class="btn-ghost">Invoices</a>
-    <a href="/w9s" class="btn-ghost">W9 / W8</a>
-    <a href="/vendors" class="btn-ghost">Vendors</a>
-    <a href="/approvals" class="btn-ghost" style="position:relative">Approvals{% if pending_count > 0 %}<span style="position:absolute;top:-6px;right:-6px;background:#e31e24;color:#fff;font-size:10px;font-weight:900;padding:1px 5px;border-radius:10px;line-height:1.4">{{ pending_count }}</span>{% endif %}</a>
-    {% if current_user != 'Danny' %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
-    {% if current_user != 'Danny' %}<a href="/payments" class="btn-ghost">Payments</a>{% endif %}{% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
-    <a href="/export" class="btn-ghost" style="background:#f0fdf4;border-color:#86efac;color:#16a34a">Excel</a>
-    <a href="/export-qbo" class="btn-ghost" style="background:#f0fdf4;border-color:#86efac;color:#16a34a">CSV</a>
-    {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}<a href="/logout" class="btn-ghost">Sign out</a>
-  </div>
-</header>
-<nav class="mob-nav" id="mob-nav">
-  <a href="/" style="color:var(--red);font-weight:800">+ Add Invoice</a>
-  <a href="/ledger">Ledger</a>
-  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
-  <a href="/invoices">Invoices</a>
-  <a href="/w9s">W9 / W8</a>
-  <a href="/vendors">Vendors</a>
-  {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
-  {% if current_user == 'John' %}<a href="/calendar">Calendar</a>{% endif %}
-  {% if is_admin %}<a href="/1099">1099 Summary</a>{% endif %}
-  {% if is_admin %}<a href="/analytics">Analytics</a>{% endif %}
-  <a href="/export" style="color:#16a34a">Export Excel</a>
-  <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
-</nav>
+{% include '_nav.html' %}
+
 
 
 <div class="stats">
