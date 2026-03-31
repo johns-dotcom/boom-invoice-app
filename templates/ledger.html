@@ -56,6 +56,12 @@
   .editable-cell { cursor:pointer; border-radius:4px; padding:2px 4px; transition:background .15s; }
   .editable-cell:hover { background:rgba(227,30,36,.08); }
   .editable-cell:hover::after { content:" ✎"; font-size:10px; color:var(--muted); }
+  /* Description expand */
+  .desc-short { max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; color:var(--muted); font-size:12px; }
+  .desc-short:hover { color:var(--text); text-decoration:underline dotted var(--muted); }
+  .desc-popover { position:fixed; background:#fff; border:1px solid #e0e7ff; border-radius:10px; padding:14px 16px; max-width:320px; font-size:12px; line-height:1.6; color:#333; box-shadow:0 8px 28px rgba(0,0,0,.13); z-index:500; white-space:pre-wrap; word-break:break-word; }
+  .desc-popover-close { float:right; background:none; border:none; font-size:14px; color:#aaa; cursor:pointer; margin:-4px -4px 0 8px; line-height:1; }
+  .desc-popover-close:hover { color:#333; }
   .inline-input { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:4px 8px; width:130px; font-family:inherit; }
   .inline-input:focus { outline:none; }
   .vendor-badge { background:#fef2f2; color:var(--red); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; border:1px solid #fca5a5; }
@@ -519,8 +525,8 @@ function renderRows(entries) {
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
-      <td class="td-trunc" title="${esc(e.description)}">${isChild ? '' : e.description||'—'}</td>
-      <td>${isChild ? '' : e.category||'—'}</td>
+      <td>${isChild || !e.description ? (isChild ? '' : '<span style="color:#ddd">—</span>') : `<span class="desc-short" onclick="showDesc(event,${e.id})" title="Click to expand">${esc(e.description)}</span>`}</td>
+      <td>${isChild ? '' : IS_ADMIN ? `<span class="editable-cell" onclick="event.stopPropagation();editCategory(${e.id},this,'${esc(e.category)}')">${esc(e.category)||'—'}</span>` : e.category||'—'}</td>
       <td${isChild ? ' style="padding-left:26px"' : ''}>
         ${isChild ? '<span class="split-indent">↳</span>' : ''}
         <span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'artist',this,'${esc(e.artist)}')">${isParent ? esc(allArtists) : e.artist||'—'}</span>
@@ -709,6 +715,84 @@ function openStatusEdit(id, field, badgeEl) {
   sel.addEventListener('keydown', e=>{ if(e.key==='Escape') cancel(); });
   // Delay blur so 'change' fires first when clicking an option
   sel.addEventListener('blur', ()=>setTimeout(()=>{ if(!committed) cancel(); }, 200));
+}
+
+// ─── Description popover ──────────────────────────────────────────────────────
+let activePopover = null;
+
+function showDesc(event, id) {
+  event.stopPropagation();
+  closeDesc();
+  const entry = allEntries.find(e => e.id === id);
+  if (!entry || !entry.description) return;
+
+  const pop = document.createElement('div');
+  pop.className = 'desc-popover';
+  pop.innerHTML = `<button class="desc-popover-close" onclick="closeDesc()">✕</button>${esc(entry.description)}`;
+  document.body.appendChild(pop);
+  activePopover = pop;
+
+  // Position near the clicked cell
+  const rect = event.target.getBoundingClientRect();
+  let top = rect.bottom + 6;
+  let left = rect.left;
+  // Keep within viewport
+  if (left + 320 > window.innerWidth - 12) left = window.innerWidth - 332;
+  if (top + 160 > window.innerHeight) top = rect.top - 10 - pop.offsetHeight;
+  pop.style.top  = top  + 'px';
+  pop.style.left = left + 'px';
+
+  setTimeout(() => document.addEventListener('click', closeDesc, {once:true}), 0);
+}
+
+function closeDesc() {
+  if (activePopover) { activePopover.remove(); activePopover = null; }
+}
+
+// ─── Category dropdown (admin only) ───────────────────────────────────────────
+function editCategory(id, spanEl, currentVal) {
+  const sel = document.createElement('select');
+  sel.className = 'status-select';
+  sel.style.cssText = 'font-size:12px;padding:2px 6px;width:auto;max-width:160px';
+  CATEGORIES.forEach(cat => {
+    const o = document.createElement('option');
+    o.value = cat; o.textContent = cat;
+    if (cat === currentVal) o.selected = true;
+    sel.appendChild(o);
+  });
+  // Add blank option at top if nothing selected
+  if (!currentVal || !CATEGORIES.includes(currentVal)) {
+    const blank = document.createElement('option');
+    blank.value = ''; blank.textContent = '— select —';
+    blank.selected = true;
+    sel.insertBefore(blank, sel.firstChild);
+  }
+  spanEl.replaceWith(sel);
+  sel.focus();
+
+  const save = async () => {
+    const newVal = sel.value.trim();
+    const span = document.createElement('span');
+    span.className = 'editable-cell';
+    span.textContent = newVal || '—';
+    span.onclick = (ev) => { ev.stopPropagation(); editCategory(id, span, newVal); };
+    sel.replaceWith(span);
+    if (newVal === currentVal) return;
+    const res = await fetch(`/update/${id}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({category: newVal})
+    });
+    if (res.ok) {
+      pushUndo({type:'field', id, field:'category', oldVal: currentVal});
+      const entry = allEntries.find(e => e.id === id);
+      if (entry) entry.category = newVal;
+      flashRow(id); toast('Saved');
+    } else toast('Save failed', true);
+  };
+
+  sel.addEventListener('change', save);
+  sel.addEventListener('blur', () => setTimeout(save, 100));
+  sel.addEventListener('keydown', e => { if (e.key === 'Escape') { sel.value = currentVal; sel.blur(); } });
 }
 
 function editText(id, field, spanEl, currentVal) {
