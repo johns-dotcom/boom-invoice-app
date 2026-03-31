@@ -45,6 +45,8 @@
   .btn:hover { background:#c41a1f; }
   .btn:disabled { background:#ccc; cursor:not-allowed; }
   .secure-note { text-align:center; font-size:12px; color:#999; margin-top:14px; }
+  .add-artist-btn { background:none; border:1.5px dashed #e2e2e2; border-radius:7px; padding:8px 12px; width:100%; font-size:13px; font-weight:600; color:#999; cursor:pointer; font-family:inherit; transition:all .15s; margin-top:4px; text-align:center; }
+  .add-artist-btn:hover { border-color:#e31e24; color:#e31e24; }
 
   /* Validation modal */
   #val-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; padding:20px; }
@@ -131,13 +133,19 @@
       <!-- Project info -->
       <div class="section-title">Project Info</div>
       <div class="form-grid">
+        <!-- Hidden fields populated by JS before submit -->
+        <input type="hidden" name="artist" id="field-artist"/>
+        <input type="hidden" name="song" id="field-song"/>
+        <input type="hidden" name="artist_breakdown" id="field-artist-breakdown"/>
+
         <div class="form-group full">
-          <label>Artist / Project <span class="req">*</span></label>
-          <input type="text" name="artist" placeholder="e.g. Artist Name or Project Title" required/>
-        </div>
-        <div class="form-group full">
-          <label>Song / Track <span class="opt">(optional)</span></label>
-          <input type="text" name="song" placeholder="e.g. Track Name (if applicable)"/>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+            <label style="margin-bottom:0">Artist / Project <span class="req">*</span></label>
+            <span style="font-size:11px;color:#aaa;font-weight:400">Add a row for each artist on this invoice</span>
+          </div>
+          <div id="artist-rows"></div>
+          <div id="artist-row-error" style="display:none;color:#e31e24;font-size:12px;margin-top:4px;font-weight:600">Please enter at least one artist or project.</div>
+          <button type="button" id="add-artist-btn" class="add-artist-btn" onclick="addArtistRow()">+ Add another artist</button>
         </div>
         <div class="form-group full">
           <label>Category <span class="req">*</span></label>
@@ -256,6 +264,59 @@ setupDropZone('dz-invoice', 'file-invoice', 'fn-invoice');
 setupDropZone('dz-w9', 'file-w9', 'fn-w9');
 setupDropZone('dz-receipt', 'file-receipt', 'fn-receipt');
 
+// ── Multi-artist rows ─────────────────────────────────────────
+function addArtistRow() {
+  const container = document.getElementById('artist-rows');
+  const isFirst   = container.children.length === 0;
+  const row       = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:flex-start';
+
+  const inputStyle = 'flex:1;min-width:0;border:1.5px solid #e2e2e2;border-radius:7px;padding:10px 13px;font-size:14px;font-family:inherit;color:#111;outline:none;transition:border-color .15s;background:#fff';
+  const removeStyle = 'flex-shrink:0;background:none;border:1.5px solid #e2e2e2;border-radius:7px;padding:0 11px;height:42px;cursor:pointer;font-size:13px;color:#ccc;transition:all .15s;font-family:inherit;line-height:1';
+
+  row.innerHTML = `
+    <input type="text" class="artist-input" placeholder="${isFirst ? 'Artist / Project name' : 'Artist / Project (optional)'}"
+      style="${inputStyle}" onfocus="this.style.borderColor='#e31e24'" onblur="this.style.borderColor='#e2e2e2'"/>
+    <input type="text" class="song-input" placeholder="Song / Track"
+      style="${inputStyle}" onfocus="this.style.borderColor='#e31e24'" onblur="this.style.borderColor='#e2e2e2'"/>
+    ${isFirst
+      ? '<div style="width:42px;flex-shrink:0"></div>'
+      : `<button type="button" onclick="removeArtistRow(this)" style="${removeStyle}"
+           onmouseover="this.style.borderColor='#e31e24';this.style.color='#e31e24'"
+           onmouseout="this.style.borderColor='#e2e2e2';this.style.color='#ccc'">✕</button>`}
+  `;
+  container.appendChild(row);
+  updateAddBtn();
+}
+
+function removeArtistRow(btn) {
+  btn.closest('div[style]').remove();
+  updateAddBtn();
+}
+
+function updateAddBtn() {
+  const n = document.getElementById('artist-rows').children.length;
+  document.getElementById('add-artist-btn').style.display = n >= 6 ? 'none' : '';
+}
+
+function populateArtistFields() {
+  const rows = document.querySelectorAll('#artist-rows > div');
+  const entries = [];
+  rows.forEach(r => {
+    const a = r.querySelector('.artist-input').value.trim();
+    const s = r.querySelector('.song-input').value.trim();
+    if (a) entries.push({artist: a, song: s});
+  });
+  if (!entries.length) return;
+  document.getElementById('field-artist').value = entries[0].artist;
+  document.getElementById('field-song').value   = entries[0].song;
+  document.getElementById('field-artist-breakdown').value =
+    entries.length > 1 ? JSON.stringify(entries) : '';
+}
+
+// Initialize on load
+addArtistRow();
+
 // ── Mode toggle (Invoice / Reimbursement) ──────────────────────
 let currentMode = 'invoice';
 
@@ -362,6 +423,13 @@ document.getElementById('submit-form').addEventListener('submit', async function
     valid = false;
   }
 
+  // Artist validation
+  const firstArtist = document.querySelector('#artist-rows > div .artist-input');
+  const artistErrEl = document.getElementById('artist-row-error');
+  if (!firstArtist || !firstArtist.value.trim()) {
+    artistErrEl.style.display = 'block'; valid = false;
+  } else { artistErrEl.style.display = 'none'; }
+
   if (!address)    fieldError('vendor-address', 'Mailing address is required.');
   if (!payment)    fieldError('payment-preference', 'Please select a payment method.');
   if (!invoiceNum) fieldError('invoice-number', 'Invoice number is required.');
@@ -394,7 +462,7 @@ document.getElementById('submit-form').addEventListener('submit', async function
     if (data.skipped || !data.issues) {
       // AI not configured — submit normally
       btn.textContent = 'Submitting…';
-      this.submit(); return;
+      populateArtistFields(); this.submit(); return;
     }
 
     const invIssues = data.issues.invoice || [];
@@ -402,7 +470,7 @@ document.getElementById('submit-form').addEventListener('submit', async function
 
     if (invIssues.length === 0 && w9Issues.length === 0) {
       btn.textContent = 'Submitting…';
-      this.submit(); return;
+      populateArtistFields(); this.submit(); return;
     }
 
     // Show warning modal
@@ -420,7 +488,7 @@ document.getElementById('submit-form').addEventListener('submit', async function
   } catch(err) {
     // Network error — don't block submission
     btn.textContent = 'Submitting…';
-    this.submit();
+    populateArtistFields(); this.submit();
   }
 });
 

@@ -10,6 +10,16 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+
+def _parse_json_list(s):
+    """Safely parse a JSON string into a list; return None if empty or invalid."""
+    if not s:
+        return None
+    try:
+        parsed = json.loads(s)
+        return parsed if isinstance(parsed, list) and parsed else None
+    except Exception:
+        return None
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 DATABASE_URL   = os.environ.get("DATABASE_URL", "")
@@ -159,7 +169,8 @@ def init_db():
                     "deleted BOOLEAN DEFAULT FALSE",
                     "vendor_address TEXT",
                     "is_reimbursement BOOLEAN DEFAULT FALSE",
-                    "payment_terms TEXT"]:
+                    "payment_terms TEXT",
+                    "artist_breakdown TEXT"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -212,7 +223,8 @@ def init_db():
                     "deleted INTEGER DEFAULT 0",
                     "vendor_address TEXT",
                     "is_reimbursement INTEGER DEFAULT 0",
-                    "payment_terms TEXT"]:
+                    "payment_terms TEXT",
+                    "artist_breakdown TEXT"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -800,7 +812,7 @@ def approvals_page():
                               invoice_date, payee, description, category,
                               invoice_number, amount, notes,
                               invoice_filename, w9_filename, artist, song, cobrand,
-                              is_reimbursement
+                              is_reimbursement, artist_breakdown
                        FROM expenses WHERE status = 'pending'
                        ORDER BY created_at ASC""")
         rows = cur.fetchall(); conn.close()
@@ -811,7 +823,8 @@ def approvals_page():
                   "amount":r[9],"notes":str(r[10] or ""),
                   "invoice_filename":str(r[11] or ""),"w9_filename":str(r[12] or ""),
                   "artist":str(r[13] or ""),"song":str(r[14] or ""),
-                  "cobrand":bool(r[15]),"is_reimbursement":bool(r[16])} for r in rows]
+                  "cobrand":bool(r[15]),"is_reimbursement":bool(r[16]),
+                  "artist_breakdown": _parse_json_list(r[17])} for r in rows]
     except Exception as e:
         items = []
     return render_template("approvals.html", items=items, is_admin=is_admin())
@@ -1442,6 +1455,7 @@ def submit_invoice():
     cobrand          = request.form.get("cobrand") == "yes"
     notes            = request.form.get("notes","").strip()
     is_reimbursement = request.form.get("is_reimbursement") == "yes"
+    artist_breakdown = request.form.get("artist_breakdown","").strip() or None
 
     def err(msg):
         return render_template("submit.html", error=msg, categories=CATEGORIES)
@@ -1507,15 +1521,16 @@ def submit_invoice():
            parse_amount(fields.get("amount",0)),
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
            True, vendor_name, vendor_email, vendor_address,
-           w9_fname, w9_b64, inv_fname, inv_b64, receipt_fname, receipt_b64, "pending", cobrand, is_reimbursement)
+           w9_fname, w9_b64, inv_fname, inv_b64, receipt_fname, receipt_b64, "pending", cobrand, is_reimbursement,
+           artist_breakdown)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
             vendor_name,vendor_email,vendor_address,w9_filename,w9_data,invoice_filename,invoice_data,
-            proof_filename,proof_data,status,cobrand,is_reimbursement)
-            VALUES ({','.join([ph]*28)})""", row)
+            proof_filename,proof_data,status,cobrand,is_reimbursement,artist_breakdown)
+            VALUES ({','.join([ph]*29)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
         return err(f"Submission failed: {e}")
