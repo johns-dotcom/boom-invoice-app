@@ -6,167 +6,213 @@
 <title>Boom.Records — Vendors</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
 <style>
-  :root { --red:#e31e24; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
-  
-  
-  
-  
-  
-  
 
   .page { padding:28px 24px; max-width:1200px; }
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
   .page-header h1 { font-size:20px; font-weight:900; }
   .page-header h1 span { color:var(--muted); font-weight:600; font-size:14px; margin-left:8px; }
 
-  .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .search-input { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 12px; font-size:13px; font-family:inherit; color:var(--text); outline:none; width:240px; }
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .search-input { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 12px; font-size:13px; font-family:inherit; color:var(--text); outline:none; width:220px; transition:border-color .15s; }
   .search-input:focus { border-color:var(--red); }
   .sort-select { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 10px; font-size:13px; font-family:inherit; color:var(--text); outline:none; cursor:pointer; }
   .sort-select:focus { border-color:var(--red); }
 
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; margin-top:20px; }
+  /* View toggle */
+  .view-toggle { display:flex; background:#fff; border:1.5px solid var(--border); border-radius:7px; overflow:hidden; }
+  .view-btn { background:none; border:none; padding:7px 10px; cursor:pointer; color:var(--muted); transition:all .15s; display:flex; align-items:center; }
+  .view-btn:first-child { border-right:1px solid var(--border); }
+  .view-btn.active { background:#fef2f2; color:var(--red); }
+  .view-btn:hover:not(.active) { background:#f3f4f6; }
+  .view-btn svg { width:15px; height:15px; }
 
+  /* ── Card grid view ── */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
   .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:box-shadow .15s, transform .15s; text-decoration:none; color:inherit; display:block; }
-  .card:hover { box-shadow:0 4px 20px rgba(0,0,0,.1); transform:translateY(-1px); }
-
+  .card:hover { box-shadow:0 4px 20px rgba(0,0,0,.09); transform:translateY(-1px); }
   .card-avatar { height:80px; display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:900; color:var(--red); background:#fef2f2; border-bottom:1px solid var(--border); position:relative; }
-  .card-w9 { position:absolute; top:8px; right:8px; background:#d1fae5; color:#065f46; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:.03em; }
-  .card-no-w9 { position:absolute; top:8px; right:8px; background:#fef3c7; color:#92400e; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:.03em; }
-
+  .card-w9 { position:absolute; top:8px; right:8px; background:#d1fae5; color:#065f46; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; }
+  .card-no-w9 { position:absolute; top:8px; right:8px; background:#fef9c3; color:#92400e; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; }
   .card-body { padding:14px; }
   .card-payee { font-weight:800; font-size:14px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .card-email { font-size:11px; color:var(--muted); margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-  .card-stats { display:flex; gap:8px; margin-bottom:12px; }
+  .card-stats { display:flex; gap:8px; margin-bottom:10px; }
   .stat { flex:1; background:#f8f9fb; border-radius:6px; padding:7px 10px; text-align:center; }
   .stat-val { font-size:14px; font-weight:900; color:var(--red); }
   .stat-label { font-size:10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-top:1px; }
-
   .card-method { font-size:11px; color:var(--muted); }
-  .card-latest { font-size:11px; color:var(--muted); }
-
+  .card-latest { font-size:11px; color:var(--muted); margin-top:2px; }
   .card-footer { margin-top:12px; }
-  .btn-view { display:block; background:var(--red); color:#fff; text-align:center; padding:8px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; transition:background .15s; }
-  .btn-view:hover { background:#c41a1f; }
+  .btn-view-card { display:block; background:var(--red); color:#fff; text-align:center; padding:8px; border-radius:7px; font-size:12px; font-weight:700; text-decoration:none; transition:background .15s; }
+  .btn-view-card:hover { background:var(--red-dark); }
+
+  /* ── List / table view ── */
+  .list-wrap { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:#f8f9fa; color:#9ca3af; font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; padding:10px 16px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; }
+  tbody tr { border-bottom:1px solid #f3f4f6; transition:background .1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:#fafafa; }
+  tbody td { padding:11px 16px; vertical-align:middle; }
+  .tl-avatar { width:32px; height:32px; border-radius:50%; background:#fef2f2; border:1.5px solid #fca5a5; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:var(--red); flex-shrink:0; }
+  .tl-payee { font-weight:700; }
+  .tl-email { font-size:12px; color:var(--muted); }
+  .tl-amount { font-weight:900; color:var(--red); font-size:14px; }
+  .tl-muted { font-size:12px; color:#9ca3af; }
+  .w9-yes { background:#d1fae5; color:#065f46; font-size:10px; font-weight:800; padding:2px 8px; border-radius:4px; white-space:nowrap; }
+  .w9-no  { background:#fef9c3; color:#92400e; font-size:10px; font-weight:800; padding:2px 8px; border-radius:4px; white-space:nowrap; }
+  a.btn-view { background:var(--red); color:#fff; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap; transition:background .15s; display:inline-block; }
+  a.btn-view:hover { background:var(--red-dark); }
 
   .empty { text-align:center; padding:80px; color:var(--muted); grid-column:1/-1; }
-  .empty-icon { font-size:48px; margin-bottom:12px; }
 
-  /* ── Mobile nav ─────────────────────────────────────────────────────────── */
-  
-  
-  
-  
-  
-  
   @media (max-width:700px) {
-    
-    
+    .grid { grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:480px) {
+    .grid { grid-template-columns:1fr; }
   }
 
   {% include "_nav_styles.html" %}
 </style>
 </head>
 <body>
-
 {% include '_nav.html' %}
-
-
 
 <div class="page">
   <div class="page-header">
     <h1>Vendors <span id="count-label">({{ vendors | length }})</span></h1>
     <div class="toolbar">
-      <input class="search-input" id="search" placeholder="Search vendor, email…" oninput="filterCards()"/>
-      <select class="sort-select" id="sort" onchange="sortCards()">
+      <input class="search-input" id="search" placeholder="Search vendor, email…" oninput="filterVendors()"/>
+      <select class="sort-select" id="sort" onchange="sortVendors()">
         <option value="spend">Sort: Top spend</option>
         <option value="name">Sort: A–Z</option>
         <option value="recent">Sort: Most recent</option>
         <option value="count">Sort: Most invoices</option>
       </select>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Card view">
+          <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        </button>
+        <button class="view-btn" id="btn-list" onclick="setView('list')" title="List view">
+          <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="grid" id="grid">
+  <!-- Card grid view -->
+  <div class="grid" id="grid-view">
     {% if not vendors %}
-    <div class="empty">
-      <div class="empty-icon">🏢</div>
-      <p>No vendors found.</p>
-    </div>
+    <div class="empty"><p>No vendors found.</p></div>
     {% else %}
     {% for v in vendors %}
     <a class="card"
        href="/vendor/{{ v.payee }}"
-       data-search="{{ (v.payee + ' ' + v.email) | lower }}"
+       data-search="{{ (v.payee + ' ' + (v.email or '')) | lower }}"
        data-spend="{{ v.total }}"
        data-name="{{ v.payee | lower }}"
-       data-recent="{{ v.latest }}"
+       data-recent="{{ v.latest or '' }}"
        data-count="{{ v.count }}">
       <div class="card-avatar">
         {{ (v.payee or '?')[0].upper() }}
-        {% if v.has_w9 %}
-          <span class="card-w9">W9 ✓</span>
-        {% else %}
-          <span class="card-no-w9">No W9</span>
-        {% endif %}
+        {% if v.has_w9 %}<span class="card-w9">W9</span>{% else %}<span class="card-no-w9">No W9</span>{% endif %}
       </div>
       <div class="card-body">
         <div class="card-payee" title="{{ v.payee }}">{{ v.payee }}</div>
         <div class="card-email">{{ v.email or '—' }}</div>
         <div class="card-stats">
-          <div class="stat">
-            <div class="stat-val">{{ v.total_fmt }}</div>
-            <div class="stat-label">Total</div>
-          </div>
-          <div class="stat">
-            <div class="stat-val">{{ v.count }}</div>
-            <div class="stat-label">Invoice{{ 's' if v.count != 1 else '' }}</div>
-          </div>
+          <div class="stat"><div class="stat-val">{{ v.total_fmt }}</div><div class="stat-label">Total</div></div>
+          <div class="stat"><div class="stat-val">{{ v.count }}</div><div class="stat-label">Invoice{{ 's' if v.count != 1 else '' }}</div></div>
         </div>
-        {% if v.methods %}
-        <div class="card-method">{{ v.methods }}</div>
-        {% endif %}
-        {% if v.latest %}
-        <div class="card-latest" style="margin-top:3px">Last: {{ v.latest }}</div>
-        {% endif %}
-        <div class="card-footer">
-          <span class="btn-view">View Profile →</span>
-        </div>
+        {% if v.methods %}<div class="card-method">{{ v.methods }}</div>{% endif %}
+        {% if v.latest %}<div class="card-latest">Last: {{ v.latest }}</div>{% endif %}
+        <div class="card-footer"><span class="btn-view-card">View Profile</span></div>
       </div>
     </a>
     {% endfor %}
     {% endif %}
   </div>
+
+  <!-- List / table view -->
+  <div class="list-wrap" id="list-view" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:40px"></th>
+          <th>Vendor</th>
+          <th>Email</th>
+          <th style="text-align:right">Total</th>
+          <th style="text-align:center">Invoices</th>
+          <th>Payment</th>
+          <th>Last Invoice</th>
+          <th>W9</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="list-tbody">
+        {% for v in vendors %}
+        <tr data-search="{{ (v.payee + ' ' + (v.email or '')) | lower }}"
+            data-spend="{{ v.total }}" data-name="{{ v.payee | lower }}"
+            data-recent="{{ v.latest or '' }}" data-count="{{ v.count }}">
+          <td><div class="tl-avatar">{{ (v.payee or '?')[0].upper() }}</div></td>
+          <td class="tl-payee">{{ v.payee }}</td>
+          <td class="tl-email">{{ v.email or '—' }}</td>
+          <td class="tl-amount" style="text-align:right">{{ v.total_fmt }}</td>
+          <td class="tl-muted" style="text-align:center">{{ v.count }}</td>
+          <td class="tl-muted">{{ v.methods or '—' }}</td>
+          <td class="tl-muted">{{ v.latest or '—' }}</td>
+          <td>{% if v.has_w9 %}<span class="w9-yes">W9</span>{% else %}<span class="w9-no">None</span>{% endif %}</td>
+          <td><a href="/vendor/{{ v.payee }}" class="btn-view">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <script>
 const total = {{ vendors | length }};
+let currentView = localStorage.getItem('vendors-view') || 'grid';
+setView(currentView, true);
 
-function filterCards() {
-  const q = document.getElementById('search').value.toLowerCase();
-  let visible = 0;
-  document.querySelectorAll('.card[data-search]').forEach(c => {
-    const show = !q || c.dataset.search.includes(q);
-    c.style.display = show ? '' : 'none';
-    if (show) visible++;
-  });
-  document.getElementById('count-label').textContent = q ? `(${visible} of ${total})` : `(${total})`;
+function setView(v, init) {
+  currentView = v;
+  if (!init) localStorage.setItem('vendors-view', v);
+  document.getElementById('grid-view').style.display = v === 'grid' ? 'grid' : 'none';
+  document.getElementById('list-view').style.display = v === 'list' ? 'block' : 'none';
+  document.getElementById('btn-grid').classList.toggle('active', v === 'grid');
+  document.getElementById('btn-list').classList.toggle('active', v === 'list');
 }
 
-function sortCards() {
+function filterVendors() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#grid-view .card[data-search], #list-tbody tr[data-search]').forEach(el => {
+    const show = !q || el.dataset.search.includes(q);
+    el.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const shown = visible / 2; // counted in both grid+list
+  document.getElementById('count-label').textContent = q ? `(${Math.round(shown)} of ${total})` : `(${total})`;
+}
+
+function sortVendors() {
   const val = document.getElementById('sort').value;
-  const grid = document.getElementById('grid');
-  const cards = [...grid.querySelectorAll('.card[data-search]')];
-  cards.sort((a, b) => {
+  const sort = (a, b) => {
     if (val === 'spend')  return parseFloat(b.dataset.spend)  - parseFloat(a.dataset.spend);
     if (val === 'count')  return parseInt(b.dataset.count)    - parseInt(a.dataset.count);
     if (val === 'recent') return (b.dataset.recent || '').localeCompare(a.dataset.recent || '');
     if (val === 'name')   return (a.dataset.name  || '').localeCompare(b.dataset.name  || '');
     return 0;
-  });
-  cards.forEach(c => grid.appendChild(c));
+  };
+  const grid = document.getElementById('grid-view');
+  [...grid.querySelectorAll('.card[data-search]')].sort(sort).forEach(c => grid.appendChild(c));
+  const tbody = document.getElementById('list-tbody');
+  [...tbody.querySelectorAll('tr[data-search]')].sort(sort).forEach(r => tbody.appendChild(r));
 }
 </script>
 </body>
