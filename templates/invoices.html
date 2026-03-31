@@ -81,10 +81,10 @@
     <div class="toolbar">
       <input class="search-input" id="search" placeholder="Search payee, artist…" oninput="filterInvoices()"/>
       <div class="view-toggle">
-        <button class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Card view">
+        <button class="view-btn" id="btn-grid" onclick="setView('grid')" title="Card view">
           <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
         </button>
-        <button class="view-btn" id="btn-list" onclick="setView('list')" title="List view">
+        <button class="view-btn active" id="btn-list" onclick="setView('list')" title="List view">
           <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg>
         </button>
       </div>
@@ -98,8 +98,8 @@
   </div>
   {% else %}
 
-  <!-- Card grid view (default) -->
-  <div class="grid" id="grid-view">
+  <!-- Card grid view -->
+  <div class="grid" id="grid-view" style="display:none">
     {% for item in items %}
     <div class="card" data-search="{{ (item.payee + ' ' + item.artist + ' ' + item.invoice_number) | lower }}">
       <div class="card-preview">
@@ -127,8 +127,8 @@
     {% endfor %}
   </div>
 
-  <!-- List / table view -->
-  <div class="list-wrap" id="list-view" style="display:none">
+  <!-- List / table view (default) -->
+  <div class="list-wrap" id="list-view">
     <table>
       <thead>
         <tr>
@@ -168,7 +168,7 @@
 <script>
 const total = {{ items | length }};
 document.getElementById('count-label').textContent = total ? `(${total})` : '';
-let currentView = localStorage.getItem('invoices-view') || 'grid';
+let currentView = localStorage.getItem('invoices-view') || 'list';
 setView(currentView, true);
 
 function setView(v, init) {

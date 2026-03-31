@@ -94,10 +94,10 @@
         <option value="count">Sort: Most invoices</option>
       </select>
       <div class="view-toggle">
-        <button class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Card view">
+        <button class="view-btn" id="btn-grid" onclick="setView('grid')" title="Card view">
           <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
         </button>
-        <button class="view-btn" id="btn-list" onclick="setView('list')" title="List view">
+        <button class="view-btn active" id="btn-list" onclick="setView('list')" title="List view">
           <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg>
         </button>
       </div>
@@ -105,7 +105,7 @@
   </div>
 
   <!-- Card grid view -->
-  <div class="grid" id="grid-view">
+  <div class="grid" id="grid-view" style="display:none">
     {% if not vendors %}
     <div class="empty"><p>No vendors found.</p></div>
     {% else %}
@@ -137,8 +137,8 @@
     {% endif %}
   </div>
 
-  <!-- List / table view -->
-  <div class="list-wrap" id="list-view" style="display:none">
+  <!-- List / table view (default) -->
+  <div class="list-wrap" id="list-view">
     <table>
       <thead>
         <tr>
@@ -176,7 +176,7 @@
 
 <script>
 const total = {{ vendors | length }};
-let currentView = localStorage.getItem('vendors-view') || 'grid';
+let currentView = localStorage.getItem('vendors-view') || 'list';
 setView(currentView, true);
 
 function setView(v, init) {
