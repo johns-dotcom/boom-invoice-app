@@ -327,9 +327,14 @@ async function undoLastChange() {
   }
 }
 
+let multiParentIds = new Set();
+
 async function loadEntries() {
   const res = await fetch('/entries');
   allEntries = await res.json();
+
+  // Build set of IDs that are referenced as parent_id (i.e. they're the lead row of a multi-artist split)
+  multiParentIds = new Set(allEntries.map(e => e.parent_id).filter(Boolean));
 
   const cats = [...new Set(allEntries.map(e=>e.category).filter(Boolean))].sort();
   const catSel = document.getElementById('filter-cat');
@@ -439,6 +444,7 @@ function renderRows(entries) {
       <td>
         <span class="editable-cell" onclick="editText(${e.id},'artist',this,'${esc(e.artist)}')">${e.artist||'—'}</span>
         ${e.parent_id ? '<span style="font-size:10px;background:#ede9fe;color:#7c3aed;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:5px;white-space:nowrap" title="Split from multi-artist invoice">↳ split</span>' : ''}
+        ${multiParentIds.has(e.id) ? '<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:5px;white-space:nowrap;letter-spacing:.03em" title="Multi-artist invoice — split on approval">multi</span>' : ''}
       </td>
       <td><span class="editable-cell" onclick="editText(${e.id},'song',this,'${esc(e.song)}')">${e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>

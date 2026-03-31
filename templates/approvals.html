@@ -143,10 +143,15 @@
             {% if item.artist_breakdown %}<span style="background:#dbeafe;color:#1d4ed8;font-size:9px;font-weight:800;padding:1px 6px;border-radius:10px;margin-left:4px;text-transform:uppercase;letter-spacing:.04em">Multi</span>{% endif %}
           </div>
           {% if item.artist_breakdown %}
-            <div class="field-value" style="display:flex;flex-direction:column;gap:3px">
+            <div class="field-value" style="display:flex;flex-direction:column;gap:4px">
               {% for entry in item.artist_breakdown %}
-                <div style="{% if loop.first %}font-weight:700;color:#111{% else %}font-weight:600;color:#555{% endif %}">
-                  {{ entry.artist }}{% if entry.song %} <span style="font-weight:400;color:#777">— {{ entry.song }}</span>{% endif %}
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;{% if loop.first %}font-weight:700;color:#111{% else %}font-weight:600;color:#555{% endif %}">
+                  <span>{{ entry.artist }}{% if entry.song %} <span style="font-weight:400;color:#777">— {{ entry.song }}</span>{% endif %}</span>
+                  {% if entry.amount %}
+                    <span style="font-weight:700;color:#15803d;white-space:nowrap;font-size:13px">${{ "%.2f"|format(entry.amount) }}</span>
+                  {% else %}
+                    <span style="color:#bbb;font-size:11px;white-space:nowrap">split evenly</span>
+                  {% endif %}
                 </div>
               {% endfor %}
             </div>
