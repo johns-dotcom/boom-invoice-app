@@ -458,7 +458,8 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
     <table style='width:100%;border-collapse:collapse;font-size:13px'>
       {row(True,'Vendor',f"<strong>{vendor_name}</strong> ({vendor_email})")}
       {row(False,'Artist / Project',f"<strong>{fields.get('artist') or '—'}</strong>")}
-      {row(True,'Invoice Date',fields.get('invoice_date') or '—')}
+      {row(True,'Song',fields.get('song') or '—')}
+      {row(False,'Invoice Date',fields.get('invoice_date') or '—')}
       {row(False,'Invoice #',fields.get('invoice_number') or '—')}
       {row(True,'Amount',f"<strong style='color:#e31e24'>{amt_str}</strong>")}
       {row(False,'Description',fields.get('description') or '—')}
@@ -474,7 +475,10 @@ border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &a
 
         recipients = [e.strip() for e in NOTIFY_EMAIL.split(",") if e.strip()]
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"New {doc_type} Pending Approval: {vendor_name} — {amt_str}"
+        song_str = fields.get('song','').strip()
+        subject_artist = fields.get('artist','').strip()
+        subject_detail = f"{subject_artist} — {song_str}" if subject_artist and song_str else (subject_artist or song_str or vendor_name)
+        msg["Subject"] = f"New {doc_type}: {vendor_name} · {subject_detail} · {amt_str}"
         msg["From"]    = f"Boom.Records <{sender}>"
         msg["To"]      = ", ".join(recipients)
         msg.attach(MIMEText(html, "html"))
