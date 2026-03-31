@@ -1025,6 +1025,118 @@ def resplit_entry(eid):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/approve-bulk", methods=["POST"])
+@login_required
+@admin_required
+def approve_bulk():
+    try:
+        data = request.json or {}
+        ids = data.get("ids", [])
+        if not ids:
+            return jsonify({"ok": False, "error": "No IDs provided"}), 400
+
+        approved = []
+        failed = []
+
+        for eid in ids:
+            try:
+                conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+                approver = session.get("user_name") or "Admin"
+                now = datetime.now()
+
+                # Fetch full row
+                cur.execute(f"""SELECT payee, invoice_number, amount, artist_breakdown,
+                                       invoice_date, description, category,
+                                       payment_method, notes, vendor_name, vendor_email,
+                                       vendor_address, w9_filename, w9_data,
+                                       invoice_filename, invoice_data,
+                                       proof_filename, proof_data,
+                                       cobrand, is_reimbursement, currency, payment_terms, created_at
+                                FROM expenses WHERE id={ph}""", (eid,))
+                row = cur.fetchone()
+                if not row:
+                    conn.close()
+                    failed.append(eid)
+                    continue
+
+                (payee, inv_num, total_amount, breakdown_str,
+                 inv_date, desc, category,
+                 pay_method, notes, vendor_name, vendor_email,
+                 vendor_addr, w9_fname, w9_data_val,
+                 inv_fname, inv_data_val,
+                 proof_fname, proof_data_val,
+                 cobrand, is_reimb, currency, pay_terms, created_at_val) = row
+
+                breakdown = _parse_json_list(breakdown_str)
+
+                if breakdown and len(breakdown) > 1:
+                    # Multi-artist split
+                    n = len(breakdown)
+                    raw_amounts = [e.get("amount") for e in breakdown]
+                    has_any_amount = any(
+                        a is not None and str(a).strip() not in ("", "0", "0.0", "0.00")
+                        for a in raw_amounts
+                    )
+                    if has_any_amount:
+                        split_amounts = []
+                        for a in raw_amounts:
+                            try:
+                                split_amounts.append(
+                                    round(float(str(a).replace(",","").strip()), 2)
+                                    if a not in (None, "") else 0.0
+                                )
+                            except:
+                                split_amounts.append(0.0)
+                    else:
+                        base = float(total_amount or 0)
+                        per  = round(base / n, 2)
+                        remainder = round(base - per * n, 2)
+                        split_amounts = [round(per + remainder, 2)] + [per] * (n - 1)
+
+                    cur.execute(f"""UPDATE expenses
+                                     SET status='approved', approved_by={ph}, approved_at={ph},
+                                         artist={ph}, song={ph}, amount={ph}, artist_breakdown=NULL
+                                    WHERE id={ph}""",
+                                (approver, now,
+                                 breakdown[0].get("artist",""), breakdown[0].get("song",""),
+                                 split_amounts[0], eid))
+
+                    for i, entry in enumerate(breakdown[1:], 1):
+                        cur.execute(f"""INSERT INTO expenses (
+                            invoice_date, payee, description, category, invoice_number,
+                            payment_method, notes, vendor_name, vendor_email, vendor_address,
+                            w9_filename, w9_data, invoice_filename, invoice_data,
+                            proof_filename, proof_data,
+                            cobrand, is_reimbursement, currency, payment_terms, created_at,
+                            artist, song, amount,
+                            status, approved_by, approved_at, parent_id
+                        ) VALUES ({','.join([ph]*28)})""",
+                        (inv_date, payee, desc, category, inv_num,
+                         pay_method, notes, vendor_name, vendor_email, vendor_addr,
+                         w9_fname, w9_data_val, inv_fname, inv_data_val,
+                         proof_fname, proof_data_val,
+                         cobrand, is_reimb, currency, pay_terms, created_at_val,
+                         entry.get("artist",""), entry.get("song",""), split_amounts[i],
+                         "approved", approver, now, eid))
+                else:
+                    # Single artist — standard approval
+                    cur.execute(f"""UPDATE expenses SET status='approved', approved_by={ph}, approved_at={ph}
+                                    WHERE id={ph}""", (approver, now, eid))
+
+                conn.commit(); conn.close()
+                detail_parts = []
+                if inv_num: detail_parts.append(f"Invoice #{inv_num}")
+                if total_amount: detail_parts.append(f"${total_amount}")
+                log_action("invoice_approved", eid, payee,
+                           details=" | ".join(detail_parts) if detail_parts else None)
+                approved.append(eid)
+            except Exception as e:
+                failed.append(eid)
+
+        return jsonify({"ok": True, "approved": approved, "failed": failed})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/reject/<int:eid>", methods=["POST"])
 @login_required
 @admin_required
@@ -1719,6 +1831,79 @@ def submit_invoice():
 
     send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_fname, is_reimbursement=is_reimbursement)
     return render_template("submit_success.html", vendor_name=vendor_name)
+
+@app.route("/vendor/<payee>")
+@login_required
+def vendor_profile(payee):
+    """Vendor profile page showing all approved expenses for a given payee."""
+    try:
+        conn, kind = get_db()
+        cur = conn.cursor()
+        ph = "%s" if kind == "pg" else "?"
+
+        # Query all approved expenses for this payee (case-insensitive)
+        cur.execute(f"""SELECT id, invoice_date, payee, vendor_name, vendor_email,
+                               artist, song, amount, payment_method, payment_status,
+                               w9_filename, invoice_filename
+                        FROM expenses
+                        WHERE (status = 'approved' OR status IS NULL)
+                          AND deleted IS NOT TRUE
+                          AND LOWER(payee) = LOWER({ph})
+                        ORDER BY invoice_date DESC""", (payee,))
+        rows = cur.fetchall()
+        conn.close()
+
+        if not rows:
+            return render_template("vendor.html",
+                                 vendor_name=payee,
+                                 entries=[],
+                                 total_spent=0,
+                                 count=0,
+                                 latest_w9=None,
+                                 vendor_email=None,
+                                 payment_methods=[])
+
+        # Extract vendor info from first row
+        vendor_email = rows[0][4] or ""
+        w9_files = [r[10] for r in rows if r[10]]
+        latest_w9 = w9_files[0] if w9_files else None
+
+        # Calculate totals and collect methods
+        total_spent = sum(r[7] or 0 for r in rows)
+        payment_methods = list(set(r[8] for r in rows if r[8]))
+
+        # Build entries list
+        entries = []
+        for row in rows:
+            entries.append({
+                "id": row[0],
+                "invoice_date": str(row[1] or ""),
+                "artist": row[5] or "",
+                "song": row[6] or "",
+                "amount": row[7],
+                "payment_method": row[8] or "",
+                "payment_status": row[9] or "Unpaid",
+                "invoice_filename": row[11] or None
+            })
+
+        return render_template("vendor.html",
+                             vendor_name=payee,
+                             entries=entries,
+                             total_spent=total_spent,
+                             count=len(rows),
+                             latest_w9=latest_w9,
+                             vendor_email=vendor_email,
+                             payment_methods=payment_methods)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/calendar")
+@login_required
+def calendar():
+    """Calendar page showing due dates for unpaid invoices with payment terms."""
+    return render_template("calendar.html",
+                         is_admin=is_admin(),
+                         current_user=session.get("user_name"))
 
 @app.route("/status")
 def status(): return jsonify({"ok":True})

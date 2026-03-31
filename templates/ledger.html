@@ -40,6 +40,8 @@
   tbody td { padding:9px 12px; vertical-align:middle; }
   .td-date { white-space:nowrap; color:var(--muted); font-size:12px; }
   .td-payee { font-weight:700; }
+  .td-payee a { color:var(--text); text-decoration:none; font-weight:700; transition:opacity .15s; }
+  .td-payee a:hover { color:var(--red); text-decoration:underline; }
   .td-trunc { color:var(--muted); max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .td-amount { text-align:right; font-weight:700; color:var(--red); white-space:nowrap; }
   .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; white-space:nowrap; cursor:pointer; transition:opacity .15s; user-select:none; }
@@ -144,6 +146,26 @@
   .bell-meta { font-size:11px; color:var(--muted); margin-top:2px; }
   .bell-empty { padding:22px 16px; text-align:center; color:var(--muted); font-size:13px; }
   #toast.error { background:#dc2626; }
+  /* Columns and Presets dropdowns */
+  .toolbar-button { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:all .15s; position:relative; }
+  .toolbar-button:hover { border-color:var(--red); color:var(--red); }
+  .dropdown-panel { display:none; position:absolute; top:calc(100% + 6px); left:0; background:#fff; border:1.5px solid var(--border); border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.14); z-index:150; min-width:200px; max-height:400px; overflow-y:auto; }
+  .dropdown-panel.open { display:block; }
+  .col-item, .preset-item { padding:10px 16px; border-bottom:1px solid #f3f4f6; font-size:13px; display:flex; align-items:center; gap:10px; cursor:pointer; transition:background .15s; }
+  .col-item:last-child, .preset-item:last-child { border-bottom:none; }
+  .col-item:hover { background:#fafafa; }
+  .col-item input[type="checkbox"] { cursor:pointer; accent-color:var(--red); }
+  .col-item label { cursor:pointer; flex:1; margin:0; }
+  .preset-item { justify-content:space-between; padding:10px 16px; }
+  .preset-item-name { flex:1; cursor:pointer; }
+  .preset-item-name:hover { color:var(--red); }
+  .preset-item-delete { background:none; border:none; color:#ccc; font-size:14px; cursor:pointer; padding:2px 6px; border-radius:4px; transition:all .15s; }
+  .preset-item-delete:hover { color:#dc2626; background:#fef2f2; }
+  .preset-item-save { padding:14px 16px; border-top:1px solid #f3f4f6; background:#fafafa; border-radius:0 0 10px 10px; font-size:13px; font-weight:600; color:var(--red); cursor:pointer; text-align:center; transition:background .15s; }
+  .preset-item-save:hover { background:#f3f4f6; }
+  .dropdown-divider { height:1px; background:#f3f4f6; margin:6px 0; }
+  .col-count { color:var(--muted); font-size:12px; margin-top:6px; padding:0 16px 8px; }
+  .btn-toolbar-wrap { position:relative; }
 </style>
 </head>
 <body>
@@ -160,7 +182,9 @@
       {% if pending_count > 0 %}<span class="approval-badge">{{ pending_count }}</span>{% endif %}
     </a>
     {% if current_user != 'Danny' %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
-    {% if current_user != 'Danny' %}<a href="/payments" class="btn-ghost">Payments</a>{% endif %}{% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
+    {% if current_user != 'Danny' %}<a href="/payments" class="btn-ghost">Payments</a>{% endif %}
+    {% if current_user == 'John' %}<a href="/calendar" class="btn-ghost">Calendar</a>{% endif %}
+    {% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}{% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
     <div class="bell-wrap" id="bell-wrap">
       <button class="bell-btn" id="bell-btn" onclick="toggleBell(event)" title="Payment alerts">
         🔔<span class="bell-badge" id="bell-badge"></span>
@@ -203,6 +227,20 @@
   <span class="count" id="row-count"></span>
   <button class="btn-clear" onclick="clearFilters()">✕ Clear filters</button>
   <button class="btn-undo" id="undo-btn" onclick="undoLastChange()">↩ Undo</button>
+  <div class="btn-toolbar-wrap">
+    <button class="toolbar-button" onclick="toggleColumnsPanel()">⚙ Columns</button>
+    <div class="dropdown-panel" id="columns-panel">
+      <div id="columns-list"></div>
+      <div class="col-count"><span id="col-count-text"></span></div>
+    </div>
+  </div>
+  <div class="btn-toolbar-wrap">
+    <button class="toolbar-button" onclick="togglePresetsPanel()">⭐ Presets</button>
+    <div class="dropdown-panel" id="presets-panel">
+      <div id="presets-list"></div>
+      <div class="preset-item-save" onclick="savePreset()">+ Save current filters</div>
+    </div>
+  </div>
 </div>
 
 <div class="table-wrap">
@@ -210,15 +248,15 @@
   <table id="ledger-table" style="display:none">
     <thead>
       <tr>
-        <th>Date</th><th>Payee</th><th>Email</th><th style="width:32px"></th><th>Category</th>
-        <th>Artist</th><th>Song</th><th>Inv #</th>
-        <th style="text-align:right">Amount</th>
-        <th>Method</th>
-        <th>Terms</th><th>Due</th>
-        <th>Paid?</th><th>In QB?</th><th>Stem?</th><th>Cobrand?</th><th>Inv?</th><th>W9?</th><th>Proof?</th><th>Notes</th>
-        <th>Approved By</th>
-        <th>Uploaded</th><th>Date Paid</th>
-        <th>Files</th>
+        <th data-col="Date">Date</th><th data-col="Payee">Payee</th><th data-col="Email">Email</th><th style="width:32px"></th><th data-col="Category">Category</th>
+        <th data-col="Artist">Artist</th><th data-col="Song">Song</th><th data-col="Inv #">Inv #</th>
+        <th style="text-align:right" data-col="Amount">Amount</th>
+        <th data-col="Method">Method</th>
+        <th data-col="Terms">Terms</th><th data-col="Due">Due</th>
+        <th data-col="Paid?">Paid?</th><th data-col="In QB?">In QB?</th><th data-col="Stem?">Stem?</th><th data-col="Cobrand?">Cobrand?</th><th data-col="Inv?">Inv?</th><th data-col="W9?">W9?</th><th data-col="Proof?">Proof?</th><th data-col="Notes">Notes</th>
+        <th data-col="Approved By">Approved By</th>
+        <th data-col="Uploaded">Uploaded</th><th data-col="Date Paid">Date Paid</th>
+        <th data-col="Files">Files</th>
         {% if is_admin %}<th></th>{% endif %}
       </tr>
     </thead>
@@ -521,7 +559,7 @@ function renderRows(entries) {
     return `
     <tr id="row-${e.id}"${rowClass ? ` class="${rowClass}"` : ''}${isParent ? ` onclick="toggleSplitGroup(${e.id})"` : ''}${isChild ? ` data-parent="${e.parent_id}" style="display:none"` : ''}>
       <td class="td-date">${e.invoice_date||'—'}</td>
-      <td class="td-payee">${isChild ? '' : e.payee||'—'}</td>
+      <td class="td-payee">${isChild ? '' : (e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}">${e.payee}</a>` : '—')}</td>
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
@@ -1107,6 +1145,182 @@ document.addEventListener('click', () => {
   document.getElementById('bell-dropdown').classList.remove('open');
 });
 
+// ─── Column Visibility Toggle ────────────────────────────────────────────────
+const COLUMN_NAMES = [
+  'Date', 'Payee', 'Email', 'Description', 'Category', 'Artist', 'Song', 'Inv #',
+  'Amount', 'Method', 'Terms', 'Due', 'Paid?', 'In QB?', 'Stem?', 'Cobrand?', 'Inv?', 'W9?', 'Proof?', 'Notes',
+  'Approved By', 'Uploaded', 'Date Paid', 'Files'
+];
+
+let columnVisibility = {};
+
+function initializeColumnVisibility() {
+  const stored = localStorage.getItem('boom_col_vis');
+  if (stored) {
+    try {
+      columnVisibility = JSON.parse(stored);
+    } catch {
+      columnVisibility = {};
+    }
+  }
+  // Default: all visible if not stored
+  COLUMN_NAMES.forEach(col => {
+    if (!(col in columnVisibility)) columnVisibility[col] = true;
+  });
+  applyColumnVisibility();
+  renderColumnsPanel();
+}
+
+function toggleColumn(colName) {
+  columnVisibility[colName] = !columnVisibility[colName];
+  localStorage.setItem('boom_col_vis', JSON.stringify(columnVisibility));
+  applyColumnVisibility();
+  renderColumnsPanel();
+}
+
+function applyColumnVisibility() {
+  const table = document.getElementById('ledger-table');
+  if (!table) return;
+
+  const headers = table.querySelectorAll('thead th[data-col]');
+  const colIndices = {};
+  let realIdx = 0;
+  headers.forEach(th => {
+    const colName = th.getAttribute('data-col');
+    const isVisible = columnVisibility[colName] !== false;
+    colIndices[colName] = realIdx;
+    th.style.display = isVisible ? '' : 'none';
+    realIdx++;
+  });
+
+  const rows = table.querySelectorAll('tbody tr');
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    COLUMN_NAMES.forEach((colName, idx) => {
+      if (idx < tds.length) {
+        const isVisible = columnVisibility[colName] !== false;
+        tds[idx].style.display = isVisible ? '' : 'none';
+      }
+    });
+  });
+}
+
+function renderColumnsPanel() {
+  const panel = document.getElementById('columns-panel');
+  if (!panel) return;
+
+  const list = document.getElementById('columns-list');
+  list.innerHTML = COLUMN_NAMES.map(col => {
+    const isVisible = columnVisibility[col] !== false;
+    return `<div class="col-item">
+      <input type="checkbox" ${isVisible ? 'checked' : ''} onchange="toggleColumn('${col}')"/>
+      <label>${col}</label>
+    </div>`;
+  }).join('');
+
+  const visCount = COLUMN_NAMES.filter(c => columnVisibility[c] !== false).length;
+  document.getElementById('col-count-text').textContent = `${visCount} of ${COLUMN_NAMES.length} visible`;
+}
+
+function toggleColumnsPanel() {
+  document.getElementById('columns-panel').classList.toggle('open');
+  document.getElementById('presets-panel').classList.remove('open');
+}
+
+// ─── Filter Presets ──────────────────────────────────────────────────────────
+let filterPresets = {};
+
+function initializePresets() {
+  const stored = localStorage.getItem('boom_filter_presets');
+  if (stored) {
+    try {
+      filterPresets = JSON.parse(stored);
+    } catch {
+      filterPresets = {};
+    }
+  }
+  renderPresetsPanel();
+}
+
+function savePresetsToStorage() {
+  localStorage.setItem('boom_filter_presets', JSON.stringify(filterPresets));
+}
+
+function savePreset() {
+  const name = prompt('Save current filters as preset. Enter a name:');
+  if (!name || !name.trim()) return;
+
+  const preset = {
+    search: document.getElementById('search').value,
+    qb: document.getElementById('filter-qb').value,
+    stem: document.getElementById('filter-stem').value,
+    cat: document.getElementById('filter-cat').value,
+    artist: document.getElementById('filter-artist').value,
+    paid: document.getElementById('filter-paid').value
+  };
+
+  filterPresets[name.trim()] = preset;
+  savePresetsToStorage();
+  renderPresetsPanel();
+  toast(`Preset "${name.trim()}" saved`);
+}
+
+function deletePreset(name) {
+  if (confirm(`Delete preset "${name}"?`)) {
+    delete filterPresets[name];
+    savePresetsToStorage();
+    renderPresetsPanel();
+    toast(`Preset "${name}" deleted`);
+  }
+}
+
+function applyPreset(name) {
+  const preset = filterPresets[name];
+  if (!preset) return;
+
+  document.getElementById('search').value = preset.search || '';
+  document.getElementById('filter-qb').value = preset.qb || '';
+  document.getElementById('filter-stem').value = preset.stem || '';
+  document.getElementById('filter-cat').value = preset.cat || '';
+  document.getElementById('filter-artist').value = preset.artist || '';
+  document.getElementById('filter-paid').value = preset.paid || '';
+
+  filterTable();
+  document.getElementById('presets-panel').classList.remove('open');
+  toast(`Preset "${name}" applied`);
+}
+
+function renderPresetsPanel() {
+  const list = document.getElementById('presets-list');
+  const presetNames = Object.keys(filterPresets);
+
+  if (presetNames.length === 0) {
+    list.innerHTML = '<div style="padding:16px; color:#999; font-size:13px; text-align:center">No saved presets yet</div>';
+  } else {
+    list.innerHTML = presetNames.map(name => `
+      <div class="preset-item">
+        <span class="preset-item-name" onclick="applyPreset('${name.replace(/'/g, "\\'")}')">${name}</span>
+        <button class="preset-item-delete" onclick="deletePreset('${name.replace(/'/g, "\\'")}')" title="Delete">×</button>
+      </div>
+    `).join('');
+  }
+}
+
+function togglePresetsPanel() {
+  document.getElementById('presets-panel').classList.toggle('open');
+  document.getElementById('columns-panel').classList.remove('open');
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.btn-toolbar-wrap')) {
+    document.getElementById('columns-panel').classList.remove('open');
+    document.getElementById('presets-panel').classList.remove('open');
+  }
+});
+
+initializeColumnVisibility();
+initializePresets();
 loadEntries();
 </script>
 </body>

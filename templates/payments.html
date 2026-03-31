@@ -206,6 +206,7 @@ tr.split-row:hover td { background: #f3eeff; }
     </a>
     {% if current_user != 'Danny' %}<a href="/analytics" class="btn-ghost">Analytics</a>{% endif %}
     <a href="/payments" class="btn-active">Payments</a>
+    {% if current_user == 'John' %}<a href="/calendar" class="btn-ghost">Calendar</a>{% endif %}
     {% if current_user == 'John' or current_user == 'Jesse' or current_user == 'Felipe' %}<a href="/history" class="btn-ghost">History</a>{% endif %}
     {% if current_user == 'Danny' %}<a href="/danny" class="btn-ghost">PayPal Summary</a>{% endif %}
     {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}
