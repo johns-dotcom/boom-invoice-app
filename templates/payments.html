@@ -123,6 +123,25 @@ tr.split-row:hover td { background: #f3eeff; }
 .btn-pay:hover { background: #c41a1f; }
 .btn-pay-done { background: none; border: none; color: #bbb; font-size: 12px; font-weight: 700; font-family: inherit; cursor: default; }
 
+/* ─── Proof drop zone ─── */
+.proof-drop {
+  border: 1.5px dashed #d1d5db; border-radius: 6px;
+  padding: 5px 10px; font-size: 11px; font-weight: 700;
+  color: #bbb; cursor: pointer; text-align: center;
+  transition: all .15s; white-space: nowrap; user-select: none;
+  background: #fafafa; min-width: 80px;
+}
+.proof-drop:hover, .proof-drop.drag-over {
+  border-color: var(--red); color: var(--red); background: #fff5f5;
+}
+.proof-drop.uploading { border-color: #93c5fd; color: #3b82f6; background: #eff6ff; cursor: wait; }
+.proof-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--green); font-weight: 700; font-size: 12px;
+  text-decoration: none; white-space: nowrap;
+}
+.proof-link:hover { text-decoration: underline; }
+
 /* ─── Totals footer ─── */
 .totals-bar {
   background: #fff; border: 1px solid var(--border); border-radius: 10px;
@@ -286,6 +305,7 @@ tr.split-row:hover td { background: #f3eeff; }
             <th onclick="sortBy('due')" id="th-due">Due Date</th>
             <th onclick="sortBy('payment_status')" id="th-payment_status">Status</th>
             <th>Notes</th>
+            <th style="text-align:center">Proof</th>
             {% if is_admin %}<th style="text-align:center">Action</th>{% endif %}
           </tr>
         </thead>
@@ -540,7 +560,7 @@ function renderTable(entries, groupBy) {
 
   let html = '';
   const sum = arr => arr.filter(e => (e.payment_status||'Unpaid') === 'Unpaid').reduce((s,e) => s + (Number(e.amount)||0), 0);
-  const colCount = IS_ADMIN ? 11 : 10;
+  const colCount = IS_ADMIN ? 12 : 11;
 
   keys.forEach(key => {
     const grp = groups[key];
@@ -585,6 +605,7 @@ function rowHtml(e) {
     <td>${dueBadge(e)}</td>
     <td><span class="tag ${isPaid ? 'tag-paid' : 'tag-unpaid'}">${e.payment_status||'Unpaid'}</span></td>
     <td style="color:var(--muted);font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.notes)}">${esc(e.notes)||'—'}</td>
+    <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
     ${IS_ADMIN ? `<td style="text-align:center">
       ${isPaid
         ? '<span class="btn-pay-done">✓ Paid</span>'
@@ -711,6 +732,68 @@ function exportCSV() {
   a.download = 'boom-payments.csv';
   a.click();
   toast('CSV downloaded');
+}
+
+// ─── Proof of payment ────────────────────────────────────────────────────────
+function proofCellHtml(e) {
+  const proofId = e.parent_id || e.id;
+  if (e.has_proof) {
+    return `<a href="/proof/${proofId}" target="_blank" class="proof-link" title="View proof of payment">📎 View</a>`;
+  }
+  return `
+    <div class="proof-drop" id="proof-drop-${e.id}"
+      title="Drop file or click to upload proof of payment"
+      onclick="document.getElementById('proof-input-${e.id}').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');handleProofDrop(${e.id},event)">
+      📎 Drop / Upload
+    </div>
+    <input type="file" id="proof-input-${e.id}"
+      accept=".pdf,.jpg,.jpeg,.png,.webp"
+      style="display:none"
+      onchange="uploadProofFile(${e.id}, this)"/>`;
+}
+
+function handleProofDrop(id, event) {
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+  uploadProof(id, file);
+}
+
+function uploadProofFile(id, input) {
+  const file = input.files[0];
+  if (!file) return;
+  uploadProof(id, file);
+}
+
+async function uploadProof(id, file) {
+  const dropEl = document.getElementById('proof-drop-' + id);
+  if (dropEl) { dropEl.classList.add('uploading'); dropEl.textContent = 'Uploading…'; }
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res = await fetch(`/add-proof/${id}`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Upload failed');
+
+    // Update in-memory entry
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) entry.has_proof = true;
+
+    // Update just this cell without full re-render
+    const cell = document.getElementById('proof-cell-' + id);
+    if (cell) {
+      const proofId = entry?.parent_id || id;
+      cell.innerHTML = `<a href="/proof/${proofId}" target="_blank" class="proof-link" title="View proof of payment">📎 View</a>`;
+    }
+    toast('Proof uploaded');
+  } catch (err) {
+    if (dropEl) { dropEl.classList.remove('uploading'); dropEl.innerHTML = '📎 Drop / Upload'; }
+    toast('Upload failed — ' + (err.message || 'try again'), true);
+  }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
