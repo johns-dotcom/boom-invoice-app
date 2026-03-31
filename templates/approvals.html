@@ -35,6 +35,8 @@
   .vendor-info { flex:1; min-width:0; }
   .vendor-name { font-weight:700; font-size:14px; color:#111; }
   .vendor-email { font-size:12px; color:var(--muted); margin-top:1px; }
+  .vendor-artist { font-size:12px; font-weight:700; color:var(--red); margin-top:4px; display:flex; align-items:center; gap:5px; }
+  .vendor-artist::before { content:''; display:inline-block; width:6px; height:6px; background:var(--red); border-radius:50%; flex-shrink:0; }
   .submitted-time { font-size:11px; color:var(--muted); white-space:nowrap; }
 
   .card-body { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px 28px; }
@@ -141,6 +143,9 @@
         <div class="vendor-info">
           <div class="vendor-name">{{ item.vendor_name or item.payee or 'Unknown Vendor' }}</div>
           <div class="vendor-email">{{ item.vendor_email or '—' }}</div>
+          {% if item.artist %}
+          <div class="vendor-artist">{{ item.artist }}{% if item.song %} — {{ item.song }}{% endif %}</div>
+          {% endif %}
         </div>
         <div class="submitted-time">Submitted {{ item.created_at[:10] if item.created_at else '—' }}</div>
       </div>
