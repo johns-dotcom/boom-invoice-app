@@ -519,7 +519,7 @@ def health():
 @app.route("/")
 @login_required
 def index():
-    return redirect(url_for("invoice_form"))
+    return redirect(url_for("ledger"))
 
 @app.route("/add")
 @login_required
