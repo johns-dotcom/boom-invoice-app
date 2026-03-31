@@ -56,12 +56,12 @@
   .editable-cell { cursor:pointer; border-radius:4px; padding:2px 4px; transition:background .15s; }
   .editable-cell:hover { background:rgba(227,30,36,.08); }
   .editable-cell:hover::after { content:" ✎"; font-size:10px; color:var(--muted); }
-  /* Description expand */
-  .desc-cell { font-size:12px; color:var(--muted); cursor:pointer; max-width:180px; }
-  .desc-collapsed { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .desc-expanded  { white-space:normal; word-break:break-word; line-height:1.5; color:#333; }
-  .desc-toggle { font-size:10px; color:#a5b4fc; margin-left:4px; white-space:nowrap; }
-  .desc-cell:hover .desc-toggle { color:#6366f1; }
+  /* Description popover */
+  .desc-btn { background:none; border:none; cursor:pointer; font-size:13px; opacity:.45; padding:2px 4px; border-radius:4px; transition:opacity .15s, background .15s; }
+  .desc-btn:hover { opacity:1; background:#f0f1ff; }
+  .desc-popover { position:fixed; background:#fff; border:1px solid #e0e7ff; border-radius:10px; padding:14px 16px; max-width:340px; font-size:12px; line-height:1.65; color:#333; box-shadow:0 8px 28px rgba(0,0,0,.13); z-index:500; white-space:pre-wrap; word-break:break-word; }
+  .desc-popover-close { float:right; background:none; border:none; font-size:14px; color:#aaa; cursor:pointer; margin:-4px -4px 0 10px; line-height:1; }
+  .desc-popover-close:hover { color:#333; }
   .inline-input { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:4px 8px; width:130px; font-family:inherit; }
   .inline-input:focus { outline:none; }
   .vendor-badge { background:#fef2f2; color:var(--red); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; border:1px solid #fca5a5; }
@@ -210,7 +210,7 @@
   <table id="ledger-table" style="display:none">
     <thead>
       <tr>
-        <th>Date</th><th>Payee</th><th>Email</th><th>Description</th><th>Category</th>
+        <th>Date</th><th>Payee</th><th>Email</th><th style="width:32px"></th><th>Category</th>
         <th>Artist</th><th>Song</th><th>Inv #</th>
         <th style="text-align:right">Amount</th>
         <th>Method</th>
@@ -525,7 +525,7 @@ function renderRows(entries) {
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
-      <td>${isChild ? '' : e.description ? `<span class="desc-cell" id="desc-${e.id}" onclick="event.stopPropagation();toggleDesc(${e.id})"><span class="desc-collapsed">${esc(e.description)}</span><span class="desc-toggle">▶ more</span></span>` : '<span style="color:#ddd">—</span>'}</td>
+      <td style="text-align:center;width:32px">${!isChild && e.description ? `<button class="desc-btn" onclick="event.stopPropagation();toggleDesc(event,${e.id})" title="${esc(e.description)}">📋</button>` : ''}</td>
       <td>${isChild ? '' : IS_ADMIN ? `<span class="editable-cell" onclick="event.stopPropagation();editCategory(${e.id},this,'${esc(e.category)}')">${esc(e.category)||'—'}</span>` : e.category||'—'}</td>
       <td${isChild ? ' style="padding-left:26px"' : ''}>
         ${isChild ? '<span class="split-indent">↳</span>' : ''}
@@ -717,22 +717,37 @@ function openStatusEdit(id, field, badgeEl) {
   sel.addEventListener('blur', ()=>setTimeout(()=>{ if(!committed) cancel(); }, 200));
 }
 
-// ─── Description inline expand ────────────────────────────────────────────────
-const expandedDescs = new Set();
+// ─── Description popover ──────────────────────────────────────────────────────
+let activeDescPopover = null;
 
-function toggleDesc(id) {
-  const wrap = document.getElementById(`desc-${id}`);
-  if (!wrap) return;
+function toggleDesc(event, id) {
+  // If same popover is open, close it
+  if (activeDescPopover && activeDescPopover.dataset.id == id) { closeDescPopover(); return; }
+  closeDescPopover();
+
   const entry = allEntries.find(e => e.id === id);
-  if (!entry) return;
-  const isExpanded = expandedDescs.has(id);
-  if (isExpanded) {
-    expandedDescs.delete(id);
-    wrap.innerHTML = `<span class="desc-collapsed">${esc(entry.description)}</span><span class="desc-toggle">▶ more</span>`;
-  } else {
-    expandedDescs.add(id);
-    wrap.innerHTML = `<span class="desc-expanded">${esc(entry.description)}</span><span class="desc-toggle">▲ less</span>`;
-  }
+  if (!entry?.description) return;
+
+  const pop = document.createElement('div');
+  pop.className = 'desc-popover';
+  pop.dataset.id = id;
+  pop.innerHTML = `<button class="desc-popover-close" onclick="closeDescPopover()">✕</button><strong style="display:block;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#aaa">Description</strong>${esc(entry.description)}`;
+  document.body.appendChild(pop);
+  activeDescPopover = pop;
+
+  const rect = event.target.getBoundingClientRect();
+  let top  = rect.bottom + 6;
+  let left = rect.left - 8;
+  if (left + 340 > window.innerWidth - 12) left = window.innerWidth - 352;
+  if (top + 180 > window.innerHeight - 12) top = rect.top - pop.offsetHeight - 6;
+  pop.style.top  = top  + 'px';
+  pop.style.left = left + 'px';
+
+  setTimeout(() => document.addEventListener('click', closeDescPopover, {once:true}), 0);
+}
+
+function closeDescPopover() {
+  if (activeDescPopover) { activeDescPopover.remove(); activeDescPopover = null; }
 }
 
 // ─── Category dropdown (admin only) ───────────────────────────────────────────
