@@ -649,6 +649,8 @@ function renderRows(entries) {
       </td>` : ''}
     </tr>`;
   }).join('');
+  // Re-apply column visibility to newly rendered rows
+  applyColumnVisibility();
 }
 
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
