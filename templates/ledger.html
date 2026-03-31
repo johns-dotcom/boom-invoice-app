@@ -64,6 +64,13 @@
   .desc-popover { position:fixed; background:#fff; border:1px solid #e0e7ff; border-radius:10px; padding:14px 16px; max-width:340px; font-size:12px; line-height:1.65; color:#333; box-shadow:0 8px 28px rgba(0,0,0,.13); z-index:500; white-space:pre-wrap; word-break:break-word; }
   .desc-popover-close { float:right; background:none; border:none; font-size:14px; color:#aaa; cursor:pointer; margin:-4px -4px 0 10px; line-height:1; }
   .desc-popover-close:hover { color:#333; }
+  /* Notes collapsible */
+  .notes-short { display:inline; }
+  .notes-full  { display:none; }
+  .notes-toggle { background:none; border:none; cursor:pointer; font-size:10px; color:#6366f1; padding:0 2px; opacity:.7; vertical-align:middle; }
+  .notes-toggle:hover { opacity:1; }
+  .notes-expanded .notes-short { display:none; }
+  .notes-expanded .notes-full  { display:inline; }
   .inline-input { background:#fff; border:1.5px solid var(--red); border-radius:5px; color:var(--text); font-size:12px; padding:4px 8px; width:130px; font-family:inherit; }
   .inline-input:focus { outline:none; }
   .vendor-badge { background:#fef2f2; color:var(--red); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; border:1px solid #fca5a5; }
@@ -597,8 +604,8 @@ function renderRows(entries) {
           : `<span style="color:#b45309;font-size:12px;cursor:pointer;border-bottom:1px dotted #b45309" onclick="triggerProofUpload(${e.id})" title="Click to attach proof">No +</span>
              <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="uploadProof(${e.id},this)"/>`}
       </td>
-      <td class="td-trunc">
-        <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${e.notes||'—'}</span>
+      <td class="td-trunc" style="max-width:180px">
+        ${renderNotesCell(e)}
       </td>
       <td style="white-space:nowrap;font-size:12px;color:var(--muted)">
         ${e.approved_by ? `<span style="color:#15803d;font-weight:700">${e.approved_by}</span>${e.approved_at ? '<br><span style="font-size:10px">' + e.approved_at.slice(0,10) + '</span>' : ''}` : '—'}
@@ -787,6 +794,32 @@ function toggleDesc(event, id) {
 
 function closeDescPopover() {
   if (activeDescPopover) { activeDescPopover.remove(); activeDescPopover = null; }
+}
+
+// ─── Notes collapsible ────────────────────────────────────────────────────────
+const NOTE_LIMIT = 48;
+function renderNotesCell(e) {
+  if (!e.notes) return `<span style="color:var(--muted)">—</span>`;
+  const needsTrunc = e.notes.length > NOTE_LIMIT;
+  const shortText  = needsTrunc ? e.notes.slice(0, NOTE_LIMIT).trimEnd() + '…' : e.notes;
+  if (!needsTrunc) {
+    return `<span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">${esc(e.notes)}</span>`;
+  }
+  return `<span id="notes-wrap-${e.id}">
+    <span class="editable-cell" onclick="editText(${e.id},'notes',this,'${esc(e.notes)}')" title="${esc(e.notes)}">
+      <span class="notes-short">${esc(shortText)}</span>
+      <span class="notes-full">${esc(e.notes)}</span>
+    </span>
+    <button class="notes-toggle" onclick="event.stopPropagation();toggleNote(${e.id})" title="Expand note">▾</button>
+  </span>`;
+}
+
+function toggleNote(id) {
+  const wrap = document.getElementById(`notes-wrap-${id}`);
+  if (!wrap) return;
+  const expanded = wrap.classList.toggle('notes-expanded');
+  const btn = wrap.querySelector('.notes-toggle');
+  if (btn) btn.textContent = expanded ? '▴' : '▾';
 }
 
 // ─── Category dropdown (admin only) ───────────────────────────────────────────
