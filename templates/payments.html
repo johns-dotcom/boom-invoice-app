@@ -176,10 +176,16 @@ tr.split-row:hover td { background: #f3eeff; }
   position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
   background: #111; color: #fff; padding: 10px 20px; border-radius: 8px;
   font-size: 13px; font-weight: 700; opacity: 0; transition: opacity .3s;
-  pointer-events: none; z-index: 300;
+  pointer-events: none; z-index: 300; display: flex; align-items: center; gap: 12px;
 }
-#toast.show { opacity: 1; }
+#toast.show { opacity: 1; pointer-events: auto; }
 #toast.err { background: #dc2626; }
+#toast-undo {
+  background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+  color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px;
+  border-radius: 5px; cursor: pointer; white-space: nowrap;
+}
+#toast-undo:hover { background: rgba(255,255,255,0.35); }
 
 @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
@@ -347,7 +353,7 @@ tr.split-row:hover td { background: #f3eeff; }
 </div>
 
 <!-- Toast -->
-<div id="toast"></div>
+<div id="toast"><span id="toast-msg"></span><button id="toast-undo" style="display:none" onclick="undoLast()">Undo</button></div>
 
 <script>
 const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
@@ -403,12 +409,41 @@ function daysUntil(dueDate) {
   return Math.max(0, Math.round((dueDate - TODAY) / 86400000));
 }
 
-function toast(msg, isErr) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
+let undoStack = [];
+let toastTimer = null;
+
+function toast(msg, isErr, showUndo) {
+  const t    = document.getElementById('toast');
+  const msgEl = document.getElementById('toast-msg');
+  const undoBtn = document.getElementById('toast-undo');
+  msgEl.textContent = msg;
+  undoBtn.style.display = showUndo ? 'inline-block' : 'none';
   t.className = isErr ? 'show err' : 'show';
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.className = '', 3000);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, showUndo ? 6000 : 3000);
+}
+
+async function undoLast() {
+  if (!undoStack.length) return;
+  const batch = undoStack.pop();
+  document.getElementById('toast').className = '';
+  let ok = 0, fail = 0;
+  await Promise.all(batch.map(async ({id, prevStatus}) => {
+    try {
+      const res = await fetch(`/update/${id}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({payment_status: prevStatus})
+      });
+      if (!res.ok) throw new Error();
+      const entry = allEntries.find(e => e.id === id);
+      if (entry) entry.payment_status = prevStatus;
+      ok++;
+    } catch { fail++; }
+  }));
+  updateKPIs();
+  applyFilters();
+  if (fail) toast(`Reverted ${ok}, failed ${fail}`, true, false);
+  else toast(`Undone — ${ok} invoice${ok!==1?'s':''} back to Unpaid`, false, false);
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -713,6 +748,7 @@ async function saveInvNum(input) {
 async function markOnePaid(id) {
   const entry = allEntries.find(e => e.id === id);
   if (!entry || entry.payment_status === 'Paid') return;
+  const prevStatus = entry.payment_status || 'Unpaid';
   try {
     const res = await fetch(`/update/${id}`, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -721,11 +757,12 @@ async function markOnePaid(id) {
     if (!res.ok) throw new Error();
     entry.payment_status = 'Paid';
     selected.delete(id);
+    undoStack.push([{id, prevStatus}]);
     updateKPIs();
     applyFilters();
-    toast('Marked as Paid');
+    toast('Marked as Paid', false, true);
   } catch {
-    toast('Update failed — try again', true);
+    toast('Update failed — try again', true, false);
   }
 }
 
@@ -737,6 +774,7 @@ async function markSelectedPaid() {
   const total = entries.reduce((s,e) => s + (Number(e.amount)||0), 0);
   if (!confirm(`Mark ${entries.length} invoice${entries.length!==1?'s':''} totaling ${fmt(total)} as Paid?`)) return;
 
+  const snapshot = entries.map(e => ({id: e.id, prevStatus: e.payment_status || 'Unpaid'}));
   let ok = 0, fail = 0;
   await Promise.all(entries.map(async e => {
     try {
@@ -749,11 +787,12 @@ async function markSelectedPaid() {
     } catch { fail++; }
   }));
 
+  if (ok) undoStack.push(snapshot.filter(s => entries.find(e => e.id === s.id && e.payment_status === 'Paid')));
   clearSelection();
   updateKPIs();
   applyFilters();
-  if (fail) toast(`${ok} marked paid, ${fail} failed`, true);
-  else toast(`${ok} invoice${ok!==1?'s':''} marked as Paid`);
+  if (fail) toast(`${ok} marked paid, ${fail} failed`, true, false);
+  else toast(`${ok} invoice${ok!==1?'s':''} marked as Paid`, false, true);
 }
 
 // ─── CSV export ───────────────────────────────────────────────────────────────
