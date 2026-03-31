@@ -189,6 +189,18 @@ tr.split-row:hover td { background: #f3eeff; }
 
 @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
+
+  /* ── Mobile nav ─────────────────────────────────────────────────────────── */
+  .mob-menu-btn { display:none; background:none; border:1.5px solid var(--border); border-radius:7px; padding:6px 10px; font-size:18px; cursor:pointer; color:var(--muted); line-height:1; flex-shrink:0; }
+  .mob-nav { display:none; flex-direction:column; gap:0; background:#fff; border-bottom:1px solid var(--border); }
+  .mob-nav.open { display:flex; }
+  .mob-nav a { font-size:14px; font-weight:600; padding:12px 20px; border-bottom:1px solid #f3f4f6; color:var(--text); text-decoration:none; }
+  .mob-nav a:last-child { border-bottom:none; }
+  .mob-nav a:active { background:#fef2f2; }
+  @media (max-width:700px) {
+    .header-right { display:none !important; }
+    .mob-menu-btn { display:block; }
+  }
 </style>
 </head>
 <body>
@@ -196,6 +208,7 @@ tr.split-row:hover td { background: #f3eeff; }
 <!-- ── Nav ── -->
 <header>
   <div class="logo">boom.</div>
+  <button class="mob-menu-btn" onclick="document.getElementById(\'mob-nav\').classList.toggle(\'open\')">☰</button>
   <div class="header-right">
     <a href="/" class="btn-ghost">+ Add Invoice</a>
     <a href="/ledger" class="btn-ghost">Ledger</a>
@@ -214,6 +227,16 @@ tr.split-row:hover td { background: #f3eeff; }
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
+<nav class="mob-nav" id="mob-nav">
+  <a href="/">+ Add Invoice</a>
+  <a href="/ledger">Ledger</a>
+  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
+  <a href="/invoices">Invoices</a>
+  <a href="/vendors">Vendors</a>
+  <a href="/payments" style="color:var(--red)">Payments</a>
+  <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
+</nav>
+
 
 <!-- ── Page ── -->
 <div class="page">
