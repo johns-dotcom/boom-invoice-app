@@ -558,7 +558,8 @@ function renderRows(entries) {
         <button class="btn-delete" onclick="askDelete(${e.id},'${esc(e.payee)}')" title="Delete">✕</button>
         ${!e.parent_id ? `<button class="btn-delete" onclick="openSplit(${e.id},'${esc(e.payee)}',${e.amount||0},'${esc(e.artist)}','${esc(e.song)}')" title="Split into multiple artists" style="color:#6366f1;border-color:transparent;margin-left:2px">⇄</button>` : ''}
       </td>` : ''}
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
