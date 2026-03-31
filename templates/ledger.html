@@ -173,12 +173,48 @@
   .dropdown-divider { height:1px; background:#f3f4f6; margin:6px 0; }
   .col-count { color:var(--muted); font-size:12px; margin-top:6px; padding:0 16px 8px; }
   .btn-toolbar-wrap { position:relative; }
+
+  /* ── Mobile ──────────────────────────────────────────────────────────────── */
+  .mob-menu-btn { display:none; background:none; border:1.5px solid var(--border); border-radius:7px; padding:6px 10px; font-size:18px; cursor:pointer; color:var(--muted); line-height:1; }
+  .mob-nav { display:none; flex-direction:column; gap:6px; padding:12px 16px; background:#fff; border-bottom:1px solid var(--border); }
+  .mob-nav.open { display:flex; }
+  .mob-nav a, .mob-nav span { font-size:14px; font-weight:600; padding:8px 0; border-bottom:1px solid #f3f4f6; color:var(--text); text-decoration:none; }
+  .mob-nav a:last-child { border-bottom:none; }
+
+  #mobile-list { display:none; padding:12px 12px 80px; }
+  .m-card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
+  .m-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+  .m-card-payee { font-weight:800; font-size:15px; color:var(--text); }
+  .m-card-amount { font-weight:900; font-size:16px; color:var(--red); }
+  .m-card-sub { font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .m-card-chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .m-chip { font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; }
+  .m-chip-cat { background:#f0f1ff; color:#4338ca; }
+  .m-chip-paid { background:#dcfce7; color:#15803d; }
+  .m-chip-unpaid { background:#fee2e2; color:#b91c1c; }
+  .m-chip-partial { background:#fef3c7; color:#b45309; }
+  .m-chip-date { background:#f3f4f6; color:#6b7280; }
+  .m-search { width:100%; box-sizing:border-box; background:#fff; border:1.5px solid var(--border); border-radius:8px; padding:10px 14px; font-size:14px; font-family:inherit; outline:none; }
+  .m-search:focus { border-color:var(--red); }
+  .m-toolbar { padding:10px 12px; background:#fff; border-bottom:1px solid var(--border); display:none; gap:8px; }
+  .m-count { font-size:12px; color:var(--muted); text-align:right; padding:4px 12px 0; display:none; }
+
+  @media (max-width:700px) {
+    .header-right { display:none; }
+    .mob-menu-btn { display:block; }
+    .toolbar { display:none !important; }
+    .table-wrap { display:none; }
+    #mobile-list { display:block; }
+    .m-toolbar { display:flex; }
+    .m-count { display:block; }
+  }
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">boom.</div>
+  <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
   <div class="header-right">
     <a href="/" class="btn-ghost">+ Add Invoice</a>
     <a href="/ledger" class="btn-active">Ledger</a>
@@ -207,6 +243,29 @@
     {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}<a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
+
+<!-- Mobile nav drawer -->
+<nav class="mob-nav" id="mob-nav">
+  <a href="/">+ Add Invoice</a>
+  <a href="/ledger" style="color:var(--red)">Ledger</a>
+  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
+  <a href="/invoices">Invoices</a>
+  <a href="/w9s">W9 / W8</a>
+  <a href="/vendors">Vendors</a>
+  {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
+  {% if current_user == 'John' %}<a href="/calendar">Calendar</a>{% endif %}
+  <a href="/export" style="color:var(--green)">Export Excel</a>
+  <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
+</nav>
+
+<!-- Mobile search toolbar -->
+<div class="m-toolbar">
+  <input class="m-search" id="m-search" placeholder="Search payee, artist, song…" oninput="mobileFilter()"/>
+</div>
+<div class="m-count" id="m-count"></div>
+
+<!-- Mobile card list (populated by JS) -->
+<div id="mobile-list"></div>
 
 <div class="toolbar">
   <input class="search-input" id="search" placeholder="Search payee, artist, song…" oninput="filterTable()"/>
@@ -473,6 +532,7 @@ function filterTable() {
   document.getElementById('row-count').textContent = `${f.length} of ${allEntries.length} entries`;
   updateTotals(f);
   renderBell(f);
+  renderMobileCards(f);
 }
 
 function updateTotals(entries) {
@@ -1356,6 +1416,46 @@ document.addEventListener('click', (e) => {
 initializeColumnVisibility();
 initializePresets();
 loadEntries();
+
+// ─── Mobile card rendering ────────────────────────────────────────────────────
+function renderMobileCards(entries) {
+  const list = document.getElementById('mobile-list');
+  if (!list) return;
+  if (!entries.length) {
+    list.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--muted)">No entries found</div>';
+    document.getElementById('m-count').textContent = '';
+    return;
+  }
+  const fmt = v => v ? '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+  const paidChip = s => {
+    if (!s || s === 'Unpaid') return `<span class="m-chip m-chip-unpaid">Unpaid</span>`;
+    if (s === 'Paid')         return `<span class="m-chip m-chip-paid">Paid</span>`;
+    return `<span class="m-chip m-chip-partial">${s}</span>`;
+  };
+  list.innerHTML = entries.map(e => `
+    <div class="m-card" onclick="window.open('/invoice/${e.id}','_blank')">
+      <div class="m-card-top">
+        <div class="m-card-payee">${esc(e.payee || '—')}</div>
+        <div class="m-card-amount">${fmt(e.amount)}</div>
+      </div>
+      <div class="m-card-sub">${[e.artist, e.song].filter(Boolean).join(' · ') || '—'}</div>
+      <div class="m-card-chips">
+        ${e.category ? `<span class="m-chip m-chip-cat">${esc(e.category)}</span>` : ''}
+        ${paidChip(e.payment_status)}
+        ${e.date ? `<span class="m-chip m-chip-date">${e.date}</span>` : ''}
+        ${e.method ? `<span class="m-chip m-chip-date">${esc(e.method)}</span>` : ''}
+      </div>
+    </div>`).join('');
+  document.getElementById('m-count').textContent = `${entries.length} of ${allEntries.length} entries`;
+}
+
+function mobileFilter() {
+  const q = (document.getElementById('m-search').value || '').toLowerCase();
+  const f = q ? allEntries.filter(e =>
+    `${e.payee} ${e.artist} ${e.song} ${e.description} ${e.invoice_number}`.toLowerCase().includes(q)
+  ) : allEntries;
+  renderMobileCards(f);
+}
 </script>
 </body>
 </html>
