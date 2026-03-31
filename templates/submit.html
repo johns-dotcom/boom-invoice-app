@@ -205,14 +205,33 @@
           <div id="artist-row-error" style="display:none;color:var(--red);font-size:12px;margin-top:4px;font-weight:600">Please enter at least one artist or project.</div>
           <button type="button" id="add-artist-btn" class="add-artist-btn" onclick="addArtistRow()">+ Add another artist</button>
         </div>
-        <div class="form-group">
-          <label>Category <span class="req">*</span></label>
-          <select name="category" required>
-            <option value="">— Select a category —</option>
-            {% for c in categories %}
-            <option value="{{ c }}">{{ c }}</option>
-            {% endfor %}
-          </select>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Category <span class="req">*</span></label>
+            <select name="category" required>
+              <option value="">— Select a category —</option>
+              {% for c in categories %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Currency <span class="req">*</span></label>
+            <select name="currency" required>
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              <option value="CAD">CAD — Canadian Dollar</option>
+              <option value="AUD">AUD — Australian Dollar</option>
+              <option value="CHF">CHF — Swiss Franc</option>
+              <option value="SEK">SEK — Swedish Krona</option>
+              <option value="NOK">NOK — Norwegian Krone</option>
+              <option value="DKK">DKK — Danish Krone</option>
+              <option value="JPY">JPY — Japanese Yen</option>
+              <option value="MXN">MXN — Mexican Peso</option>
+              <option value="BRL">BRL — Brazilian Real</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
