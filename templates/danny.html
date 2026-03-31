@@ -6,291 +6,669 @@
 <title>Boom.Records — PayPal Summary</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
 <style>
-  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --yellow:#d97706; --radius:10px; }
-  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
-  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f4f4f4; font-family: 'Nunito', system-ui, sans-serif; font-size: 14px; min-height: 100vh; color: #111; }
 
-  header { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:56px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
-  .logo { font-size:24px; font-weight:900; color:var(--red); letter-spacing:-0.5px; }
-  .header-right { display:flex; gap:8px; align-items:center; }
-  a.btn-ghost { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
-  a.btn-ghost:hover { border-color:var(--red); color:var(--red); }
-  a.btn-back { background:none; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; text-decoration:none; display:inline-block; transition:all .15s; }
-  a.btn-back:hover { border-color:var(--red); color:var(--red); }
+:root {
+  --red: #e31e24;
+  --border: #e2e2e2;
+  --muted: #888;
+  --green: #15803d;
+  --amber: #d97706;
+  --pp-blue: #003087;
+}
 
-  .toolbar { padding:12px 24px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--border); background:#fff; }
-  .search-input { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; color:var(--text); font-size:13px; font-family:inherit; width:220px; }
-  .search-input:focus { outline:none; border-color:var(--red); }
-  .filter-select { background:var(--bg); border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text); }
-  .filter-select:focus { outline:none; border-color:var(--red); }
-  .count { color:var(--muted); font-size:13px; margin-left:auto; }
+/* ─── Header ─── */
+header {
+  background: #fff; border-bottom: 1px solid var(--border);
+  padding: 0 24px; display: flex; align-items: center;
+  justify-content: space-between; height: 56px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06); gap: 8px; flex-wrap: wrap;
+}
+.logo { font-size: 22px; font-weight: 900; color: var(--red); letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
+.pp-pill { background: var(--pp-blue); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px; letter-spacing: .04em; }
+.header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+a.btn-ghost { background: none; border: 1.5px solid var(--border); color: var(--muted); padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-block; transition: all .15s; }
+a.btn-ghost:hover { border-color: var(--red); color: var(--red); }
 
-  /* KPI strip */
-  .kpi-strip { display:flex; gap:14px; padding:16px 24px; background:#fff; border-bottom:1px solid var(--border); flex-wrap:wrap; }
-  .kpi { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:12px 18px; min-width:130px; }
-  .kpi-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:4px; }
-  .kpi-value { font-size:20px; font-weight:900; color:var(--text); line-height:1; }
-  .kpi-value.red   { color:var(--red); }
-  .kpi-value.green { color:var(--green); }
-  .kpi-value.amber { color:#d97706; }
+/* ─── Layout ─── */
+.page { max-width: 1280px; margin: 0 auto; padding: 28px 20px 80px; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
+.page-title { font-size: 20px; font-weight: 900; color: #111; }
+.page-subtitle { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.view-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 
-  /* Table */
-  .table-wrap { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  thead th { background:#fff; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:1; }
-  tbody tr { border-bottom:1px solid var(--border); background:#fff; transition:background .1s; }
-  tbody tr:hover { background:#fafafa; }
-  tbody td { padding:9px 12px; vertical-align:middle; }
-  .td-date   { white-space:nowrap; color:var(--muted); font-size:12px; }
-  .td-payee  { font-weight:700; }
-  .td-trunc  { color:var(--muted); max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .td-amount { text-align:right; font-weight:700; color:var(--red); white-space:nowrap; }
+/* ─── Buttons ─── */
+.btn-outline { background: none; border: 1.5px solid var(--border); border-radius: 7px; padding: 7px 14px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; color: var(--muted); transition: all .15s; }
+.btn-outline:hover { border-color: var(--red); color: var(--red); }
+.btn-outline.active { border-color: var(--red); color: var(--red); background: #fff5f5; }
 
-  .badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:4px; font-size:11px; font-weight:700; white-space:nowrap; }
-  .badge-paid    { background:#dcfce7; color:#15803d; }
-  .badge-unpaid  { background:#fee2e2; color:#b91c1c; }
-  .badge-partial { background:#fef3c7; color:#b45309; }
-  .badge-yes { background:#dcfce7; color:#15803d; }
-  .badge-no  { background:#fef3c7; color:#b45309; }
-  .badge-na  { background:#f3f4f6; color:#6b7280; }
+/* ─── KPI Strip ─── */
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.kpi { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #aaa; margin-bottom: 6px; }
+.kpi-value { font-size: 20px; font-weight: 900; }
+.kpi-sub { font-size: 11px; color: #bbb; margin-top: 3px; }
+.kpi.red .kpi-value { color: var(--red); }
+.kpi.amber .kpi-value { color: var(--amber); }
+.kpi.green .kpi-value { color: var(--green); }
+.kpi.blue .kpi-value { color: var(--pp-blue); }
 
-  /* Due date */
-  .due-overdue { background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-  .due-soon    { background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-  .due-ok      { background:#f1f5f9; color:#475569; font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-  .due-hold    { background:#ede9fe; color:#6d28d9; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-  .terms-net15 { background:#dbeafe; color:#1d4ed8; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-  .terms-net30 { background:#dcfce7; color:#15803d; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
-  .terms-hold  { background:#ede9fe; color:#6d28d9; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+/* ─── Alert banner ─── */
+.overdue-alert {
+  background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 18px;
+  display: none; align-items: center; gap: 12px;
+}
+.overdue-alert.on { display: flex; }
+.overdue-alert-text { font-size: 13px; color: #b91c1c; font-weight: 600; flex: 1; }
+.overdue-alert-text strong { font-weight: 900; }
 
-  a.inv-link { color:#6366f1; font-weight:700; text-decoration:none; font-size:12px; }
-  a.inv-link:hover { text-decoration:underline; }
+/* ─── Section card ─── */
+.section { background: #fff; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+.section-header {
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.section-title { font-size: 13px; font-weight: 900; color: #111; display: flex; align-items: center; gap: 8px; }
+.count-badge { background: #f0f0f0; color: #555; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+.filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.filter-bar select, .filter-bar input {
+  border: 1.5px solid var(--border); border-radius: 7px; padding: 6px 10px;
+  font-size: 13px; font-family: inherit; color: #333; background: #fff; outline: none;
+  transition: border-color .15s;
+}
+.filter-bar select:focus, .filter-bar input:focus { border-color: var(--red); }
 
-  .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .empty { text-align:center; padding:60px; color:var(--muted); }
+/* ─── Table ─── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; padding: 9px 12px;
+  font-size: 10px; font-weight: 900; text-transform: uppercase;
+  letter-spacing: .07em; color: #aaa;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+th:hover { color: var(--red); }
+th.sort-asc::after { content: ' ↑'; }
+th.sort-desc::after { content: ' ↓'; }
+td { padding: 10px 12px; border-bottom: 1px solid #f4f4f4; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+tr.split-row td { background: #faf8ff; }
+tr.split-row:hover td { background: #f3eeff; }
 
-  tfoot td { padding:10px 12px; font-size:13px; border-top:2px solid var(--border); background:#fafafa; }
+/* ─── Tags ─── */
+.tag { display: inline-block; padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.tag-overdue { background: #fef2f2; color: var(--red); }
+.tag-soon { background: #fef3c7; color: #92400e; }
+.tag-ok { background: #f0fdf4; color: var(--green); }
+.tag-none { background: #f4f4f4; color: #bbb; }
+.tag-paid { background: #f0fdf4; color: var(--green); }
+.tag-unpaid { background: #fff7ed; color: #c2410c; }
+.tag-hold { background: #faf5ff; color: #7c3aed; }
+.tag-split { background: #ede9fe; color: #7c3aed; font-size: 10px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
 
-  .pp-pill { background:#003087; color:#fff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; letter-spacing:.04em; margin-left:8px; }
+/* ─── Amounts ─── */
+.amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.amt-muted { color: #bbb; font-weight: 400; }
+
+/* ─── Pay button ─── */
+.btn-pay { background: var(--red); color: #fff; border: none; border-radius: 6px; padding: 5px 11px; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; transition: background .15s; }
+.btn-pay:hover { background: #c41a1f; }
+.btn-pay-done { background: none; border: none; color: #bbb; font-size: 12px; font-weight: 700; font-family: inherit; cursor: default; }
+
+/* ─── Proof drop zone ─── */
+.proof-drop {
+  border: 1.5px dashed #d1d5db; border-radius: 6px;
+  padding: 5px 10px; font-size: 11px; font-weight: 700;
+  color: #bbb; cursor: pointer; text-align: center;
+  transition: all .15s; white-space: nowrap; user-select: none;
+  background: #fafafa; min-width: 80px;
+}
+.proof-drop:hover, .proof-drop.drag-over {
+  border-color: var(--red); color: var(--red); background: #fff5f5;
+}
+.proof-drop.uploading { border-color: #93c5fd; color: #3b82f6; background: #eff6ff; cursor: wait; }
+.proof-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--green); font-weight: 700; font-size: 12px;
+  text-decoration: none; white-space: nowrap;
+}
+.proof-link:hover { text-decoration: underline; }
+
+/* ─── Totals bar ─── */
+.totals-bar {
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 18px; display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
+}
+.totals-label { font-size: 10px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }
+.totals-value { font-size: 18px; font-weight: 900; }
+.totals-value.red { color: var(--red); }
+.totals-value.blue { color: var(--pp-blue); }
+
+/* ─── Spinner ─── */
+#spinner { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--muted); font-size: 13px; gap: 10px; }
+.spin { width: 18px; height: 18px; border: 2px solid #e2e2e2; border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Empty ─── */
+.empty { padding: 36px; text-align: center; color: #bbb; font-size: 13px; }
+
+/* ─── Toast ─── */
+#toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #fff; padding: 10px 20px; border-radius: 8px;
+  font-size: 13px; font-weight: 700; opacity: 0; transition: opacity .3s;
+  pointer-events: none; z-index: 300;
+}
+#toast.show { opacity: 1; }
+#toast.err { background: #dc2626; }
+
+@media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
 
+<!-- ── Header ── -->
 <header>
-  <div class="logo">boom.<span class="pp-pill">PayPal</span></div>
+  <div class="logo">
+    boom.
+    <span class="pp-pill">PayPal</span>
+  </div>
   <div class="header-right">
-    <a href="/ledger" class="btn-back">← Back to Ledger</a>
+    <a href="/ledger" class="btn-ghost">← Ledger</a>
     {% if current_user %}<span style="font-size:12px;color:#999;font-weight:600">{{ current_user }}</span>{% endif %}
     <a href="/logout" class="btn-ghost">Sign out</a>
   </div>
 </header>
 
-<div class="kpi-strip" id="kpi-strip" style="display:none">
-  <div class="kpi"><div class="kpi-label">Total PayPal</div><div class="kpi-value red" id="kpi-total">—</div></div>
-  <div class="kpi"><div class="kpi-label">Paid</div><div class="kpi-value green" id="kpi-paid">—</div></div>
-  <div class="kpi"><div class="kpi-label">Unpaid</div><div class="kpi-value amber" id="kpi-unpaid">—</div></div>
-  <div class="kpi"><div class="kpi-label">Invoices</div><div class="kpi-value" id="kpi-count">—</div></div>
-  <div class="kpi"><div class="kpi-label">Overdue / Due Soon</div><div class="kpi-value red" id="kpi-due">—</div></div>
+<!-- ── Page ── -->
+<div class="page">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">PayPal Summary</div>
+      <div class="page-subtitle">All invoices paid via PayPal — track status, due dates, and proof of payment</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="view-btns">
+        <button class="btn-outline active" id="view-all" onclick="setView('all')">All</button>
+        <button class="btn-outline" id="view-unpaid" onclick="setView('unpaid')">Unpaid</button>
+        <button class="btn-outline" id="view-overdue" onclick="setView('overdue')">Overdue</button>
+      </div>
+      <button class="btn-outline" onclick="exportCSV()">⬇ CSV</button>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="kpi-row">
+    <div class="kpi red">
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" id="kpi-overdue-amt">—</div>
+      <div class="kpi-sub" id="kpi-overdue-count">—</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Due within 7 days</div>
+      <div class="kpi-value" id="kpi-soon-amt">—</div>
+      <div class="kpi-sub" id="kpi-soon-count">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Unpaid</div>
+      <div class="kpi-value" id="kpi-unpaid-amt">—</div>
+      <div class="kpi-sub" id="kpi-unpaid-count">—</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Total Paid</div>
+      <div class="kpi-value" id="kpi-paid-amt">—</div>
+      <div class="kpi-sub" id="kpi-paid-count">—</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">Total PayPal</div>
+      <div class="kpi-value" id="kpi-total">—</div>
+      <div class="kpi-sub" id="kpi-total-count">—</div>
+    </div>
+  </div>
+
+  <!-- Overdue alert -->
+  <div class="overdue-alert" id="overdue-alert">
+    <span style="font-size:18px">🔴</span>
+    <div class="overdue-alert-text" id="overdue-alert-text"></div>
+    <button class="btn-outline" onclick="setView('overdue')" style="flex-shrink:0;border-color:#b91c1c;color:#b91c1c;font-size:12px;padding:6px 13px">View Overdue</button>
+  </div>
+
+  <!-- Table section -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">
+        Invoices
+        <span class="count-badge" id="count-badge">—</span>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="search" placeholder="Search payee, artist, song…" style="width:220px" oninput="applyFilters()"/>
+        <select id="filter-status" onchange="applyFilters()">
+          <option value="">All Statuses</option>
+          <option>Unpaid</option><option>Paid</option>
+        </select>
+        <select id="group-by" onchange="applyFilters()">
+          <option value="status" selected>Group by Status</option>
+          <option value="due">Group by Due Date</option>
+          <option value="none">No Grouping</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="spinner"><div class="spin"></div> Loading…</div>
+
+    <div class="tbl-wrap" id="tbl-wrap" style="display:none">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('invoice_date')" id="th-invoice_date">Date</th>
+            <th onclick="sortBy('payee')" id="th-payee">Payee</th>
+            <th onclick="sortBy('artist')" id="th-artist">Artist</th>
+            <th>Song</th>
+            <th onclick="sortBy('invoice_number')" id="th-invoice_number">Inv #</th>
+            <th onclick="sortBy('amount')" id="th-amount">Amount</th>
+            <th onclick="sortBy('due')" id="th-due">Due Date</th>
+            <th onclick="sortBy('payment_status')" id="th-payment_status">Status</th>
+            <th>Notes</th>
+            <th style="text-align:center">Invoice</th>
+            <th style="text-align:center">Proof</th>
+            <th style="text-align:center">Action</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="empty-state" class="empty" style="display:none">No invoices match your filters.</div>
+    </div>
+  </div>
+
+  <!-- Totals bar -->
+  <div class="totals-bar">
+    <div>
+      <div class="totals-label">Filtered Unpaid</div>
+      <div class="totals-value red" id="filtered-unpaid">$0.00</div>
+    </div>
+    <div>
+      <div class="totals-label">Filtered Total</div>
+      <div class="totals-value blue" id="filtered-total">$0.00</div>
+    </div>
+    <div style="margin-left:auto">
+      <div class="totals-label">Showing</div>
+      <div style="font-size:14px;font-weight:700;color:var(--muted)" id="showing-count">—</div>
+    </div>
+  </div>
+
 </div>
 
-<div class="toolbar">
-  <input class="search-input" id="search" placeholder="Search payee, artist, song…" oninput="filter()"/>
-  <select class="filter-select" id="filter-status" onchange="filter()">
-    <option value="">All statuses</option>
-    <option value="Unpaid">Unpaid</option>
-    <option value="Partial">Partial</option>
-    <option value="Paid">Paid</option>
-  </select>
-  <select class="filter-select" id="filter-qb" onchange="filter()">
-    <option value="">All QB statuses</option>
-    <option value="No">QB — Pending</option>
-    <option value="Yes">QB — Done</option>
-  </select>
-  <span class="count" id="row-count"></span>
-</div>
-
-<div class="table-wrap">
-  <div class="spinner" id="spinner"></div>
-  <table id="main-table" style="display:none">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Payee</th>
-        <th>Description</th>
-        <th>Artist</th>
-        <th>Song</th>
-        <th>Inv #</th>
-        <th style="text-align:right">Amount</th>
-        <th>Status</th>
-        <th>Terms</th>
-        <th>Due</th>
-        <th>Date Paid</th>
-        <th>In QB?</th>
-        <th>Stem?</th>
-        <th>Notes</th>
-        <th>Invoice</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-    <tfoot id="tfoot" style="display:none">
-      <tr>
-        <td colspan="6" style="font-weight:700;color:#555;text-align:right">TOTAL SHOWN</td>
-        <td id="foot-total" style="text-align:right;font-weight:900;color:var(--red)"></td>
-        <td colspan="8"></td>
-      </tr>
-    </tfoot>
-  </table>
-  <div class="empty" id="empty" style="display:none">No entries found.</div>
-</div>
+<!-- Toast -->
+<div id="toast"></div>
 
 <script>
-let all = [];
-
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const CURRENCY_SYMBOLS = {USD:'$',EUR:'€',GBP:'£',CAD:'CA$',AUD:'A$',MXN:'MX$',JPY:'¥'};
 
-function fmt(v, currency) {
-  if (!v && v !== 0) return '—';
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmt(amount, currency) {
+  if (amount == null || amount === '') return '—';
+  const num = Number(amount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   const code = (currency || 'USD').toUpperCase();
-  const sym  = CURRENCY_SYMBOLS[code] || (code + ' ');
-  return sym + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const sym = CURRENCY_SYMBOLS[code];
+  return sym ? sym + num : code + '\u00a0' + num;
 }
 
 function fmtDate(d) {
-  if (!d || d === 'None' || d === '') return '—';
-  try { const [y,m,day] = d.slice(0,10).split('-'); return `${m}/${day}/${y}`; }
-  catch { return d; }
+  if (!d || d === 'None') return '—';
+  const dt = new Date(d.slice(0,10) + 'T00:00:00');
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
 }
 
-function payBadge(status) {
-  const v = status || 'Unpaid';
-  const cls = v === 'Paid' ? 'badge-paid' : v === 'Partial' ? 'badge-partial' : 'badge-unpaid';
-  return `<span class="badge ${cls}">${v}</span>`;
+function esc(s) {
+  return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-function qbBadge(val) {
-  const cls = val === 'Yes' ? 'badge-yes' : val === 'No' ? 'badge-no' : 'badge-na';
-  return `<span class="badge ${cls}">${val || '—'}</span>`;
-}
-
-function dueDateFromTerms(uploadedDate, terms) {
-  if (!uploadedDate || !terms || terms === 'Hold') return null;
-  const days = terms === 'Net15' ? 15 : terms === 'Net30' ? 30 : null;
+function dueDateFromTerms(uploaded, terms) {
+  if (!terms || terms === 'Hold' || !uploaded) return null;
+  const days = terms === 'Net15' ? 15 : terms === 'Net30' ? 30 : 0;
   if (!days) return null;
-  const d = new Date(uploadedDate + 'T00:00:00');
-  if (isNaN(d)) return null;
+  const d = new Date(uploaded + 'T00:00:00');
   d.setDate(d.getDate() + days);
   return d;
 }
 
-function dueDateCell(uploadedDate, terms) {
-  if (!terms) return '<span style="color:#ccc;font-size:12px">—</span>';
-  if (terms === 'Hold') return '<span class="due-hold">On Hold</span>';
-  const due = dueDateFromTerms(uploadedDate, terms);
-  if (!due) return '<span style="color:#ccc;font-size:12px">—</span>';
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diff  = Math.round((due - today) / 86400000);
-  const label = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  if (diff < 0)  return `<span class="due-overdue">⚠ ${label}</span>`;
-  if (diff <= 7) return `<span class="due-soon">${label}</span>`;
-  return `<span class="due-ok">${label}</span>`;
+function dueStatus(dueDate) {
+  if (!dueDate) return 'none';
+  const diff = Math.round((dueDate - TODAY) / 86400000);
+  if (diff < 0) return 'overdue';
+  if (diff <= 7) return 'soon';
+  return 'ok';
 }
 
-function termsBadge(terms) {
-  if (!terms) return '<span style="color:#ccc;font-size:12px">—</span>';
-  const cls = terms === 'Net15' ? 'terms-net15' : terms === 'Net30' ? 'terms-net30' : 'terms-hold';
-  return `<span class="${cls}">${terms}</span>`;
+function daysLate(d) { return Math.max(0, Math.round((TODAY - d) / 86400000)); }
+function daysUntil(d) { return Math.max(0, Math.round((d - TODAY) / 86400000)); }
+
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isErr ? 'show err' : 'show';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = '', 3000);
 }
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+let allEntries = [];
+let currentView = 'all';
+let sortField = 'due';
+let sortDir = 1;
 
 async function load() {
-  const res = await fetch('/danny-entries');
-  all = await res.json();
+  try {
+    const res = await fetch('/danny-entries');
+    const data = await res.json();
+    allEntries = data.map(e => ({
+      ...e,
+      dueDate: dueDateFromTerms(e.date_uploaded, e.payment_terms)
+    }));
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('tbl-wrap').style.display = 'block';
+    updateKPIs();
+    applyFilters();
+  } catch(err) {
+    document.getElementById('spinner').textContent = 'Failed to load entries.';
+  }
+}
 
-  const today = new Date(); today.setHours(0,0,0,0);
-  let total = 0, paid = 0, unpaid = 0, dueAlerts = 0;
-  all.forEach(e => {
-    const a = Number(e.amount) || 0;
-    total += a;
-    const st = e.payment_status || 'Unpaid';
-    if (st === 'Paid')    paid   += a;
-    if (st === 'Unpaid')  unpaid += a;
-    const due = dueDateFromTerms(e.date_uploaded, e.payment_terms);
-    if (due) {
-      const diff = Math.round((due - today) / 86400000);
-      if (diff <= 7) dueAlerts++;
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+function updateKPIs() {
+  const sum = arr => arr.reduce((s,e) => s + (Number(e.amount)||0), 0);
+  const unpaid  = allEntries.filter(e => (e.payment_status||'Unpaid') === 'Unpaid');
+  const paid    = allEntries.filter(e => (e.payment_status||'Unpaid') === 'Paid');
+  const overdue = unpaid.filter(e => dueStatus(e.dueDate) === 'overdue');
+  const soon    = unpaid.filter(e => dueStatus(e.dueDate) === 'soon');
+
+  document.getElementById('kpi-overdue-amt').textContent  = fmt(sum(overdue));
+  document.getElementById('kpi-overdue-count').textContent = `${overdue.length} invoice${overdue.length!==1?'s':''}`;
+  document.getElementById('kpi-soon-amt').textContent     = fmt(sum(soon));
+  document.getElementById('kpi-soon-count').textContent   = `${soon.length} invoice${soon.length!==1?'s':''}`;
+  document.getElementById('kpi-unpaid-amt').textContent   = fmt(sum(unpaid));
+  document.getElementById('kpi-unpaid-count').textContent = `${unpaid.length} invoice${unpaid.length!==1?'s':''}`;
+  document.getElementById('kpi-paid-amt').textContent     = fmt(sum(paid));
+  document.getElementById('kpi-paid-count').textContent   = `${paid.length} paid`;
+  document.getElementById('kpi-total').textContent        = fmt(sum(allEntries));
+  document.getElementById('kpi-total-count').textContent  = `${allEntries.length} invoice${allEntries.length!==1?'s':''}`;
+
+  // Overdue banner
+  const alert = document.getElementById('overdue-alert');
+  if (overdue.length > 0) {
+    const oldest = overdue.reduce((m,e) => daysLate(e.dueDate) > daysLate(m.dueDate) ? e : m);
+    document.getElementById('overdue-alert-text').innerHTML =
+      `<strong>${overdue.length} PayPal invoice${overdue.length!==1?' are':' is'} past due.</strong> `
+      + `Total: <strong>${fmt(sum(overdue))}</strong> — oldest is <strong>${daysLate(oldest.dueDate)} day${daysLate(oldest.dueDate)!==1?'s':''}</strong> late.`;
+    alert.classList.add('on');
+  } else {
+    alert.classList.remove('on');
+  }
+}
+
+// ─── Filters ─────────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  ['all','unpaid','overdue'].forEach(id => {
+    document.getElementById('view-'+id).classList.toggle('active', id===v);
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const q       = document.getElementById('search').value.toLowerCase().trim();
+  const status  = document.getElementById('filter-status').value;
+  const groupBy = document.getElementById('group-by').value;
+
+  let f = [...allEntries];
+  if (currentView === 'unpaid')  f = f.filter(e => (e.payment_status||'Unpaid') === 'Unpaid');
+  if (currentView === 'overdue') f = f.filter(e => dueStatus(e.dueDate) === 'overdue');
+  if (q)      f = f.filter(e => `${e.payee} ${e.artist} ${e.song} ${e.description} ${e.invoice_number}`.toLowerCase().includes(q));
+  if (status) f = f.filter(e => (e.payment_status||'Unpaid') === status);
+
+  // Sort
+  f.sort((a,b) => {
+    let av, bv;
+    if (sortField === 'due') {
+      av = a.dueDate ? a.dueDate.getTime() : Infinity;
+      bv = b.dueDate ? b.dueDate.getTime() : Infinity;
+    } else if (sortField === 'amount') {
+      av = Number(a.amount||0); bv = Number(b.amount||0);
+    } else {
+      av = String(a[sortField]||''); bv = String(b[sortField]||'');
     }
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
   });
 
-  document.getElementById('kpi-total').textContent  = fmt(total,  'USD');
-  document.getElementById('kpi-paid').textContent   = fmt(paid,   'USD');
-  document.getElementById('kpi-unpaid').textContent = fmt(unpaid, 'USD');
-  document.getElementById('kpi-count').textContent  = all.length;
-  document.getElementById('kpi-due').textContent    = dueAlerts || '—';
-  document.getElementById('kpi-strip').style.display = 'flex';
-
-  document.getElementById('spinner').style.display = 'none';
-  filter();
+  renderTable(f, groupBy);
+  updateTotals(f);
+  document.getElementById('count-badge').textContent = f.length;
+  document.getElementById('showing-count').textContent = `${f.length} of ${allEntries.length}`;
 }
 
-function filter() {
-  const q      = document.getElementById('search').value.toLowerCase();
-  const status = document.getElementById('filter-status').value;
-  const qb     = document.getElementById('filter-qb').value;
-  const f = all.filter(e => {
-    if (q && !`${e.payee} ${e.description} ${e.artist} ${e.song} ${e.invoice_number}`.toLowerCase().includes(q)) return false;
-    if (status && (e.payment_status || 'Unpaid') !== status) return false;
-    if (qb && e.in_quickbooks !== qb) return false;
-    return true;
+function sortBy(field) {
+  if (sortField === field) sortDir *= -1;
+  else { sortField = field; sortDir = 1; }
+  document.querySelectorAll('th[id^=th-]').forEach(th => {
+    th.className = '';
+    if (th.id === 'th-'+field) th.className = sortDir===1 ? 'sort-asc' : 'sort-desc';
   });
-  render(f);
+  applyFilters();
 }
 
-function render(entries) {
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderTable(entries, groupBy) {
   const tbody = document.getElementById('tbody');
-  const table = document.getElementById('main-table');
-  const empty = document.getElementById('empty');
-  const tfoot = document.getElementById('tfoot');
-
-  document.getElementById('row-count').textContent = `${entries.length} of ${all.length} entries`;
+  const empty = document.getElementById('empty-state');
 
   if (!entries.length) {
-    tbody.innerHTML = '';
-    table.style.display = 'none';
-    tfoot.style.display = 'none';
-    empty.style.display = 'block';
+    tbody.innerHTML = ''; empty.style.display = 'block'; return;
+  }
+  empty.style.display = 'none';
+
+  if (groupBy === 'none') {
+    tbody.innerHTML = entries.map(rowHtml).join('');
     return;
   }
 
-  empty.style.display = 'none';
-  table.style.display = 'table';
+  const groups = {};
+  entries.forEach(e => {
+    let key;
+    if (groupBy === 'status') key = (e.payment_status||'Unpaid');
+    else if (groupBy === 'due') {
+      const s = dueStatus(e.dueDate);
+      key = s === 'overdue' ? '🔴 Overdue' : s === 'soon' ? '🟡 Due Soon (7 days)' : e.dueDate ? '🟢 On Track' : '⚪ No Due Date';
+    }
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
 
-  let shownTotal = 0;
-  tbody.innerHTML = entries.map(e => {
-    shownTotal += Number(e.amount) || 0;
-    return `<tr>
-      <td class="td-date">${fmtDate(e.invoice_date)}</td>
-      <td class="td-payee">${e.payee || '—'}</td>
-      <td class="td-trunc" title="${(e.description||'').replace(/"/g,'&quot;')}">${e.description || '—'}</td>
-      <td style="font-size:12px;color:var(--muted)">${e.artist || '—'}</td>
-      <td style="font-size:12px;color:var(--muted)">${e.song || '—'}</td>
-      <td style="font-size:12px;color:var(--muted)">${e.invoice_number || '—'}</td>
-      <td class="td-amount">${fmt(e.amount, e.currency)}</td>
-      <td>${payBadge(e.payment_status)}</td>
-      <td>${termsBadge(e.payment_terms)}</td>
-      <td>${dueDateCell(e.date_uploaded, e.payment_terms)}</td>
-      <td class="td-date">${fmtDate(e.payment_date)}</td>
-      <td>${qbBadge(e.in_quickbooks)}</td>
-      <td>${qbBadge(e.uploaded_to_stem)}</td>
-      <td class="td-trunc" title="${(e.notes||'').replace(/"/g,'&quot;')}">${e.notes || '—'}</td>
-      <td>${e.has_invoice ? `<a class="inv-link" href="/invoice/${e.id}" target="_blank">View ↗</a>` : '<span style="color:#ccc;font-size:12px">—</span>'}</td>
-    </tr>`;
-  }).join('');
+  let keys = Object.keys(groups);
+  if (groupBy === 'due') {
+    const order = ['🔴 Overdue','🟡 Due Soon (7 days)','🟢 On Track','⚪ No Due Date'];
+    keys.sort((a,b) => order.indexOf(a) - order.indexOf(b));
+  }
 
-  document.getElementById('foot-total').textContent = fmt(shownTotal, 'USD');
-  tfoot.style.display = 'table-footer-group';
+  const sum = arr => arr.filter(e => (e.payment_status||'Unpaid') === 'Unpaid').reduce((s,e) => s + (Number(e.amount)||0), 0);
+
+  let html = '';
+  keys.forEach(key => {
+    const grp = groups[key];
+    const grpSum = sum(grp);
+    html += `<tr><td colspan="12" style="background:#f9f9f9;padding:8px 12px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#999;border-bottom:1px solid var(--border)">
+      ${esc(key)}
+      <span style="font-weight:400;color:#ccc;margin-left:8px">${grp.length} invoice${grp.length!==1?'s':''}</span>
+      ${grpSum > 0 ? `<span style="float:right;color:var(--red);font-weight:900">${fmt(grpSum)} unpaid</span>` : ''}
+    </td></tr>`;
+    html += grp.map(rowHtml).join('');
+  });
+  tbody.innerHTML = html;
 }
 
+function dueBadge(e) {
+  const s = dueStatus(e.dueDate);
+  if (!e.dueDate) {
+    if (e.payment_terms === 'Hold') return '<span class="tag tag-hold">On Hold</span>';
+    return '<span class="tag tag-none">—</span>';
+  }
+  const dateStr = fmtDate(e.dueDate.toISOString().slice(0,10));
+  if (s === 'overdue') return `<span class="tag tag-overdue">${dateStr} <span style="opacity:.7">(${daysLate(e.dueDate)}d late)</span></span>`;
+  if (s === 'soon')    return `<span class="tag tag-soon">${dateStr} <span style="opacity:.7">(${daysUntil(e.dueDate)}d)</span></span>`;
+  return `<span class="tag tag-ok">${dateStr}</span>`;
+}
+
+function rowHtml(e) {
+  const isPaid = (e.payment_status||'Unpaid') === 'Paid';
+  const isSplit = !!e.parent_id;
+  const invId = e.parent_id || e.id;
+  return `<tr id="row-${e.id}" class="${isSplit ? 'split-row' : ''}">
+    <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(e.invoice_date)}</td>
+    <td style="font-weight:700;white-space:nowrap">${esc(e.payee)||'—'}</td>
+    <td style="color:#555">
+      ${esc(e.artist)||'—'}
+      ${isSplit ? '<span class="tag tag-split">↳ split</span>' : ''}
+    </td>
+    <td style="color:var(--muted);font-size:12px">${esc(e.song)||'—'}</td>
+    <td style="color:#bbb;font-size:12px">${esc(e.invoice_number)||'—'}</td>
+    <td class="amt ${isPaid ? 'amt-muted' : ''}">${fmt(e.amount, e.currency)}</td>
+    <td>${dueBadge(e)}</td>
+    <td><span class="tag ${isPaid ? 'tag-paid' : 'tag-unpaid'}">${e.payment_status||'Unpaid'}</span></td>
+    <td style="color:var(--muted);font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.notes)}">${esc(e.notes)||'—'}</td>
+    <td style="text-align:center">
+      ${e.has_invoice
+        ? `<a href="/invoice/${invId}" target="_blank" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none">View ↗</a>`
+        : '<span style="color:#ddd;font-size:12px">—</span>'}
+    </td>
+    <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
+    <td style="text-align:center">
+      ${isPaid
+        ? '<span class="btn-pay-done">✓ Paid</span>'
+        : `<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
+    </td>
+  </tr>`;
+}
+
+// ─── Proof of payment ─────────────────────────────────────────────────────────
+function proofCellHtml(e) {
+  const proofId = e.parent_id || e.id;
+  if (e.has_proof) {
+    return `<a href="/proof/${proofId}" target="_blank" class="proof-link" title="View proof of payment">📎 View</a>`;
+  }
+  return `
+    <div class="proof-drop" id="proof-drop-${e.id}"
+      title="Drop file or click to upload proof of payment"
+      onclick="document.getElementById('proof-input-${e.id}').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');handleProofDrop(${e.id},event)">
+      📎 Drop / Upload
+    </div>
+    <input type="file" id="proof-input-${e.id}"
+      accept=".pdf,.jpg,.jpeg,.png,.webp"
+      style="display:none"
+      onchange="uploadProofFile(${e.id}, this)"/>`;
+}
+
+function handleProofDrop(id, event) {
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+  uploadProof(id, file);
+}
+
+function uploadProofFile(id, input) {
+  const file = input.files[0];
+  if (!file) return;
+  uploadProof(id, file);
+}
+
+async function uploadProof(id, file) {
+  const dropEl = document.getElementById('proof-drop-' + id);
+  if (dropEl) { dropEl.classList.add('uploading'); dropEl.textContent = 'Uploading…'; }
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res = await fetch(`/add-proof/${id}`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Upload failed');
+
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) entry.has_proof = true;
+
+    const cell = document.getElementById('proof-cell-' + id);
+    if (cell) {
+      const proofId = entry?.parent_id || id;
+      cell.innerHTML = `<a href="/proof/${proofId}" target="_blank" class="proof-link">📎 View</a>`;
+    }
+    toast('Proof uploaded');
+  } catch (err) {
+    if (dropEl) { dropEl.classList.remove('uploading'); dropEl.innerHTML = '📎 Drop / Upload'; }
+    toast('Upload failed — ' + (err.message || 'try again'), true);
+  }
+}
+
+// ─── Mark paid ───────────────────────────────────────────────────────────────
+async function markOnePaid(id) {
+  const entry = allEntries.find(e => e.id === id);
+  if (!entry || entry.payment_status === 'Paid') return;
+  try {
+    const res = await fetch(`/update/${id}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({payment_status: 'Paid'})
+    });
+    if (!res.ok) throw new Error();
+    entry.payment_status = 'Paid';
+    updateKPIs();
+    applyFilters();
+    toast('Marked as Paid');
+  } catch {
+    toast('Update failed — try again', true);
+  }
+}
+
+// ─── Totals ───────────────────────────────────────────────────────────────────
+function updateTotals(filtered) {
+  const unpaidSum = filtered.filter(e => (e.payment_status||'Unpaid') === 'Unpaid').reduce((s,e) => s + (Number(e.amount)||0), 0);
+  const totalSum  = filtered.reduce((s,e) => s + (Number(e.amount)||0), 0);
+  document.getElementById('filtered-unpaid').textContent = fmt(unpaidSum);
+  document.getElementById('filtered-total').textContent  = fmt(totalSum);
+}
+
+// ─── CSV export ───────────────────────────────────────────────────────────────
+function exportCSV() {
+  const filtered = allEntries.filter(e => {
+    if (currentView === 'unpaid')  return (e.payment_status||'Unpaid') === 'Unpaid';
+    if (currentView === 'overdue') return dueStatus(e.dueDate) === 'overdue';
+    return true;
+  });
+  const headers = ['Date','Payee','Artist','Song','Invoice #','Amount','Currency','Terms','Due Date','Status','Notes'];
+  const rows = filtered.map(e => [
+    e.invoice_date, e.payee, e.artist, e.song, e.invoice_number,
+    e.amount, e.currency||'USD', e.payment_terms,
+    e.dueDate ? e.dueDate.toISOString().slice(0,10) : '',
+    e.payment_status||'Unpaid', e.notes
+  ]);
+  const csv = [headers,...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'boom-paypal.csv';
+  a.click();
+  toast('CSV downloaded');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
 load();
+document.getElementById('th-due').className = 'sort-asc';
 </script>
 </body>
 </html>
