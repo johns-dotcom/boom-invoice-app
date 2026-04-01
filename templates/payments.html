@@ -111,6 +111,9 @@ tr.split-child:hover td { background: #f3eeff; }
 .btn-pay { background: var(--red); color: #fff; border: none; border-radius: 6px; padding: 5px 11px; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; transition: background .15s; }
 .btn-pay:hover { background: #c41a1f; }
 .btn-pay-done { background: none; border: none; color: #bbb; font-size: 12px; font-weight: 700; font-family: inherit; cursor: default; }
+.btn-notify { background: none; border: 1.5px solid #d1d5db; border-radius: 6px; color: #6366f1; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; padding: 4px 8px; transition: all .15s; margin-top: 4px; }
+.btn-notify:hover { border-color: #6366f1; background: #f5f3ff; }
+.btn-notify:disabled { opacity: .45; cursor: default; }
 
 /* ─── Proof drop zone ─── */
 .proof-drop {
@@ -660,7 +663,10 @@ function rowHtmlParent(e, children) {
     <td style="color:var(--muted);font-size:12px">—</td>
     <td style="text-align:center"><a href="/invoice/${e.id}" target="_blank" onclick="event.stopPropagation()" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none">View ↗</a></td>
     <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
-    ${IS_ADMIN ? `<td style="text-align:center">${isPaid?'<span class="btn-pay-done">✓ Paid</span>':`<button class="btn-pay" onclick="event.stopPropagation();markOnePaid(${e.id})">Mark Paid</button>`}</td>` : ''}
+    ${IS_ADMIN ? `<td style="text-align:center">${isPaid
+      ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="event.stopPropagation();sendPaymentNotice(${e.id},this)">📧 Notify</button></div>`
+      : `<button class="btn-pay" onclick="event.stopPropagation();markOnePaid(${e.id})">Mark Paid</button>`
+    }</td>` : ''}
   </tr>`;
 }
 
@@ -681,7 +687,10 @@ function rowHtmlChild(e) {
     <td style="color:var(--muted);font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.notes)||'—'}</td>
     <td style="text-align:center"><a href="/invoice/${e.parent_id}" target="_blank" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none">View ↗</a></td>
     <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
-    ${IS_ADMIN ? `<td style="text-align:center">${isPaid?'<span class="btn-pay-done">✓ Paid</span>':`<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}</td>` : ''}
+    ${IS_ADMIN ? `<td style="text-align:center">${isPaid
+      ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="sendPaymentNotice(${e.id},this)">📧 Notify</button></div>`
+      : `<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`
+    }</td>` : ''}
   </tr>`;
 }
 
@@ -728,7 +737,7 @@ function rowHtml(e) {
     <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
     ${IS_ADMIN ? `<td style="text-align:center">
       ${isPaid
-        ? '<span class="btn-pay-done">✓ Paid</span>'
+        ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="sendPaymentNotice(${e.id},this)">📧 Notify</button></div>`
         : `<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
     </td>` : ''}
   </tr>`;
@@ -830,6 +839,27 @@ async function saveCurrency(id, sel) {
   } catch {
     sel.style.borderBottomColor = '#e53935';
     setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
+  }
+}
+
+async function sendPaymentNotice(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending…'; }
+  try {
+    const res = await fetch(`/send-payment-email/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({source: 'john'})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (btn) { btn.textContent = '✓ Sent'; btn.style.color = '#16a34a'; btn.style.borderColor = '#16a34a'; }
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = '📧 Notify'; }
+      alert('Email failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = '📧 Notify'; }
+    alert('Email failed: ' + err.message);
   }
 }
 

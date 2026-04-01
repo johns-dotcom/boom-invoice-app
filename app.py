@@ -507,7 +507,7 @@ def boom_rep_email(name):
     """Return the Boom Rep's email address by name."""
     if not name:
         return None
-    special = {"john": "johns@boomrecords.co"}
+    special = {"john": "johns@boomrecords.co", "danny": "dannyk@boomrecords.co"}
     key = name.lower().strip()
     return special.get(key, f"{key}@boomrecords.co")
 
@@ -619,6 +619,138 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
         print(f"Vendor status email ({status}) sent to {recipients}")
     except Exception as e:
         print(f"Vendor status email error: {e}")
+
+
+def send_payment_released_email(vendor_name, vendor_email, invoice_info,
+                                inv_fname, inv_data, proof_fname, proof_data,
+                                boom_rep=None, cc_list=None):
+    """Email vendor that their payment has been released, with invoice + proof attached."""
+    client_id     = os.environ.get("GMAIL_CLIENT_ID", "")
+    client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
+    refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "")
+    sender        = os.environ.get("GMAIL_USER", "")
+    if not all([client_id, client_secret, refresh_token, sender]):
+        print("Email not configured — payment released email not sent")
+        return
+    if not vendor_email:
+        print("No vendor email — payment released email not sent")
+        return
+    try:
+        import base64 as b64lib, urllib.request, urllib.parse, json
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.base import MIMEBase
+        from email import encoders as email_encoders
+
+        token_resp = urllib.request.urlopen(urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=urllib.parse.urlencode({
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type":    "refresh_token",
+            }).encode(), method="POST"
+        ))
+        access_token = json.loads(token_resp.read())["access_token"]
+
+        rep_name  = boom_rep or "the Boom.Records team"
+        rep_email = boom_rep_email(boom_rep) if boom_rep else None
+        contact_line = (f'<strong>{rep_name}</strong> at '
+                        f'<a href="mailto:{rep_email}" style="color:#e31e24">{rep_email}</a>'
+                        if rep_email else f'<strong>{rep_name}</strong>')
+
+        amt     = invoice_info.get("amount")
+        amt_str = f"${float(amt):,.2f}" if amt else ""
+        inv_num = invoice_info.get("invoice_number", "")
+        artist  = invoice_info.get("artist", "")
+        pay_date = invoice_info.get("payment_date", "")
+
+        def row(bg, label, val):
+            s = "background:#f9f9f9;" if bg else ""
+            return (f"<tr><td style='padding:7px 12px;{s}color:#666;width:130px;font-size:13px'>{label}</td>"
+                    f"<td style='padding:7px 12px;{s}font-size:13px'>{val}</td></tr>")
+
+        detail_rows = ""
+        if artist:   detail_rows += row(True,  "Artist / Project", f"<strong>{artist}</strong>")
+        if inv_num:  detail_rows += row(False, "Invoice #", inv_num)
+        if amt_str:  detail_rows += row(True,  "Amount", f"<strong style='color:#16a34a'>{amt_str}</strong>")
+        if pay_date: detail_rows += row(False, "Payment Date", pay_date)
+        details_table = (f"<table style='width:100%;border-collapse:collapse;margin:14px 0'>"
+                         f"{detail_rows}</table>") if detail_rows else ""
+
+        att_note = ""
+        if inv_fname and proof_fname:
+            att_note = "Your invoice and proof of payment are attached for your records."
+        elif inv_fname:
+            att_note = "Your invoice is attached for your records."
+        elif proof_fname:
+            att_note = "Proof of payment is attached for your records."
+
+        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
+border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
+  <div style='background:#16a34a;padding:18px 24px'>
+    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — Payment Released 💸</h2>
+  </div>
+  <div style='padding:22px;color:#111'>
+    <p style='margin:0 0 14px'>Hi <strong>{vendor_name}</strong>,</p>
+    <p style='margin:0 0 14px'>Your payment has been released. {att_note}</p>
+    {details_table}
+    <p style='margin:14px 0 0;font-size:13px;color:#555'>
+      Questions? Reach out to your Boom Rep: {contact_line}</p>
+    <p style='margin:8px 0 0;font-size:12px;color:#aaa'>Boom.Records LLC</p>
+  </div>
+</div>"""
+
+        subject = f"Payment Released — Invoice #{inv_num}" if inv_num else "Payment Released — Boom.Records"
+
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = subject
+        msg["From"]    = f"Boom.Records <{sender}>"
+        msg["To"]      = vendor_email
+        # Build Cc: use explicit cc_list if provided, otherwise fall back to rep_email alone
+        final_cc = cc_list if cc_list is not None else ([rep_email] if rep_email else [])
+        if final_cc:
+            msg["Cc"] = ", ".join(final_cc)
+
+        body_part = MIMEMultipart("alternative")
+        body_part.attach(MIMEText(html, "html"))
+        msg.attach(body_part)
+
+        def attach_file(filename, data_b64):
+            if not filename or not data_b64:
+                return
+            try:
+                file_bytes = b64lib.b64decode(data_b64)
+                if filename.lower().endswith(".pdf"):
+                    att = MIMEBase("application", "pdf")
+                elif filename.lower().endswith(".png"):
+                    att = MIMEBase("image", "png")
+                elif filename.lower().endswith((".jpg", ".jpeg")):
+                    att = MIMEBase("image", "jpeg")
+                else:
+                    att = MIMEBase("application", "octet-stream")
+                att.set_payload(file_bytes)
+                email_encoders.encode_base64(att)
+                att.add_header("Content-Disposition", "attachment", filename=filename)
+                msg.attach(att)
+            except Exception as ae:
+                print(f"Could not attach {filename}: {ae}")
+
+        attach_file(inv_fname, inv_data)
+        attach_file(proof_fname, proof_data)
+
+        raw = b64lib.urlsafe_b64encode(msg.as_bytes()).decode()
+        urllib.request.urlopen(urllib.request.Request(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            data=json.dumps({"raw": raw}).encode(),
+            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+            method="POST"
+        ))
+        recipients = [vendor_email] + final_cc
+        print(f"Payment released email sent to {recipients} with attachments: {inv_fname}, {proof_fname}")
+    except Exception as e:
+        print(f"Payment released email error: {e}")
+        raise
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
@@ -1302,6 +1434,65 @@ def reject_entry(eid):
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
+
+@app.route("/send-payment-email/<int:eid>", methods=["POST"])
+@login_required
+@admin_required
+def send_payment_email(eid):
+    try:
+        data   = request.json or {}
+        source = data.get("source", "")   # "danny" triggers auto-CC of Danny
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"""SELECT payee, vendor_name, vendor_email,
+                               invoice_filename, invoice_data,
+                               proof_filename, proof_data,
+                               boom_rep, amount, currency, invoice_number,
+                               artist, payment_date, parent_id
+                        FROM expenses WHERE id={ph}""", (eid,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"error": "Entry not found"}), 404
+        (payee, vendor_name, vendor_email,
+         inv_fname, inv_data,
+         proof_fname, proof_data,
+         boom_rep, amount, currency, inv_num,
+         artist, pay_date, parent_id) = row
+
+        # Child entries may not have proof — inherit from parent
+        if not proof_data and parent_id:
+            cur.execute(f"SELECT proof_filename, proof_data FROM expenses WHERE id={ph}", (parent_id,))
+            prow = cur.fetchone()
+            if prow:
+                proof_fname, proof_data = prow
+        conn.close()
+
+        # Build CC list: always include boom rep; always include Danny when sent from his page
+        cc_list = []
+        rep_email = boom_rep_email(boom_rep) if boom_rep else None
+        if rep_email:
+            cc_list.append(rep_email)
+        danny_email = "dannyk@boomrecords.co"
+        if source == "danny" and danny_email not in cc_list:
+            cc_list.append(danny_email)
+
+        invoice_info = {
+            "amount":         amount,
+            "currency":       currency,
+            "invoice_number": inv_num,
+            "artist":         artist,
+            "payment_date":   pay_date,
+        }
+        send_payment_released_email(
+            vendor_name or payee, vendor_email, invoice_info,
+            inv_fname, inv_data, proof_fname, proof_data,
+            boom_rep=boom_rep, cc_list=cc_list
+        )
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"send_payment_email error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/pending-count")
 @login_required
