@@ -234,7 +234,7 @@
           </div>
           <div class="form-group">
             <label>Boom Rep <span class="req">*</span></label>
-            <select name="boom_rep" required>
+            <select name="boom_rep" id="boom-rep" required>
               <option value="">— Select a rep —</option>
               <option value="Felipe">Felipe</option>
               <option value="Jesse">Jesse</option>
@@ -517,6 +517,8 @@ document.getElementById('submit-form').addEventListener('submit', async function
   const invoiceNum  = document.getElementById('invoice-number').value.trim();
   const address     = document.getElementById('vendor-address').value.trim();
   const payment     = document.getElementById('payment-preference').value.trim();
+  const boomRepEl   = document.querySelector('select[name="boom_rep"]');
+  const boomRep     = boomRepEl ? boomRepEl.value.trim() : '';
   let valid = true;
 
   function fieldError(inputId, msg) {
@@ -535,6 +537,7 @@ document.getElementById('submit-form').addEventListener('submit', async function
 
   if (!address)    fieldError('vendor-address',     'Mailing address is required.');
   if (!payment)    fieldError('payment-preference', 'Please select a payment method.');
+  if (boomRepEl && !boomRep) fieldError('boom-rep', 'Please select your Boom Rep.');
   if (!invoiceNum) fieldError('invoice-number',     'Invoice number is required.');
   if (!invoiceFile.files?.length) {
     showDropError('dz-invoice', 'Please attach your invoice file.'); valid = false;

@@ -2130,6 +2130,7 @@ def submit_invoice():
     if not vendor_payment: return err("Please select your preferred payment method.")
     if not vendor_artist:  return err("Please enter the artist or project name.")
     if not vendor_category: return err("Please select a category.")
+    if not boom_rep: return err("Please select your Boom Rep.")
     if "file" not in request.files or not request.files["file"].filename:
         return err("Please upload your invoice file.")
 

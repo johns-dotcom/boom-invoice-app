@@ -664,7 +664,7 @@ function rowHtmlParent(e, children) {
     <td style="text-align:center"><a href="/invoice/${e.id}" target="_blank" onclick="event.stopPropagation()" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none">View ↗</a></td>
     <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
     ${IS_ADMIN ? `<td style="text-align:center">${isPaid
-      ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="event.stopPropagation();sendPaymentNotice(${e.id},this)">📧 Notify</button></div>`
+      ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span>${notifyBtnHtml(e, true)}</div>`
       : `<button class="btn-pay" onclick="event.stopPropagation();markOnePaid(${e.id})">Mark Paid</button>`
     }</td>` : ''}
   </tr>`;
@@ -688,7 +688,7 @@ function rowHtmlChild(e) {
     <td style="text-align:center"><a href="/invoice/${e.parent_id}" target="_blank" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none">View ↗</a></td>
     <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
     ${IS_ADMIN ? `<td style="text-align:center">${isPaid
-      ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="sendPaymentNotice(${e.id},this)">📧 Notify</button></div>`
+      ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span>${notifyBtnHtml(e, false)}</div>`
       : `<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`
     }</td>` : ''}
   </tr>`;
@@ -737,7 +737,7 @@ function rowHtml(e) {
     <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
     ${IS_ADMIN ? `<td style="text-align:center">
       ${isPaid
-        ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="sendPaymentNotice(${e.id},this)">📧 Notify</button></div>`
+        ? `<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><span class="btn-pay-done">✓ Paid</span>${notifyBtnHtml(e, false)}</div>`
         : `<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
     </td>` : ''}
   </tr>`;
@@ -840,6 +840,25 @@ async function saveCurrency(id, sel) {
     sel.style.borderBottomColor = '#e53935';
     setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
   }
+}
+
+function hasProof(e) {
+  if (e.has_proof) return true;
+  if (e.parent_id) {
+    const parent = allEntries.find(p => p.id === e.parent_id);
+    return parent ? !!parent.has_proof : false;
+  }
+  return false;
+}
+
+function notifyBtnHtml(e, stopProp) {
+  const ok = hasProof(e);
+  const click = stopProp
+    ? `onclick="event.stopPropagation();sendPaymentNotice(${e.id},this)"`
+    : `onclick="sendPaymentNotice(${e.id},this)"`;
+  return ok
+    ? `<button class="btn-notify" id="notify-${e.id}" ${click}>Notify vendor</button>`
+    : `<button class="btn-notify" id="notify-${e.id}" disabled title="Upload proof of payment before notifying">Notify vendor</button>`;
 }
 
 async function sendPaymentNotice(id, btn) {

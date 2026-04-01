@@ -96,6 +96,22 @@
   .select-all-checkbox { width:18px; height:18px; cursor:pointer; accent-color:var(--red); }
   .select-all-text { font-size:13px; color:var(--muted); font-weight:600; }
 
+  /* ── Filters ── */
+  .filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+  .filter-search { flex:1; min-width:180px; position:relative; }
+  .filter-search input { width:100%; border:1.5px solid var(--border); border-radius:8px; padding:8px 12px 8px 34px; font-size:13px; font-family:inherit; outline:none; background:#fff; color:var(--text); transition:border-color .15s; }
+  .filter-search input:focus { border-color:var(--red); }
+  .filter-search .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#bbb; font-size:14px; pointer-events:none; }
+  .filter-select { border:1.5px solid var(--border); border-radius:8px; padding:7px 28px 7px 10px; font-size:12px; font-weight:700; font-family:inherit; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 10px center; -webkit-appearance:none; appearance:none; cursor:pointer; color:var(--text); outline:none; transition:border-color .15s; }
+  .filter-select:focus { border-color:var(--red); }
+  .filter-select.active { border-color:var(--red); color:var(--red); background-color:#fef2f2; }
+  .btn-clear-filters { background:none; border:none; font-size:12px; font-weight:700; color:#bbb; cursor:pointer; font-family:inherit; padding:4px 6px; border-radius:5px; transition:color .15s; white-space:nowrap; }
+  .btn-clear-filters:hover { color:var(--red); }
+  .filter-count { font-size:12px; color:var(--muted); white-space:nowrap; margin-left:auto; }
+  .no-filter-results { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:40px; text-align:center; display:none; }
+  .no-filter-results p { font-size:14px; color:var(--muted); }
+  @media(max-width:600px) { .filter-bar { gap:6px; } .filter-search { min-width:100%; order:-1; } }
+
   /* ── Mobile ──────────────────────────────────────────────────────────────── */
   
   
@@ -130,6 +146,34 @@
   </div>
   <div class="subtitle">Review vendor-submitted invoices before they appear in the ledger.</div>
 
+  {% if items %}
+  <div class="filter-bar" id="filter-bar">
+    <div class="filter-search">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="filter-search" placeholder="Search vendor, artist, invoice #…" oninput="applyFilters()"/>
+    </div>
+    <select class="filter-select" id="filter-rep" onchange="applyFilters()">
+      <option value="">All reps</option>
+    </select>
+    <select class="filter-select" id="filter-category" onchange="applyFilters()">
+      <option value="">All categories</option>
+    </select>
+    <select class="filter-select" id="filter-type" onchange="applyFilters()">
+      <option value="">All types</option>
+      <option value="invoice">Invoice</option>
+      <option value="reimbursement">Reimbursement</option>
+    </select>
+    <select class="filter-select" id="filter-sort" onchange="applyFilters()">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="amount-desc">Amount (high–low)</option>
+      <option value="amount-asc">Amount (low–high)</option>
+    </select>
+    <button class="btn-clear-filters" id="btn-clear" onclick="clearFilters()" style="display:none">Clear filters</button>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+  {% endif %}
+
   {% if not items %}
   <div class="empty-state">
     <div class="empty-icon">✅</div>
@@ -141,8 +185,19 @@
       <input type="checkbox" class="select-all-checkbox" id="select-all-checkbox" onchange="toggleSelectAll()"/>
       <span class="select-all-text">Select all</span>
     </div>
+    <div class="no-filter-results" id="no-filter-results">
+      <p>No invoices match the current filters.</p>
+    </div>
     {% for item in items %}
-    <div class="card" id="card-{{ item.id }}">
+    <div class="card" id="card-{{ item.id }}"
+      data-vendor="{{ (item.vendor_name or item.payee or '')|lower }}"
+      data-artist="{{ (item.artist or '')|lower }}"
+      data-invoice="{{ (item.invoice_number or '')|lower }}"
+      data-category="{{ item.category or '' }}"
+      data-rep="{{ item.boom_rep or '' }}"
+      data-type="{{ 'reimbursement' if item.is_reimbursement else 'invoice' }}"
+      data-amount="{{ item.amount or 0 }}"
+      data-date="{{ item.created_at[:10] if item.created_at else '' }}">
       <div class="card-header" style="position:relative;">
         <input type="checkbox" class="card-checkbox" data-id="{{ item.id }}" onchange="updateBulkBar()"/>
         <div class="vendor-avatar">{{ (item.vendor_name or item.payee or '?')[0].upper() }}</div>
@@ -425,6 +480,85 @@ function toast(msg, isError=false) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.className = 'show' + (isError ? ' error' : '');
   setTimeout(() => el.className = '', 2500);
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+(function initFilters() {
+  const cards = Array.from(document.querySelectorAll('.card[data-vendor]'));
+  if (!cards.length) return;
+
+  // Populate rep dropdown
+  const reps = [...new Set(cards.map(c => c.dataset.rep).filter(Boolean))].sort();
+  const repSel = document.getElementById('filter-rep');
+  reps.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; repSel.appendChild(o); });
+
+  // Populate category dropdown
+  const cats = [...new Set(cards.map(c => c.dataset.category).filter(Boolean))].sort();
+  const catSel = document.getElementById('filter-category');
+  cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); });
+
+  // Show count
+  document.getElementById('filter-count').textContent = `${cards.length} pending`;
+})();
+
+function applyFilters() {
+  const q       = (document.getElementById('filter-search').value || '').toLowerCase();
+  const rep     = document.getElementById('filter-rep').value;
+  const cat     = document.getElementById('filter-category').value;
+  const type    = document.getElementById('filter-type').value;
+  const sort    = document.getElementById('filter-sort').value;
+
+  const hasFilter = q || rep || cat || type;
+  document.getElementById('btn-clear').style.display = hasFilter ? '' : 'none';
+
+  // Mark active selects
+  ['filter-rep','filter-category','filter-type'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.toggle('active', !!el.value);
+  });
+
+  const container = document.querySelector('.card[data-vendor]')?.parentElement;
+  if (!container) return;
+
+  const cards = Array.from(container.querySelectorAll('.card[data-vendor]'));
+  let visible = 0;
+  const total = cards.length;
+
+  cards.forEach(card => {
+    const matchQ   = !q   || [card.dataset.vendor, card.dataset.artist, card.dataset.invoice].some(v => v.includes(q));
+    const matchRep = !rep  || card.dataset.rep === rep;
+    const matchCat = !cat  || card.dataset.category === cat;
+    const matchTyp = !type || card.dataset.type === type;
+    const show = matchQ && matchRep && matchCat && matchTyp;
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  // Sort visible cards
+  const visibleCards = cards.filter(c => c.style.display !== 'none');
+  visibleCards.sort((a, b) => {
+    if (sort === 'oldest')      return a.dataset.date.localeCompare(b.dataset.date);
+    if (sort === 'amount-desc') return parseFloat(b.dataset.amount) - parseFloat(a.dataset.amount);
+    if (sort === 'amount-asc')  return parseFloat(a.dataset.amount) - parseFloat(b.dataset.amount);
+    return b.dataset.date.localeCompare(a.dataset.date); // newest
+  });
+  visibleCards.forEach(c => container.appendChild(c));
+
+  // No-results message
+  document.getElementById('no-filter-results').style.display = visible === 0 ? 'block' : 'none';
+
+  // Count label
+  document.getElementById('filter-count').textContent =
+    hasFilter ? `${visible} of ${total} shown` : `${total} pending`;
+}
+
+function clearFilters() {
+  document.getElementById('filter-search').value = '';
+  document.getElementById('filter-rep').value = '';
+  document.getElementById('filter-category').value = '';
+  document.getElementById('filter-type').value = '';
+  document.getElementById('filter-sort').value = 'newest';
+  applyFilters();
 }
 </script>
 </body>

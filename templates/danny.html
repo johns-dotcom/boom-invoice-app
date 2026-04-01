@@ -530,7 +530,7 @@ function trackHtmlParent(e, children, num) {
         ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" onclick="event.stopPropagation()" class="inv-link">Invoice ↗</a>`:''}
         <div id="proof-cell-${e.id}" onclick="event.stopPropagation()">${proofCellHtml(e)}</div>
         ${isPaid
-          ?`<span class="btn-paid">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="event.stopPropagation();sendPaymentNotice(${e.id},this)">📧 Notify</button>`
+          ?`<span class="btn-paid">✓ Paid</span>${notifyBtnHtml(e, true)}`
           :`<button class="btn-pay" onclick="event.stopPropagation();markOnePaid(${e.id})">Mark Paid</button>`}
       </div>
     </div>
@@ -565,7 +565,7 @@ function trackHtmlChild(e) {
         ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" class="inv-link">Invoice ↗</a>`:''}
         <div id="proof-cell-${e.id}">${proofCellHtml(e)}</div>
         ${isPaid
-          ?`<span class="btn-paid">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="sendPaymentNotice(${e.id},this)">📧 Notify</button>`
+          ?`<span class="btn-paid">✓ Paid</span>${notifyBtnHtml(e, false)}`
           :`<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
       </div>
     </div>
@@ -607,7 +607,7 @@ function trackHtml(e, num) {
         ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" class="inv-link">Invoice ↗</a>`:''}
         <div id="proof-cell-${e.id}">${proofCellHtml(e)}</div>
         ${isPaid
-          ?`<span class="btn-paid">✓ Paid</span><button class="btn-notify" id="notify-${e.id}" onclick="sendPaymentNotice(${e.id},this)">📧 Notify</button>`
+          ?`<span class="btn-paid">✓ Paid</span>${notifyBtnHtml(e, false)}`
           :`<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
       </div>
     </div>
@@ -658,6 +658,25 @@ async function uploadProof(id,file) {
 }
 
 // ─── Payment released notify ──────────────────────────────────────────────────
+function hasProof(e) {
+  if (e.has_proof) return true;
+  if (e.parent_id) {
+    const parent = allEntries.find(p => p.id === e.parent_id);
+    return parent ? !!parent.has_proof : false;
+  }
+  return false;
+}
+
+function notifyBtnHtml(e, stopProp) {
+  const ok = hasProof(e);
+  const click = stopProp
+    ? `onclick="event.stopPropagation();sendPaymentNotice(${e.id},this)"`
+    : `onclick="sendPaymentNotice(${e.id},this)"`;
+  return ok
+    ? `<button class="btn-notify" id="notify-${e.id}" ${click}>Notify vendor</button>`
+    : `<button class="btn-notify" id="notify-${e.id}" disabled title="Upload proof of payment before notifying">Notify vendor</button>`;
+}
+
 async function sendPaymentNotice(id, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending…'; }
   try {
