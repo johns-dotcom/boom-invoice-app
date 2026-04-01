@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom.Records — Payment Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --yellow:#d97706; --radius:10px; }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+  
+  
+  
+  
+  
+  
+
+  .page { max-width:1200px; margin:0 auto; padding:28px 24px 60px; }
+  .page-title { font-size:28px; font-weight:900; color:var(--text); }
+  .calendar-nav { display:flex; gap:12px; align-items:center; }
+  .nav-btn { background:#fff; border:1.5px solid var(--border); color:var(--muted); padding:7px 12px; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; transition:all .15s; font-family:inherit; }
+  .nav-btn:hover { border-color:var(--red); color:var(--red); }
+  .month-label { font-size:16px; font-weight:700; color:var(--text); min-width:160px; text-align:center; }
+
+  .calendar-wrap { background:#fff; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .calendar-header { display:grid; grid-template-columns:repeat(7,1fr); border-bottom:1px solid var(--border); }
+  .dow { padding:12px 8px; text-align:center; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); background:#fafafa; border-right:1px solid var(--border); }
+  .dow:last-child { border-right:none; }
+
+  .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:0; }
+  .day { aspect-ratio:1; border:1px solid var(--border); padding:8px; position:relative; background:#fff; cursor:pointer; transition:background .15s; overflow:hidden; font-size:11px; }
+  .day:hover { background:#fafafa; }
+  .day-empty { background:#f9f9f9; cursor:default; }
+  .day-empty:hover { background:#f9f9f9; }
+  .day-num { font-weight:700; color:var(--text); margin-bottom:4px; display:block; }
+  .day-items { font-size:9px; display:flex; flex-direction:column; gap:2px; }
+  .pill { background:#fee2e2; color:#b91c1c; padding:1px 3px; border-radius:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; cursor:pointer; transition:opacity .15s; }
+  .pill:hover { opacity:.8; }
+  .pill.overdue { background:#fee2e2; color:#b91c1c; }
+  .pill.soon { background:#fef3c7; color:#b45309; }
+  .pill.later { background:#dcfce7; color:#15803d; }
+
+  .popover { position:fixed; background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px 16px; max-width:320px; font-size:12px; box-shadow:0 8px 28px rgba(0,0,0,.13); z-index:500; line-height:1.6; }
+  .popover-close { position:absolute; top:8px; right:8px; background:none; border:none; font-size:16px; color:#aaa; cursor:pointer; }
+  .popover-close:hover { color:#333; }
+  .popover-title { font-weight:700; color:var(--text); margin-bottom:6px; }
+  .popover-item { margin-bottom:8px; }
+  .popover-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .popover-value { color:var(--text); }
+  .popover-amount { font-weight:900; color:var(--red); font-size:13px; }
+  .popover-link { display:inline-block; margin-top:8px; color:var(--red); text-decoration:none; font-weight:700; }
+  .popover-link:hover { text-decoration:underline; }
+
+  .summary { background:#fff; border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-top:24px; }
+  .summary-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:8px; }
+  .summary-value { font-size:20px; font-weight:900; color:var(--red); }
+  .summary-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+
+  .loading { text-align:center; padding:60px 20px; color:var(--muted); }
+  .spinner { display:inline-block; width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .legend { display:flex; gap:16px; flex-wrap:wrap; padding:12px 0; font-size:12px; }
+  .legend-item { display:flex; align-items:center; gap:6px; }
+  .legend-color { width:12px; height:12px; border-radius:2px; }
+  .legend-color.overdue { background:#fee2e2; }
+  .legend-color.soon { background:#fef3c7; }
+  .legend-color.later { background:#dcfce7; }
+
+  /* ── Filter bar ── */
+  .filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+  .filter-search { flex:1; min-width:180px; position:relative; }
+  .filter-search input { width:100%; border:1.5px solid var(--border); border-radius:8px; padding:8px 12px 8px 34px; font-size:13px; font-family:inherit; outline:none; background:#fff; color:var(--text); transition:border-color .15s; }
+  .filter-search input:focus { border-color:var(--red); }
+  .filter-search .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#bbb; font-size:14px; pointer-events:none; }
+  .filter-select { border:1.5px solid var(--border); border-radius:8px; padding:7px 28px 7px 10px; font-size:12px; font-weight:700; font-family:inherit; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 10px center; -webkit-appearance:none; appearance:none; cursor:pointer; color:var(--text); outline:none; transition:border-color .15s; }
+  .filter-select:focus { border-color:var(--red); }
+  .filter-select.active { border-color:var(--red); color:var(--red); background-color:#fef2f2; }
+  .filter-pills { display:flex; gap:6px; }
+  .fpill { border:1.5px solid var(--border); border-radius:20px; padding:6px 14px; font-size:12px; font-weight:700; font-family:inherit; background:#fff; color:var(--muted); cursor:pointer; transition:all .15s; }
+  .fpill:hover { border-color:var(--red); color:var(--red); }
+  .fpill.active { background:var(--red); border-color:var(--red); color:#fff; }
+  .fpill.active-yellow { background:#d97706; border-color:#d97706; color:#fff; }
+  .btn-clear-filters { background:none; border:none; font-size:12px; font-weight:700; color:#bbb; cursor:pointer; font-family:inherit; padding:4px 6px; border-radius:5px; transition:color .15s; white-space:nowrap; }
+  .btn-clear-filters:hover { color:var(--red); }
+  .filter-count { font-size:12px; color:var(--muted); white-space:nowrap; margin-left:auto; }
+
+  /* ── Mobile nav ─────────────────────────────────────────────────────────── */
+  
+  
+  
+  
+  
+  
+  @media (max-width:700px) {
+    
+    
+  }
+
+  {% include "_nav_styles.html" %}
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+
+
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title">Payment Calendar</h1>
+    <div class="calendar-nav">
+      <button class="nav-btn" onclick="prevMonth()">← Prev</button>
+      <div class="month-label" id="month-label"></div>
+      <button class="nav-btn" onclick="nextMonth()">Next →</button>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:4px;">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color overdue"></div><span>Overdue</span></div>
+      <div class="legend-item"><div class="legend-color soon"></div><span>Due within 7 days</span></div>
+      <div class="legend-item"><div class="legend-color later"></div><span>Due later</span></div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-search">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="filter-search" placeholder="Search vendor, artist…" oninput="applyFilters()"/>
+    </div>
+    <select class="filter-select" id="filter-rep" onchange="applyFilters()">
+      <option value="">All reps</option>
+    </select>
+    <select class="filter-select" id="filter-method" onchange="applyFilters()">
+      <option value="">All methods</option>
+    </select>
+    <div class="filter-pills">
+      <button class="fpill active" id="fpill-all"     onclick="setStatus('all')">All</button>
+      <button class="fpill"        id="fpill-overdue" onclick="setStatus('overdue')">Overdue</button>
+      <button class="fpill"        id="fpill-soon"    onclick="setStatus('soon')">Due Soon</button>
+    </div>
+    <button class="btn-clear-filters" id="btn-clear" onclick="clearFilters()" style="display:none">Clear</button>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
+  <div class="calendar-wrap">
+    <div class="calendar-header">
+      <div class="dow">Sun</div>
+      <div class="dow">Mon</div>
+      <div class="dow">Tue</div>
+      <div class="dow">Wed</div>
+      <div class="dow">Thu</div>
+      <div class="dow">Fri</div>
+      <div class="dow">Sat</div>
+    </div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+  </div>
+
+  <div class="summary">
+    <div class="summary-title">Unpaid for <span id="summary-month"></span></div>
+    <div class="summary-value" id="summary-total">$0.00</div>
+    <div class="summary-sub" id="summary-count">0 invoices</div>
+  </div>
+</div>
+
+<div class="popover" id="popover" style="display:none">
+  <button class="popover-close" onclick="closePopover()">✕</button>
+  <div id="popover-content"></div>
+</div>
+
+<script>
+let allEntries = [];
+let currentDate = new Date();
+let activeStatus = 'all';
+
+async function loadEntries() {
+  try {
+    const res = await fetch('/entries');
+    if (!res.ok) throw new Error('Failed to load entries');
+    allEntries = await res.json();
+    populateDropdowns();
+    applyFilters();
+  } catch (e) {
+    console.error('Error loading entries:', e);
+  }
+}
+
+function populateDropdowns() {
+  const reps = [...new Set(allEntries.map(e => e.boom_rep).filter(Boolean))].sort();
+  const repSel = document.getElementById('filter-rep');
+  reps.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; repSel.appendChild(o); });
+
+  const methods = [...new Set(allEntries.map(e => e.payment_method).filter(Boolean))].sort();
+  const methSel = document.getElementById('filter-method');
+  methods.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; methSel.appendChild(o); });
+}
+
+function getFilteredEntries() {
+  const q   = (document.getElementById('filter-search').value || '').toLowerCase();
+  const rep = document.getElementById('filter-rep').value;
+  const meth = document.getElementById('filter-method').value;
+  return allEntries.filter(e => {
+    if (e.payment_status === 'Paid') return false;
+    const due = getDueDate(e);
+    if (!due) return false;
+    if (!matchesStatus(due)) return false;
+    if (q && ![(e.payee||''), (e.artist||''), (e.vendor_name||'')].some(v => v.toLowerCase().includes(q))) return false;
+    if (rep  && e.boom_rep !== rep) return false;
+    if (meth && e.payment_method !== meth) return false;
+    return true;
+  });
+}
+
+function matchesStatus(dueDate) {
+  if (activeStatus === 'all') return true;
+  return getDueStatus(dueDate) === activeStatus;
+}
+
+function setStatus(s) {
+  activeStatus = s;
+  ['all','overdue','soon'].forEach(v => {
+    const el = document.getElementById(`fpill-${v}`);
+    el.className = 'fpill' + (v === s ? (v === 'overdue' ? ' active' : v === 'soon' ? ' active-yellow' : ' active') : '');
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const q    = document.getElementById('filter-search').value;
+  const rep  = document.getElementById('filter-rep').value;
+  const meth = document.getElementById('filter-method').value;
+  const hasFilter = q || rep || meth || activeStatus !== 'all';
+  document.getElementById('btn-clear').style.display = hasFilter ? '' : 'none';
+  document.getElementById('filter-rep').classList.toggle('active', !!rep);
+  document.getElementById('filter-method').classList.toggle('active', !!meth);
+  renderCalendar();
+}
+
+function clearFilters() {
+  document.getElementById('filter-search').value = '';
+  document.getElementById('filter-rep').value = '';
+  document.getElementById('filter-method').value = '';
+  setStatus('all');
+}
+
+function getDueDate(e) {
+  if (e.scheduled_payment_date) return new Date(e.scheduled_payment_date + 'T00:00:00');
+  return dueDateFromTerms(e.date_uploaded, e.payment_terms);
+}
+
+function dueDateFromTerms(uploadDate, terms) {
+  if (!uploadDate || !terms) return null;
+  const date = new Date(uploadDate);
+  if (isNaN(date.getTime())) return null;
+
+  const match = terms.match(/^Net(\d+)$/i);
+  if (match) {
+    const days = parseInt(match[1], 10);
+    date.setDate(date.getDate() + days);
+    return date;
+  }
+  return null;
+}
+
+function getDueStatus(dueDate) {
+  if (!dueDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  dueDate = new Date(dueDate);
+  dueDate.setHours(0, 0, 0, 0);
+
+  const diff = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return 'overdue';
+  if (diff <= 7) return 'soon';
+  return 'later';
+}
+
+function formatDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function renderCalendar() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDate = new Date(firstDay);
+  startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+  document.getElementById('month-label').textContent = firstDay.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+  document.getElementById('summary-month').textContent = firstDay.toLocaleDateString('en-US', {month:'long', year:'numeric'});
+
+  // Build day map from filtered entries
+  const filtered = getFilteredEntries();
+  const dayMap = {};
+  filtered.forEach(e => {
+    const dueDate = getDueDate(e);
+    if (!dueDate) return;
+    const dayStr = formatDate(dueDate);
+    if (!dayMap[dayStr]) dayMap[dayStr] = [];
+    dayMap[dayStr].push({
+      id: e.id,
+      payee: e.payee,
+      artist: e.artist,
+      song: e.song,
+      amount: e.amount,
+      method: e.payment_method,
+      rep: e.boom_rep,
+      dueDate: dueDate,
+      status: getDueStatus(dueDate)
+    });
+  });
+
+  // Render grid
+  const grid = document.getElementById('calendar-grid');
+  grid.innerHTML = '';
+  let totalUnpaid = 0;
+  let countUnpaid = 0;
+
+  for (let d = new Date(startDate); d <= lastDay; d.setDate(d.getDate() + 1)) {
+    const dayStr = formatDate(d);
+    const inMonth = d.getMonth() === month;
+    const dayEl = document.createElement('div');
+    dayEl.className = `day ${!inMonth ? 'day-empty' : ''}`;
+
+    if (inMonth) {
+      dayEl.innerHTML = `<span class="day-num">${d.getDate()}</span><div class="day-items"></div>`;
+      const itemsEl = dayEl.querySelector('.day-items');
+
+      if (dayMap[dayStr]) {
+        dayMap[dayStr].forEach(item => {
+          totalUnpaid += item.amount || 0;
+          countUnpaid++;
+          const pill = document.createElement('div');
+          pill.className = `pill ${item.status}`;
+          pill.textContent = `${item.payee} • $${Number(item.amount||0).toFixed(0)}`;
+          pill.onclick = (ev) => showPopover(ev, item);
+          itemsEl.appendChild(pill);
+        });
+      }
+    } else {
+      dayEl.innerHTML = '';
+    }
+
+    grid.appendChild(dayEl);
+  }
+
+  document.getElementById('summary-total').textContent = `$${totalUnpaid.toFixed(2)}`;
+  document.getElementById('summary-count').textContent = `${countUnpaid} invoice${countUnpaid !== 1 ? 's' : ''}`;
+  document.getElementById('filter-count').textContent = countUnpaid < allEntries.filter(e => e.payment_status !== 'Paid' && getDueDate(e)).length
+    ? `${countUnpaid} of ${allEntries.filter(e => e.payment_status !== 'Paid' && getDueDate(e)).length} shown`
+    : '';
+}
+
+function prevMonth() {
+  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+  renderCalendar();
+}
+
+function nextMonth() {
+  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+  renderCalendar();
+}
+
+function showPopover(ev, item) {
+  const popover = document.getElementById('popover');
+  const content = document.getElementById('popover-content');
+
+  content.innerHTML = `
+    <div class="popover-title">${item.payee}</div>
+    <div class="popover-item">
+      <div class="popover-label">Artist</div>
+      <div class="popover-value">${item.artist || '—'}</div>
+    </div>
+    <div class="popover-item">
+      <div class="popover-label">Song</div>
+      <div class="popover-value">${item.song || '—'}</div>
+    </div>
+    <div class="popover-item">
+      <div class="popover-label">Amount</div>
+      <div class="popover-amount">$${Number(item.amount||0).toFixed(2)}</div>
+    </div>
+    <div class="popover-item">
+      <div class="popover-label">Method</div>
+      <div class="popover-value">${item.method || '—'}</div>
+    </div>
+    ${item.rep ? `<div class="popover-item"><div class="popover-label">Rep</div><div class="popover-value">${item.rep}</div></div>` : ''}
+    <a href="/invoice/${item.id}" target="_blank" class="popover-link">View Invoice →</a>
+  `;
+
+  popover.style.display = 'block';
+  const rect = ev.target.getBoundingClientRect();
+  popover.style.top = (rect.bottom + 8) + 'px';
+  popover.style.left = Math.min(rect.left, window.innerWidth - 320 - 20) + 'px';
+}
+
+function closePopover() {
+  document.getElementById('popover').style.display = 'none';
+}
+
+document.addEventListener('click', (ev) => {
+  const popover = document.getElementById('popover');
+  if (!popover.contains(ev.target) && !ev.target.closest('.pill')) {
+    closePopover();
+  }
+});
+
+window.addEventListener('load', () => { loadEntries(); });
+</script>
+
+</body>
+</html>

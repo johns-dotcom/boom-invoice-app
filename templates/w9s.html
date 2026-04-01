@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom.Records — W9 / W8 Forms</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+
+  .page { padding:28px 24px; max-width:1100px; }
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+  .page-header h1 { font-size:20px; font-weight:900; }
+  .toolbar { display:flex; gap:8px; align-items:center; }
+  .search-input { background:#fff; border:1.5px solid var(--border); border-radius:7px; padding:8px 12px; font-size:13px; font-family:inherit; color:var(--text); outline:none; width:220px; transition:border-color .15s; }
+  .search-input:focus { border-color:var(--red); }
+
+  /* View toggle */
+  .view-toggle { display:flex; background:#fff; border:1.5px solid var(--border); border-radius:7px; overflow:hidden; }
+  .view-btn { background:none; border:none; padding:7px 10px; cursor:pointer; color:var(--muted); transition:all .15s; display:flex; align-items:center; }
+  .view-btn:first-child { border-right:1px solid var(--border); }
+  .view-btn.active { background:#fef2f2; color:var(--red); }
+  .view-btn:hover:not(.active) { background:#f3f4f6; }
+  .view-btn svg { width:15px; height:15px; }
+
+  /* ── Table / list view ── */
+  .list-wrap { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { background:#f8f9fa; color:#9ca3af; font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; padding:10px 16px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap; }
+  tbody tr { border-bottom:1px solid #f3f4f6; transition:background .1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:#fafafa; }
+  tbody td { padding:11px 16px; vertical-align:middle; }
+  .td-name { font-weight:700; }
+  .td-email { color:var(--muted); font-size:12px; }
+  .td-file { font-size:12px; color:var(--muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-date { color:#9ca3af; font-size:12px; white-space:nowrap; }
+  .td-amount { font-weight:900; color:var(--red); font-size:14px; }
+  a.btn-view { background:var(--red); color:#fff; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap; transition:background .15s; display:inline-block; }
+  a.btn-view:hover { background:var(--red-dark); }
+  a.btn-dl { background:#f4f4f4; color:var(--text); padding:5px 10px; border-radius:6px; font-size:12px; font-weight:700; text-decoration:none; border:1.5px solid var(--border); margin-left:4px; transition:all .15s; display:inline-block; }
+  a.btn-dl:hover { border-color:var(--red); color:var(--red); }
+
+  /* ── Card grid view ── */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+  .w9-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:box-shadow .15s; }
+  .w9-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); }
+  .w9-card-avatar { height:72px; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:900; color:var(--red); background:#fef2f2; border-bottom:1px solid var(--border); }
+  .w9-card-body { padding:13px; }
+  .w9-card-name { font-weight:800; font-size:13px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .w9-card-email { font-size:11px; color:var(--muted); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .w9-card-amount { font-size:15px; font-weight:900; color:var(--red); margin-bottom:4px; }
+  .w9-card-file { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; }
+  .w9-card-date { font-size:11px; color:#9ca3af; margin-bottom:10px; }
+  .w9-card-footer { display:flex; gap:6px; }
+  .w9-card-footer a.btn-view { flex:1; text-align:center; }
+
+  .empty { text-align:center; padding:80px; color:var(--muted); }
+
+  @media (max-width:700px) {
+    .grid { grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:480px) {
+    .grid { grid-template-columns:1fr; }
+  }
+
+  {% include "_nav_styles.html" %}
+</style>
+</head>
+<body>
+{% include '_nav.html' %}
+
+<div class="page">
+  <div class="page-header">
+    <h1>W9 / W8 Forms <span style="color:var(--muted);font-weight:600;font-size:14px;margin-left:8px" id="count-label"></span></h1>
+    <div class="toolbar">
+      <input class="search-input" id="search" placeholder="Search vendor, email…" oninput="filterW9s()"/>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-list" onclick="setView('list')" title="List view">
+          <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg>
+        </button>
+        <button class="view-btn" id="btn-grid" onclick="setView('grid')" title="Card view">
+          <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {% if not items %}
+  <div class="empty">
+    <p style="font-size:16px;font-weight:700;margin-bottom:6px">No W9 / W8 forms on file yet.</p>
+    <p style="font-size:12px;color:var(--muted)">W9s are collected when vendors submit invoices through your vendor portal.</p>
+  </div>
+  {% else %}
+
+  <!-- List / table view (default) -->
+  <div class="list-wrap" id="list-view">
+    <table>
+      <thead>
+        <tr>
+          <th>Vendor</th>
+          <th>Email</th>
+          <th>Invoice Date</th>
+          <th>Amount</th>
+          <th>File</th>
+          <th>Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="list-tbody">
+        {% for item in items %}
+        <tr data-search="{{ (item.vendor_name|default('') + ' ' + item.vendor_email|default('') + ' ' + item.payee|default('')) | lower }}">
+          <td class="td-name">{{ item.vendor_name or item.payee or '—' }}</td>
+          <td class="td-email">{{ item.vendor_email or '—' }}</td>
+          <td class="td-date">{{ item.invoice_date or '—' }}</td>
+          <td class="td-amount">{% if item.amount %}${{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}</td>
+          <td class="td-file" title="{{ item.w9_filename or '' }}">{{ item.w9_filename or '—' }}</td>
+          <td class="td-date">{{ item.created_at[:10] if item.created_at else '—' }}</td>
+          <td style="white-space:nowrap">
+            <a href="/w9/{{ item.id }}" target="_blank" class="btn-view">View</a>
+            <a href="/w9/{{ item.id }}" download="{{ item.w9_filename }}" class="btn-dl">↓</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Card grid view -->
+  <div class="grid" id="grid-view" style="display:none">
+    {% for item in items %}
+    <div class="w9-card" data-search="{{ (item.vendor_name|default('') + ' ' + item.vendor_email|default('') + ' ' + item.payee|default('')) | lower }}">
+      <div class="w9-card-avatar">{{ ((item.vendor_name or item.payee or '?')[0]).upper() }}</div>
+      <div class="w9-card-body">
+        <div class="w9-card-name" title="{{ item.vendor_name or item.payee }}">{{ item.vendor_name or item.payee or '—' }}</div>
+        <div class="w9-card-email">{{ item.vendor_email or '—' }}</div>
+        <div class="w9-card-amount">{% if item.amount %}${{ "%.2f"|format(item.amount) }}{% else %}—{% endif %}</div>
+        <div class="w9-card-file" title="{{ item.w9_filename or '' }}">{{ item.w9_filename or '—' }}</div>
+        <div class="w9-card-date">Submitted {{ item.created_at[:10] if item.created_at else '—' }}</div>
+        <div class="w9-card-footer">
+          <a href="/w9/{{ item.id }}" target="_blank" class="btn-view">View</a>
+          <a href="/w9/{{ item.id }}" download="{{ item.w9_filename }}" class="btn-dl">↓</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% endif %}
+</div>
+
+<script>
+const total = {{ items | length }};
+document.getElementById('count-label').textContent = total ? `(${total})` : '';
+let currentView = localStorage.getItem('w9s-view') || 'list';
+setView(currentView, true);
+
+function setView(v, init) {
+  currentView = v;
+  if (!init) localStorage.setItem('w9s-view', v);
+  document.getElementById('list-view').style.display = v === 'list' ? 'block' : 'none';
+  document.getElementById('grid-view').style.display = v === 'grid' ? 'grid' : 'none';
+  document.getElementById('btn-list').classList.toggle('active', v === 'list');
+  document.getElementById('btn-grid').classList.toggle('active', v === 'grid');
+}
+
+function filterW9s() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#list-tbody tr[data-search]').forEach(r => {
+    const show = !q || r.dataset.search.includes(q);
+    r.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.querySelectorAll('#grid-view .w9-card[data-search]').forEach(c => {
+    c.style.display = !q || c.dataset.search.includes(q) ? '' : 'none';
+  });
+  document.getElementById('count-label').textContent = q ? `(${visible} of ${total})` : `(${total})`;
+}
+</script>
+</body>
+</html>

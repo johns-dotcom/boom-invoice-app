@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Split Entry Prototype</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8f9fb; padding: 40px 32px; color: #111; }
+  h2 { font-size: 14px; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 20px; }
+
+  /* ── Toggle ── */
+  .toggle-row { display: flex; gap: 10px; margin-bottom: 28px; }
+  .toggle-btn { padding: 8px 16px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; color: #888; transition: all .15s; }
+  .toggle-btn.active { border-color: #6366f1; background: #6366f1; color: #fff; }
+
+  /* ── Table ── */
+  .ledger-wrap { background: #fff; border: 1px solid #e8eaf0; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #f5f6fa; padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #aaa; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; border-bottom: 1px solid #eee; }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid #f0f1f5; vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fbfbfe; }
+
+  /* ── OPTION A: Accent border + indent ── */
+  .group-parent-a td:first-child { border-left: 3px solid #6366f1; }
+  .group-child-a td:first-child  { border-left: 3px solid #c7d2fe; }
+  .group-child-a td { background: #fafafe; color: #444; }
+  .group-child-a td.td-artist { padding-left: 28px; }
+  .group-child-a:hover td { background: #f3f4ff !important; }
+  .indent-arrow { color: #a5b4fc; font-size: 11px; margin-right: 4px; }
+
+  /* ── OPTION B: Card group ── */
+  .group-wrap-b { position: relative; }
+  .group-parent-b td { background: #fefefe; }
+  .group-child-b td  { background: #f8f8ff; }
+  .group-parent-b td { border-top: 2px solid #e0e7ff; }
+  .group-child-b:last-of-type td { border-bottom: 2px solid #e0e7ff; }
+  .group-child-b td.td-artist { padding-left: 28px; }
+  .group-child-b:hover td { background: #f0f1ff !important; }
+
+  /* ── OPTION C: Collapsed row that expands ── */
+  .group-collapsed td { background: #f9f8ff; cursor: pointer; }
+  .group-collapsed:hover td { background: #f0f1ff !important; }
+  .group-expanded td { background: #fdfdff; }
+  .group-expanded td.td-artist { padding-left: 28px; color: #555; }
+  .group-expanded:last-of-type td { border-bottom: 2px solid #e0e7ff; }
+  .group-expanded td:first-child { border-left: 3px solid #c7d2fe; }
+  .expand-indicator { font-size: 11px; color: #6366f1; cursor: pointer; margin-left: 6px; font-weight: 800; }
+
+  /* ── Shared tags ── */
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+  .tag-multi  { background: #dbeafe; color: #1d4ed8; }
+  .tag-split  { background: #ede9fe; color: #7c3aed; }
+  .tag-paid   { background: #d1fae5; color: #065f46; }
+  .tag-unpaid { background: #fff7ed; color: #c2410c; }
+  .tag-method { background: #f1f5f9; color: #475569; }
+  .amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .amt-total  { color: #111; }
+  .amt-split  { color: #6366f1; }
+  .muted { color: #bbb; }
+
+  .section-label { font-size: 11px; font-weight: 800; color: #6366f1; text-transform: uppercase; letter-spacing: .08em; margin: 32px 0 10px; }
+</style>
+</head>
+<body>
+
+<div class="toggle-row">
+  <button class="toggle-btn active" onclick="show('a')">Option A — Accent border</button>
+  <button class="toggle-btn" onclick="show('b')">Option B — Card group</button>
+  <button class="toggle-btn" onclick="show('c')">Option C — Collapsible</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     OPTION A — Left accent border + indent
+════════════════════════════════════════════════════════════ -->
+<div id="view-a">
+  <p class="section-label">Split rows share a colored left border. Children are indented.</p>
+  <div class="ledger-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Payee</th><th>Artist</th><th>Song</th><th>Inv #</th>
+          <th>Amount</th><th>Method</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Normal row -->
+        <tr>
+          <td class="muted">03/12/26</td>
+          <td><strong>Beat Lab</strong></td>
+          <td>Drake</td>
+          <td>Search & Rescue</td>
+          <td class="muted">INV-088</td>
+          <td class="amt amt-total">$1,200.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-paid">Paid</span></td>
+        </tr>
+
+        <!-- Multi-artist group — parent -->
+        <tr class="group-parent-a">
+          <td class="muted">03/15/26</td>
+          <td><strong>Sophie Scott</strong></td>
+          <td>
+            Kendrick Lamar
+            <span class="tag tag-multi" style="margin-left:5px">2 artists</span>
+          </td>
+          <td>HUMBLE.</td>
+          <td class="muted">INV-091</td>
+          <td class="amt amt-split">$750.00</td>
+          <td><span class="tag tag-method">PayPal</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <!-- Child -->
+        <tr class="group-child-a">
+          <td class="muted"></td>
+          <td></td>
+          <td class="td-artist"><span class="indent-arrow">↳</span>SZA</td>
+          <td>Kill Bill</td>
+          <td class="muted">INV-091</td>
+          <td class="amt amt-split">$750.00</td>
+          <td><span class="tag tag-method">PayPal</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+
+        <!-- Normal row -->
+        <tr>
+          <td class="muted">03/18/26</td>
+          <td><strong>Vinyl Press Co.</strong></td>
+          <td>Various</td>
+          <td>Album Pressings</td>
+          <td class="muted">INV-094</td>
+          <td class="amt amt-total">$3,400.00</td>
+          <td><span class="tag tag-method">Wire</span></td>
+          <td><span class="tag tag-paid">Paid</span></td>
+        </tr>
+
+        <!-- 3-way split -->
+        <tr class="group-parent-a">
+          <td class="muted">03/22/26</td>
+          <td><strong>Studio A</strong></td>
+          <td>
+            Travis Scott
+            <span class="tag tag-multi" style="margin-left:5px">3 artists</span>
+          </td>
+          <td>Antidote</td>
+          <td class="muted">INV-099</td>
+          <td class="amt amt-split">$500.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-child-a">
+          <td></td><td></td>
+          <td class="td-artist"><span class="indent-arrow">↳</span>Future</td>
+          <td>Mask Off</td>
+          <td class="muted">INV-099</td>
+          <td class="amt amt-split">$500.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-child-a">
+          <td></td><td></td>
+          <td class="td-artist"><span class="indent-arrow">↳</span>21 Savage</td>
+          <td>Rockstar</td>
+          <td class="muted">INV-099</td>
+          <td class="amt amt-split">$500.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     OPTION B — Card-like grouping with top/bottom border
+════════════════════════════════════════════════════════════ -->
+<div id="view-b" style="display:none">
+  <p class="section-label">Split groups get a subtle blue border wrapping the whole group.</p>
+  <div class="ledger-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Payee</th><th>Artist</th><th>Song</th><th>Inv #</th>
+          <th>Amount</th><th>Method</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="muted">03/12/26</td>
+          <td><strong>Beat Lab</strong></td>
+          <td>Drake</td><td>Search & Rescue</td>
+          <td class="muted">INV-088</td>
+          <td class="amt">$1,200.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-paid">Paid</span></td>
+        </tr>
+
+        <tr class="group-parent-b">
+          <td class="muted">03/15/26</td>
+          <td><strong>Sophie Scott</strong></td>
+          <td>
+            Kendrick Lamar
+            <span class="tag tag-multi" style="margin-left:5px">2 artists</span>
+          </td>
+          <td>HUMBLE.</td>
+          <td class="muted">INV-091</td>
+          <td class="amt amt-split">$750.00</td>
+          <td><span class="tag tag-method">PayPal</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-child-b" style="border-bottom:2px solid #e0e7ff">
+          <td></td><td></td>
+          <td class="td-artist"><span class="indent-arrow" style="color:#a5b4fc">↳</span>SZA</td>
+          <td>Kill Bill</td>
+          <td class="muted">INV-091</td>
+          <td class="amt amt-split">$750.00</td>
+          <td><span class="tag tag-method">PayPal</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+
+        <tr>
+          <td class="muted">03/18/26</td>
+          <td><strong>Vinyl Press Co.</strong></td>
+          <td>Various</td><td>Album Pressings</td>
+          <td class="muted">INV-094</td>
+          <td class="amt">$3,400.00</td>
+          <td><span class="tag tag-method">Wire</span></td>
+          <td><span class="tag tag-paid">Paid</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     OPTION C — Collapsed by default, click to expand
+════════════════════════════════════════════════════════════ -->
+<div id="view-c" style="display:none">
+  <p class="section-label">Split group is collapsed to one summary row. Click to expand artists.</p>
+  <div class="ledger-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Payee</th><th>Artist</th><th>Song</th><th>Inv #</th>
+          <th>Amount</th><th>Method</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="muted">03/12/26</td>
+          <td><strong>Beat Lab</strong></td>
+          <td>Drake</td><td>Search & Rescue</td>
+          <td class="muted">INV-088</td>
+          <td class="amt">$1,200.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-paid">Paid</span></td>
+        </tr>
+
+        <!-- Collapsed group -->
+        <tr class="group-collapsed" onclick="toggleGroup('g1')">
+          <td class="muted">03/15/26</td>
+          <td><strong>Sophie Scott</strong></td>
+          <td>
+            Kendrick Lamar, SZA
+            <span class="tag tag-multi" style="margin-left:5px">2 artists</span>
+            <span class="expand-indicator" id="g1-icon">▶ expand</span>
+          </td>
+          <td>HUMBLE. / Kill Bill</td>
+          <td class="muted">INV-091</td>
+          <td class="amt amt-total">$1,500.00 <span class="muted" style="font-size:11px;font-weight:400">total</span></td>
+          <td><span class="tag tag-method">PayPal</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-expanded" id="g1-row1" style="display:none">
+          <td></td><td></td>
+          <td class="td-artist" style="border-left:3px solid #c7d2fe"><span class="indent-arrow">↳</span>Kendrick Lamar</td>
+          <td>HUMBLE.</td>
+          <td class="muted">INV-091</td>
+          <td class="amt amt-split">$750.00</td>
+          <td><span class="tag tag-method">PayPal</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-expanded" id="g1-row2" style="display:none">
+          <td></td><td></td>
+          <td class="td-artist" style="border-left:3px solid #c7d2fe"><span class="indent-arrow">↳</span>SZA</td>
+          <td>Kill Bill</td>
+          <td class="muted">INV-091</td>
+          <td class="amt amt-split">$750.00</td>
+          <td><span class="tag tag-method">PayPal</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+
+        <tr>
+          <td class="muted">03/18/26</td>
+          <td><strong>Vinyl Press Co.</strong></td>
+          <td>Various</td><td>Album Pressings</td>
+          <td class="muted">INV-094</td>
+          <td class="amt">$3,400.00</td>
+          <td><span class="tag tag-method">Wire</span></td>
+          <td><span class="tag tag-paid">Paid</span></td>
+        </tr>
+
+        <!-- Another collapsed group -->
+        <tr class="group-collapsed" onclick="toggleGroup('g2')">
+          <td class="muted">03/22/26</td>
+          <td><strong>Studio A</strong></td>
+          <td>
+            Travis Scott, Future, 21 Savage
+            <span class="tag tag-multi" style="margin-left:5px">3 artists</span>
+            <span class="expand-indicator" id="g2-icon">▶ expand</span>
+          </td>
+          <td>Antidote / Mask Off / Rockstar</td>
+          <td class="muted">INV-099</td>
+          <td class="amt amt-total">$1,500.00 <span class="muted" style="font-size:11px;font-weight:400">total</span></td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-expanded" id="g2-row1" style="display:none">
+          <td></td><td></td>
+          <td class="td-artist" style="border-left:3px solid #c7d2fe"><span class="indent-arrow">↳</span>Travis Scott</td>
+          <td>Antidote</td>
+          <td class="muted">INV-099</td>
+          <td class="amt amt-split">$500.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-expanded" id="g2-row2" style="display:none">
+          <td></td><td></td>
+          <td class="td-artist" style="border-left:3px solid #c7d2fe"><span class="indent-arrow">↳</span>Future</td>
+          <td>Mask Off</td>
+          <td class="muted">INV-099</td>
+          <td class="amt amt-split">$500.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+        <tr class="group-expanded" id="g2-row3" style="display:none">
+          <td></td><td></td>
+          <td class="td-artist" style="border-left:3px solid #c7d2fe"><span class="indent-arrow">↳</span>21 Savage</td>
+          <td>Rockstar</td>
+          <td class="muted">INV-099</td>
+          <td class="amt amt-split">$500.00</td>
+          <td><span class="tag tag-method">ACH</span></td>
+          <td><span class="tag tag-unpaid">Unpaid</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function show(opt) {
+  ['a','b','c'].forEach(o => {
+    document.getElementById('view-'+o).style.display = o===opt ? '' : 'none';
+  });
+  document.querySelectorAll('.toggle-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', ['a','b','c'][i] === opt);
+  });
+}
+
+function toggleGroup(id) {
+  const icon = document.getElementById(id+'-icon');
+  let i = 1;
+  while (true) {
+    const row = document.getElementById(id+'-row'+i);
+    if (!row) break;
+    const isHidden = row.style.display === 'none';
+    row.style.display = isHidden ? '' : 'none';
+    i++;
+  }
+  const expanded = document.getElementById(id+'-row1').style.display !== 'none';
+  icon.textContent = expanded ? '▼ collapse' : '▶ expand';
+}
+</script>
+</body>
+</html>

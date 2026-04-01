@@ -1,0 +1,117 @@
+{# Shared nav partial — included in every page.
+   Uses request.path to highlight the active link.
+   Requires context: current_user, pending_count, is_admin (all auto-injected). #}
+{% set p = request.path %}
+{% set docs_active = p in ['/invoices', '/w9s'] or p.startswith('/vendor') %}
+{% set more_active = p in ['/analytics', '/1099', '/calendar', '/history'] %}
+<header>
+  <a href="/ledger" class="logo">boom.</a>
+  <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
+  <div class="header-right">
+
+    <a href="/add" class="nav-add">+ Add</a>
+
+    <a href="/ledger"    class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
+    <a href="/approvals" class="{{ 'nav-active' if p == '/approvals' else 'nav-link' }}" style="position:relative">
+      Approvals{% if pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
+    </a>
+
+    <!-- Docs dropdown: Invoices, W9/W8, Vendors -->
+    <div class="nav-dropdown-wrap">
+      <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if docs_active else '' }}" onclick="toggleNavDropdown('nav-docs-dropdown', event)">
+        Docs <span class="caret">▾</span>
+      </button>
+      <div class="nav-dropdown-menu" id="nav-docs-dropdown">
+        <a href="/invoices" class="{{ 'active' if p == '/invoices' else '' }}">Invoices</a>
+        <a href="/w9s"      class="{{ 'active' if p == '/w9s' else '' }}">W9 / W8</a>
+        <a href="/vendors"  class="{{ 'active' if p.startswith('/vendor') else '' }}">Vendors</a>
+      </div>
+    </div>
+
+    {% if current_user != 'Danny' %}
+      <a href="/payments" class="{{ 'nav-active' if p == '/payments' else 'nav-link' }}">Payments</a>
+    {% endif %}
+    {% if current_user == 'Danny' %}
+      <a href="/danny" class="{{ 'nav-active' if p == '/danny' else 'nav-link' }}">PayPal</a>
+    {% endif %}
+
+    {# More dropdown: Analytics, 1099, Calendar, History #}
+    <div class="nav-dropdown-wrap">
+      <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if more_active else '' }}" onclick="toggleNavDropdown('nav-more-dropdown', event)">
+        More <span class="caret">▾</span>
+      </button>
+      <div class="nav-dropdown-menu" id="nav-more-dropdown">
+        {% if is_admin or current_user == 'Danny' %}
+          <a href="/analytics" class="{{ 'active' if p == '/analytics' else '' }}">Analytics</a>
+          <a href="/1099"      class="{{ 'active' if p == '/1099' else '' }}">1099</a>
+        {% endif %}
+        <a href="/calendar"  class="{{ 'active' if p == '/calendar' else '' }}">Calendar</a>
+        {% if current_user in ['John', 'Jesse', 'Felipe', 'Danny'] %}
+          <a href="/history"   class="{{ 'active' if p == '/history' else '' }}">History</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="nav-divider"></div>
+
+    <!-- Export dropdown -->
+    <div class="nav-dropdown-wrap">
+      <button class="nav-export-btn" onclick="toggleNavDropdown('nav-export-dropdown', event)">
+        Export <span class="caret">▾</span>
+      </button>
+      <div class="nav-dropdown-menu nav-dropdown-right" id="nav-export-dropdown">
+        <a href="/export">Excel (.xlsx)</a>
+        <a href="/export-qbo">QuickBooks (.csv)</a>
+        {% if is_admin %}
+        <div style="height:1px;background:#e5e7eb;margin:4px 0"></div>
+        <a href="/admin/backup" style="color:#6b7280;font-size:12px">DB Backup (.xlsx)</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- User pill -->
+    {% if current_user %}
+    <div class="nav-user-wrap">
+      <div class="nav-avatar">{{ current_user[0].upper() }}</div>
+      <span class="nav-username">{{ current_user }}</span>
+      <a href="/logout" class="nav-signout">Sign out</a>
+    </div>
+    {% else %}
+    <a href="/logout" class="nav-signout" style="margin-left:8px">Sign out</a>
+    {% endif %}
+
+  </div>
+</header>
+
+<nav class="mob-nav" id="mob-nav">
+  <a href="/add">+ Add Invoice</a>
+  <a href="/ledger">Ledger</a>
+  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
+  <a href="/invoices">Invoices</a>
+  <a href="/w9s">W9 / W8</a>
+  <a href="/vendors">Vendors</a>
+  {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
+  {% if current_user == 'Danny' %}<a href="/danny">PayPal Summary</a>{% endif %}
+  {% if is_admin or current_user == 'Danny' %}<a href="/analytics">Analytics</a>{% endif %}
+  {% if is_admin or current_user == 'Danny' %}<a href="/1099">1099 Summary</a>{% endif %}
+  <a href="/calendar">Calendar</a>
+  {% if current_user in ['John', 'Jesse', 'Felipe', 'Danny'] %}<a href="/history">History</a>{% endif %}
+  <a href="/export" style="color:#16a34a">Export Excel</a>
+  <a href="/export-qbo" style="color:#16a34a">Export CSV</a>
+  {% if is_admin %}<a href="/admin/backup" style="color:#6b7280">DB Backup</a>{% endif %}
+  <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
+</nav>
+
+<script>
+function toggleNavDropdown(id, e) {
+  e.stopPropagation();
+  const target = document.getElementById(id);
+  const wasOpen = target.classList.contains('open');
+  // Close all dropdowns
+  document.querySelectorAll('.nav-dropdown-menu').forEach(d => d.classList.remove('open'));
+  if (!wasOpen) target.classList.add('open');
+}
+document.addEventListener('click', function() {
+  document.querySelectorAll('.nav-dropdown-menu').forEach(d => d.classList.remove('open'));
+});
+</script>

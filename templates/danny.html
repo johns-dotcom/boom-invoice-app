@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom.Records — PayPal</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f6f6f6;
+  --surface: #ffffff;
+  --surface2: #f9f9f9;
+  --border: #e5e7eb;
+  --text: #111111;
+  --muted: #9ca3af;
+  --muted2: #d1d5db;
+  --red: #e31e24;
+  --green: #16a34a;
+  --amber: #d97706;
+  --blue: #6366f1;
+}
+
+body { background: var(--bg); font-family: 'Nunito', system-ui, sans-serif; font-size: 14px; min-height: 100vh; color: var(--text); }
+
+/* ─── Page ─── */
+.page { max-width: 1400px; margin: 0 auto; padding: 32px 48px 80px; }
+
+/* ─── Header ─── */
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+.page-eyebrow { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 4px; }
+.page-title { font-size: 28px; font-weight: 900; color: var(--text); letter-spacing: -0.5px; line-height: 1; }
+.page-header-right { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.pill { background: #fff; border: 1.5px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; color: var(--muted); transition: all .15s; }
+.pill:hover { border-color: var(--red); color: var(--red); }
+.pill.active { background: var(--red); color: #fff; border-color: var(--red); }
+
+/* ─── Stats ─── */
+.stats-row { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 28px; background: var(--surface); }
+.stat-item { flex: 1; padding: 14px 18px; border-right: 1px solid var(--border); position: relative; }
+.stat-item:last-child { border-right: none; }
+.stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 5px; }
+.stat-val { font-size: 20px; font-weight: 900; line-height: 1; color: var(--text); }
+.stat-val.red { color: var(--red); }
+.stat-val.amber { color: var(--amber); }
+.stat-val.green { color: var(--green); }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.stat-dot { position: absolute; top: 14px; right: 14px; width: 6px; height: 6px; border-radius: 50%; }
+.stat-dot.red { background: var(--red); box-shadow: 0 0 5px rgba(227,30,36,.4); }
+.stat-dot.amber { background: var(--amber); box-shadow: 0 0 5px rgba(217,119,6,.4); }
+
+/* ─── Overdue banner ─── */
+.overdue-bar { display: none; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 12px; color: #b91c1c; font-weight: 600; align-items: center; gap: 8px; }
+.overdue-bar.on { display: flex; }
+
+/* ─── Controls ─── */
+.controls { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.controls-spacer { flex: 1; }
+.ctl-select { background: #fff; border: 1.5px solid var(--border); border-radius: 7px; padding: 5px 10px; font-size: 12px; font-family: inherit; color: #555; outline: none; cursor: pointer; transition: border-color .15s; }
+.ctl-select:focus { border-color: var(--red); }
+
+/* ─── Group header ─── */
+.group-row { display: flex; align-items: center; gap: 12px; margin: 20px 0 8px; }
+.group-name { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); white-space: nowrap; }
+.group-line { flex: 1; height: 1px; background: var(--border); }
+.group-total { font-size: 11px; font-weight: 700; color: var(--red); }
+
+/* ─── Track ─── */
+.track-list { display: flex; flex-direction: column; gap: 2px; }
+
+.track { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; display: grid; grid-template-columns: 4px 1fr auto; overflow: hidden; transition: background .12s; }
+.track:hover { background: var(--surface2); }
+.track.paid { opacity: .55; }
+
+.track-accent { width: 4px; }
+.track-accent.overdue { background: var(--red); }
+.track-accent.soon    { background: var(--amber); }
+.track-accent.ok      { background: var(--border); }
+.track-accent.paid    { background: var(--border); }
+.track-accent.hold    { background: #a78bfa; }
+
+.track-body { padding: 13px 14px; display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+.track-num { font-size: 11px; font-weight: 700; color: var(--muted2); width: 18px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+.track-song-block { flex: 1.8; min-width: 0; }
+.track-song { font-size: 15px; font-weight: 900; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.track-song.no-song { color: var(--muted); font-weight: 600; font-size: 13px; font-style: italic; }
+.track-artist { font-size: 11px; font-weight: 700; color: var(--red); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+.split-pip { background: #ede9fe; color: #7c3aed; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+.track.split-parent { cursor: pointer; }
+.track.split-parent:hover { box-shadow: 0 2px 8px rgba(227,30,36,.1); }
+.track.split-child { border-left: 3px solid #ede9fe; background: #faf9ff; margin-left: 20px; }
+.track-split-toggle { font-size: 10px; color: var(--muted); margin-left: 4px; transition: transform .15s; display: inline-block; }
+.track-split-toggle.open { transform: rotate(90deg); }
+
+.track-payee-block { flex: 1.4; min-width: 0; }
+.track-payee { font-size: 12px; font-weight: 700; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-email { font-size: 10px; color: var(--blue); font-weight: 600; opacity: .7; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.track-meta-block { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; flex-shrink: 0; }
+.track-invnum { font-size: 10px; color: var(--muted); font-weight: 600; }
+.track-date { font-size: 10px; color: var(--muted2); font-weight: 600; }
+
+.track-right { padding: 13px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; border-left: 1px solid var(--border); min-width: 230px; }
+
+.track-amount { font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); min-width: 72px; text-align: right; }
+.track-amount.overdue { color: var(--red); }
+.track-amount.paid { color: var(--muted); font-size: 14px; }
+
+.due-chip { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+.due-chip.overdue { background: #fef2f2; color: var(--red); }
+.due-chip.soon    { background: #fef3c7; color: #92400e; }
+.due-chip.ok      { background: #f0fdf4; color: var(--green); }
+.due-chip.none    { background: #f4f4f4; color: var(--muted); }
+.due-chip.paid    { background: #f0fdf4; color: var(--green); }
+.due-chip.hold    { background: #f5f3ff; color: #7c3aed; }
+
+.track-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.btn-pay { background: var(--red); color: #fff; border: none; border-radius: 6px; padding: 5px 11px; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; transition: background .15s; white-space: nowrap; }
+.btn-pay:hover { background: #c41a1f; }
+.btn-paid { font-size: 11px; font-weight: 700; color: var(--green); white-space: nowrap; }
+.btn-notify { background: none; border: 1.5px solid #d1d5db; border-radius: 6px; color: #6366f1; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; padding: 4px 8px; transition: all .15s; white-space: nowrap; }
+.btn-notify:hover { border-color: #6366f1; background: #f5f3ff; }
+.btn-notify:disabled { opacity: .45; cursor: default; }
+.proof-btn { border: 1.5px dashed var(--border); border-radius: 5px; padding: 4px 9px; font-size: 10px; font-weight: 700; color: var(--muted); background: none; cursor: pointer; white-space: nowrap; transition: all .12s; }
+.proof-btn:hover { border-color: var(--red); color: var(--red); background: #fff5f5; }
+.proof-link-a { font-size: 11px; font-weight: 700; color: var(--green); text-decoration: none; white-space: nowrap; }
+.proof-link-a:hover { text-decoration: underline; }
+.inv-link { font-size: 10px; color: var(--blue); font-weight: 700; text-decoration: none; opacity: .7; }
+.inv-link:hover { opacity: 1; }
+
+/* ─── Empty / spinner ─── */
+.empty { padding: 48px 20px; text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; }
+.spinner-wrap { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 60px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.spin { width: 18px; height: 18px; border: 2px solid #e2e2e2; border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Totals ─── */
+.totals-row { display: flex; gap: 24px; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.tot-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 2px; }
+.tot-val { font-size: 16px; font-weight: 900; }
+.tot-val.red { color: var(--red); }
+.tot-val.dim { color: var(--muted); }
+.tot-showing { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 600; }
+
+/* ─── Toast ─── */
+#toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 300; display: flex; align-items: center; gap: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+#toast.show { opacity: 1; pointer-events: auto; }
+#toast.err { background: #dc2626; }
+#toast-undo { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+
+@media (max-width: 780px) {
+  .track-right { min-width: 160px; }
+  .track-payee-block { display: none; }
+  .stats-row { flex-wrap: wrap; }
+  .stat-item { min-width: 50%; border-bottom: 1px solid var(--border); }
+}
+
+{% include "_nav_styles.html" %}
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">Payment Summary</div>
+      <div class="page-title">PayPal Invoices</div>
+    </div>
+    <div class="page-header-right">
+      <button class="pill active" id="view-all"     onclick="setView('all')">All</button>
+      <button class="pill"        id="view-unpaid"  onclick="setView('unpaid')">Unpaid</button>
+      <button class="pill"        id="view-overdue" onclick="setView('overdue')">Overdue</button>
+      <button class="pill" onclick="exportCSV()" style="font-size:11px;padding:5px 12px">⬇ CSV</button>
+      <a class="pill" href="/export-danny" style="font-size:11px;padding:5px 12px;text-decoration:none;color:inherit">⬇ Excel</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-item">
+      <div class="stat-label">Overdue</div>
+      <div class="stat-val red" id="s-overdue-amt">—</div>
+      <div class="stat-sub"    id="s-overdue-ct">—</div>
+      <div class="stat-dot red" id="s-overdue-dot" style="display:none"></div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Due in 7 Days</div>
+      <div class="stat-val amber" id="s-soon-amt">—</div>
+      <div class="stat-sub"      id="s-soon-ct">—</div>
+      <div class="stat-dot amber" id="s-soon-dot" style="display:none"></div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Total Unpaid</div>
+      <div class="stat-val" id="s-unpaid-amt">—</div>
+      <div class="stat-sub" id="s-unpaid-ct">—</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Total Paid</div>
+      <div class="stat-val green" id="s-paid-amt">—</div>
+      <div class="stat-sub"      id="s-paid-ct">—</div>
+    </div>
+  </div>
+
+  <!-- Overdue banner -->
+  <div class="overdue-bar" id="overdue-bar">
+    <span>⚑</span>
+    <span id="overdue-bar-text"></span>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <select class="ctl-select" id="group-by" onchange="applyFilters()">
+      <option value="status">Group by Status</option>
+      <option value="due">Group by Due Date</option>
+      <option value="none">No Grouping</option>
+    </select>
+    <select class="ctl-select" id="sort-select" onchange="applyFilters()">
+      <option value="due">Sort: Due Date</option>
+      <option value="artist">Sort: Artist</option>
+      <option value="amount">Sort: Amount</option>
+      <option value="date">Sort: Invoice Date</option>
+    </select>
+    <input class="ctl-select" type="text" id="search" placeholder="Search…" oninput="applyFilters()" style="width:180px;border-radius:7px"/>
+    <div class="controls-spacer"></div>
+    <span style="font-size:11px;color:var(--muted);font-weight:600" id="inv-count">—</span>
+  </div>
+
+  <!-- Track list output -->
+  <div id="spinner-wrap" class="spinner-wrap"><div class="spin"></div> Loading…</div>
+  <div id="tracks-out" style="display:none"></div>
+
+  <!-- Totals -->
+  <div class="totals-row" id="totals-row" style="display:none">
+    <div>
+      <div class="tot-label">Unpaid</div>
+      <div class="tot-val red" id="tot-unpaid">—</div>
+    </div>
+    <div>
+      <div class="tot-label">Total</div>
+      <div class="tot-val dim" id="tot-total">—</div>
+    </div>
+    <div class="tot-showing" id="tot-showing">—</div>
+  </div>
+
+</div>
+
+<div id="toast"><span id="toast-msg"></span><button id="toast-undo" style="display:none" onclick="undoLast()">Undo</button></div>
+
+<script>
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const CURRENT_USER = {{ current_user | tojson }};
+const CURRENCY_SYMBOLS = {USD:'$',EUR:'€',GBP:'£',CAD:'CA$',AUD:'A$',MXN:'MX$',JPY:'¥'};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmt(amount, currency) {
+  if (amount == null || amount === '') return '—';
+  const num = Number(amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const code = (currency||'USD').toUpperCase();
+  const sym = CURRENCY_SYMBOLS[code];
+  return sym ? sym+num : code+'\u00a0'+num;
+}
+function fmtDate(d) {
+  if (!d||d==='None') return '—';
+  const dt = new Date(d.slice(0,10)+'T00:00:00');
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function esc(s) {
+  return (s||'').toString()
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function dueDateFromTerms(uploaded, terms) {
+  if (!terms||terms==='Hold'||!uploaded) return null;
+  const days = terms==='Net15'?15:terms==='Net30'?30:0;
+  if (!days) return null;
+  const d = new Date(uploaded+'T00:00:00'); d.setDate(d.getDate()+days); return d;
+}
+function dueStatus(dd) {
+  if (!dd) return 'none';
+  const diff = Math.round((dd-TODAY)/86400000);
+  if (diff<0) return 'overdue'; if (diff<=7) return 'soon'; return 'ok';
+}
+function daysLate(d)  { return Math.max(0,Math.round((TODAY-d)/86400000)); }
+function daysUntil(d) { return Math.max(0,Math.round((d-TODAY)/86400000)); }
+
+// ─── Toast / Undo ─────────────────────────────────────────────────────────────
+let undoStack = [], toastTimer = null;
+function toast(msg, isErr, showUndo) {
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  document.getElementById('toast-undo').style.display=showUndo?'inline-block':'none';
+  t.className=isErr?'show err':'show';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{t.className='';},showUndo?6000:3000);
+}
+async function undoLast() {
+  if (!undoStack.length) return;
+  const batch=undoStack.pop();
+  document.getElementById('toast').className='';
+  let ok=0,fail=0;
+  await Promise.all(batch.map(async ({id,prevStatus})=>{
+    try {
+      const r=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:prevStatus})});
+      if (!r.ok) throw new Error();
+      const e=allEntries.find(e=>e.id===id); if(e) e.payment_status=prevStatus; ok++;
+    } catch { fail++; }
+  }));
+  updateKPIs(); applyFilters();
+  toast(fail?`Reverted ${ok}, failed ${fail}`:`Undone — ${ok} back to Unpaid`,!!fail,false);
+}
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+let allEntries = [], currentView = 'all';
+
+async function load() {
+  try {
+    const res = await fetch('/danny-entries');
+    const data = await res.json();
+    allEntries = data.map(e => ({...e, dueDate: dueDateFromTerms(e.date_uploaded, e.payment_terms)}));
+    document.getElementById('spinner-wrap').style.display = 'none';
+    document.getElementById('tracks-out').style.display = 'block';
+    document.getElementById('totals-row').style.display = 'flex';
+    updateKPIs(); applyFilters();
+  } catch {
+    document.getElementById('spinner-wrap').textContent = 'Failed to load.';
+  }
+}
+
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+function updateKPIs() {
+  const sum = arr => arr.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const unpaid  = allEntries.filter(e=>(e.payment_status||'Unpaid')==='Unpaid');
+  const paid    = allEntries.filter(e=>(e.payment_status||'Unpaid')==='Paid');
+  const overdue = unpaid.filter(e=>dueStatus(e.dueDate)==='overdue');
+  const soon    = unpaid.filter(e=>dueStatus(e.dueDate)==='soon');
+
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('s-overdue-amt', fmt(sum(overdue)));
+  set('s-overdue-ct',  `${overdue.length} invoice${overdue.length!==1?'s':''}`);
+  set('s-soon-amt',    fmt(sum(soon)));
+  set('s-soon-ct',     `${soon.length} invoice${soon.length!==1?'s':''}`);
+  set('s-unpaid-amt',  fmt(sum(unpaid)));
+  set('s-unpaid-ct',   `${unpaid.length} invoice${unpaid.length!==1?'s':''}`);
+  set('s-paid-amt',    fmt(sum(paid)));
+  set('s-paid-ct',     `${paid.length} paid`);
+
+  const odot = document.getElementById('s-overdue-dot');
+  const sdot = document.getElementById('s-soon-dot');
+  if (odot) odot.style.display = overdue.length ? 'block' : 'none';
+  if (sdot) sdot.style.display = soon.length    ? 'block' : 'none';
+
+  const bar = document.getElementById('overdue-bar');
+  if (overdue.length > 0) {
+    const oldest = overdue.reduce((m,e)=>daysLate(e.dueDate)>daysLate(m.dueDate)?e:m);
+    document.getElementById('overdue-bar-text').innerHTML =
+      `<strong>${overdue.length} invoice${overdue.length!==1?' are':' is'} past due.</strong> `
+      +`Total: <strong>${fmt(sum(overdue))}</strong> — oldest is <strong>${daysLate(oldest.dueDate)}d</strong> late.`;
+    bar.classList.add('on');
+  } else { bar.classList.remove('on'); }
+}
+
+// ─── View / Filter ────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  ['all','unpaid','overdue'].forEach(id => {
+    document.getElementById('view-'+id).classList.toggle('active', id===v);
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const q       = (document.getElementById('search').value||'').toLowerCase().trim();
+  const groupBy = document.getElementById('group-by').value;
+  const sortBy  = document.getElementById('sort-select').value;
+
+  let f = [...allEntries];
+  if (currentView==='unpaid')  f = f.filter(e=>(e.payment_status||'Unpaid')==='Unpaid');
+  if (currentView==='overdue') f = f.filter(e=>dueStatus(e.dueDate)==='overdue');
+  if (q) f = f.filter(e=>`${e.payee} ${e.artist} ${e.song} ${e.invoice_number} ${e.description}`.toLowerCase().includes(q));
+
+  // Sort
+  f.sort((a,b) => {
+    if (sortBy==='artist') {
+      const av=(a.artist||'zzz').toLowerCase(), bv=(b.artist||'zzz').toLowerCase();
+      return av<bv?-1:av>bv?1:0;
+    }
+    if (sortBy==='amount') return (Number(b.amount)||0)-(Number(a.amount)||0);
+    if (sortBy==='date')   return new Date(a.invoice_date||0)-new Date(b.invoice_date||0);
+    // due (default)
+    const order={overdue:0,soon:1,ok:2,none:3,hold:4};
+    const as=dueStatus(a.dueDate), bs=dueStatus(b.dueDate);
+    const isPaidA=(a.payment_status||'Unpaid')==='Paid', isPaidB=(b.payment_status||'Unpaid')==='Paid';
+    if (isPaidA&&!isPaidB) return 1; if (!isPaidA&&isPaidB) return -1;
+    return (order[as]??2)-(order[bs]??2);
+  });
+
+  renderTracks(f, groupBy);
+  updateTotals(f);
+  document.getElementById('inv-count').textContent = `${f.length} of ${allEntries.length} invoices`;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderTracks(entries, groupBy) {
+  const out = document.getElementById('tracks-out');
+  if (!entries.length) {
+    out.innerHTML = '<div class="empty">No invoices match your filters.</div>'; return;
+  }
+
+  if (groupBy === 'none') {
+    out.innerHTML = `<div class="track-list">${renderGroupedTracks(entries)}</div>`; return;
+  }
+
+  const groups = {}, groupOrder = [];
+  entries.forEach(e => {
+    let key;
+    if (groupBy==='status') {
+      key = (e.payment_status||'Unpaid');
+    } else {
+      const s=dueStatus(e.dueDate), isPaid=(e.payment_status||'Unpaid')==='Paid';
+      if (isPaid) key='Paid';
+      else key = s==='overdue'?'Overdue':s==='soon'?'Due Soon':'On Track / No Date';
+    }
+    if (!groups[key]) { groups[key]=[]; groupOrder.push(key); }
+    groups[key].push(e);
+  });
+
+  const sum = arr=>arr.filter(e=>(e.payment_status||'Unpaid')==='Unpaid').reduce((s,e)=>s+(Number(e.amount)||0),0);
+
+  let html='', idx=1;
+  groupOrder.forEach(key => {
+    const grp=groups[key], grpSum=sum(grp);
+    html+=`<div class="group-row">
+      <span class="group-name">${esc(key)} <span style="font-weight:400;opacity:.4">${grp.length}</span></span>
+      <span class="group-line"></span>
+      ${grpSum>0?`<span class="group-total">${fmt(grpSum)} unpaid</span>`:''}
+    </div>
+    <div class="track-list">${renderGroupedTracks(grp, idx)}</div>`; idx += grp.length;
+  });
+  out.innerHTML = html;
+}
+
+function stripeClass(e) {
+  const isPaid=(e.payment_status||'Unpaid')==='Paid';
+  if (isPaid) return 'paid';
+  if (e.payment_terms==='Hold'&&!e.dueDate) return 'hold';
+  return dueStatus(e.dueDate)||'ok';
+}
+
+function dueChipHtml(e) {
+  const isPaid=(e.payment_status||'Unpaid')==='Paid';
+  if (isPaid) return `<span class="due-chip paid">✓ Paid</span>`;
+  if (!e.dueDate) {
+    if (e.payment_terms==='Hold') return `<span class="due-chip hold">On Hold</span>`;
+    return `<span class="due-chip none">No due date</span>`;
+  }
+  const s=dueStatus(e.dueDate), dateStr=fmtDate(e.dueDate.toISOString().slice(0,10));
+  if (s==='overdue') return `<span class="due-chip overdue">⚑ ${dateStr} (${daysLate(e.dueDate)}d late)</span>`;
+  if (s==='soon')    return `<span class="due-chip soon">⏰ ${dateStr} (${daysUntil(e.dueDate)}d)</span>`;
+  return `<span class="due-chip ok">${dateStr}</span>`;
+}
+
+// ─── Split grouping ───────────────────────────────────────────────────────────
+function renderGroupedTracks(entries, startNum) {
+  const childMap = {}, childIds = new Set();
+  entries.forEach(e => {
+    if (e.parent_id) {
+      if (!childMap[e.parent_id]) childMap[e.parent_id] = [];
+      childMap[e.parent_id].push(e);
+      childIds.add(e.id);
+    }
+  });
+  let html = '', num = startNum || 1;
+  entries.forEach(e => {
+    if (childIds.has(e.id)) return;
+    const children = childMap[e.id] || [];
+    if (children.length) {
+      html += trackHtmlParent(e, children, num++);
+      children.forEach(c => { html += trackHtmlChild(c); });
+    } else {
+      html += trackHtml(e, num++);
+    }
+  });
+  return html;
+}
+
+function toggleDannyChildren(pid) {
+  const children = document.querySelectorAll(`.split-child[data-parent="${pid}"]`);
+  const open = children[0]?.style.display !== 'none';
+  children.forEach(c => c.style.display = open ? 'none' : '');
+  const icon = document.getElementById(`dtoggle-${pid}`);
+  if (icon) icon.className = 'track-split-toggle' + (open ? '' : ' open');
+}
+
+function trackHtmlParent(e, children, num) {
+  const isPaid=(e.payment_status||'Unpaid')==='Paid';
+  const totalAmt=(Number(e.amount)||0)+children.reduce((s,c)=>s+(Number(c.amount)||0),0);
+  const allArtists=[e.artist,...children.map(c=>c.artist)].filter(Boolean);
+  const stripe=stripeClass(e);
+  const invId=e.id;
+  return `<div class="track split-parent${isPaid?' paid':''}" id="track-${e.id}" onclick="toggleDannyChildren(${e.id})">
+    <div class="track-accent ${stripe}"></div>
+    <div class="track-body">
+      <span class="track-num">${num}</span>
+      <div class="track-song-block">
+        <div class="track-song">${e.song?esc(e.song):'No track listed'}</div>
+        <div class="track-artist">
+          <span style="color:#6366f1;font-weight:800">Multi (${allArtists.length} artists)</span>
+          <span id="dtoggle-${e.id}" class="track-split-toggle">▶</span>
+        </div>
+      </div>
+      <div class="track-payee-block">
+        <div class="track-payee">${esc(e.payee)||'—'}</div>
+      </div>
+      <div class="track-meta-block">
+        ${e.invoice_number?`<span class="track-invnum">#${esc(e.invoice_number)}</span>`:''}
+        <span class="track-date">${fmtDate(e.invoice_date)}</span>
+      </div>
+    </div>
+    <div class="track-right">
+      <div class="track-amount${isPaid?' paid':stripe==='overdue'?' overdue':''}">${fmt(totalAmt,e.currency)}</div>
+      ${dueChipHtml(e)}
+      <div class="track-actions">
+        ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" onclick="event.stopPropagation()" class="inv-link">Invoice ↗</a>`:''}
+        <div id="proof-cell-${e.id}" onclick="event.stopPropagation()">${proofCellHtml(e)}</div>
+        ${isPaid
+          ?`<span class="btn-paid">✓ Paid</span>${notifyBtnHtml(e, true)}`
+          :`<button class="btn-pay" onclick="event.stopPropagation();markOnePaid(${e.id})">Mark Paid</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function trackHtmlChild(e) {
+  const isPaid=(e.payment_status||'Unpaid')==='Paid';
+  const invId=e.parent_id||e.id;
+  const stripe=stripeClass(e);
+  return `<div class="track split-child" id="track-${e.id}" data-parent="${e.parent_id}" style="display:none">
+    <div class="track-accent ${stripe}"></div>
+    <div class="track-body">
+      <span class="track-num" style="color:#bbb;font-size:10px">↳</span>
+      <div class="track-song-block">
+        <div class="track-song" style="font-size:13px;font-weight:700">${e.song?esc(e.song):'<span style="color:var(--muted);font-style:italic">—</span>'}</div>
+        <div class="track-artist">${esc(e.artist)||'—'}</div>
+      </div>
+      <div class="track-payee-block">
+        <div class="track-payee">${esc(e.payee)||'—'}</div>
+        ${e.contact_email?`<div class="track-email">${esc(e.contact_email)}</div>`:''}
+      </div>
+      <div class="track-meta-block">
+        ${e.invoice_number?`<span class="track-invnum">#${esc(e.invoice_number)}</span>`:''}
+        <span class="track-date">${fmtDate(e.invoice_date)}</span>
+      </div>
+    </div>
+    <div class="track-right">
+      <div class="track-amount${isPaid?' paid':stripe==='overdue'?' overdue':''}">${fmt(e.amount,e.currency)}</div>
+      ${dueChipHtml(e)}
+      <div class="track-actions">
+        ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" class="inv-link">Invoice ↗</a>`:''}
+        <div id="proof-cell-${e.id}">${proofCellHtml(e)}</div>
+        ${isPaid
+          ?`<span class="btn-paid">✓ Paid</span>${notifyBtnHtml(e, false)}`
+          :`<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function trackHtml(e, num) {
+  const isPaid=(e.payment_status||'Unpaid')==='Paid';
+  const isSplit=!!e.parent_id;
+  const invId=e.parent_id||e.id;
+  const stripe=stripeClass(e);
+  const hasSong=!!(e.song&&e.song.trim());
+  const amtClass=isPaid?'paid':stripe==='overdue'?'overdue':'';
+
+  return `<div class="track${isPaid?' paid':''}" id="track-${e.id}">
+    <div class="track-accent ${stripe}"></div>
+    <div class="track-body">
+      <span class="track-num">${num}</span>
+      <div class="track-song-block">
+        <div class="track-song${hasSong?'':' no-song'}" title="${esc(e.song)}">${hasSong?esc(e.song):'No track listed'}</div>
+        <div class="track-artist">
+          ${e.artist?esc(e.artist):'<span style="color:var(--muted)">—</span>'}
+          ${isSplit?'<span class="split-pip">↳ split</span>':''}
+        </div>
+      </div>
+      <div class="track-payee-block">
+        <div class="track-payee" title="${esc(e.payee)}">${esc(e.payee)||'—'}</div>
+        ${e.contact_email?`<div class="track-email">${esc(e.contact_email)}</div>`:''}
+      </div>
+      <div class="track-meta-block">
+        ${e.invoice_number?`<span class="track-invnum">#${esc(e.invoice_number)}</span>`:''}
+        <span class="track-date">${fmtDate(e.invoice_date)}</span>
+      </div>
+    </div>
+    <div class="track-right">
+      <div class="track-amount ${amtClass}">${fmt(e.amount,e.currency)}</div>
+      ${dueChipHtml(e)}
+      <div class="track-actions">
+        ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" class="inv-link">Invoice ↗</a>`:''}
+        <div id="proof-cell-${e.id}">${proofCellHtml(e)}</div>
+        ${isPaid
+          ?`<span class="btn-paid">✓ Paid</span>${notifyBtnHtml(e, false)}`
+          :`<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── Totals ───────────────────────────────────────────────────────────────────
+function updateTotals(filtered) {
+  const unpaidSum = filtered.filter(e=>(e.payment_status||'Unpaid')==='Unpaid').reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const totalSum  = filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  document.getElementById('tot-unpaid').textContent  = fmt(unpaidSum);
+  document.getElementById('tot-total').textContent   = fmt(totalSum);
+  document.getElementById('tot-showing').textContent = `${filtered.length} invoices`;
+}
+
+// ─── Proof ────────────────────────────────────────────────────────────────────
+function proofCellHtml(e) {
+  if (e.has_proof) {
+    const pid=e.parent_id||e.id;
+    return `<a href="/proof/${pid}" target="_blank" class="proof-link-a">📎 Proof</a>`;
+  }
+  return `<button class="proof-btn" id="proof-drop-${e.id}"
+    onclick="document.getElementById('proof-input-${e.id}').click()"
+    ondragover="event.preventDefault();this.classList.add('dragging')"
+    ondragleave="this.classList.remove('dragging')"
+    ondrop="event.preventDefault();this.classList.remove('dragging');handleProofDrop(${e.id},event)">
+    📎 Proof</button>
+  <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"
+    onchange="uploadProofFile(${e.id},this)"/>`;
+}
+function handleProofDrop(id,ev) { const f=ev.dataTransfer.files[0]; if(f) uploadProof(id,f); }
+function uploadProofFile(id,input) { const f=input.files[0]; if(f) uploadProof(id,f); }
+async function uploadProof(id,file) {
+  const btn=document.getElementById(`proof-drop-${id}`);
+  if (btn) btn.textContent='Uploading…';
+  const fd=new FormData(); fd.append('proof_file',file);
+  try {
+    const r=await fetch(`/upload-proof/${id}`,{method:'POST',body:fd});
+    if (!r.ok) throw new Error();
+    const entry=allEntries.find(e=>e.id===id); if(entry) entry.has_proof=true;
+    const cell=document.getElementById(`proof-cell-${id}`);
+    if (cell) cell.innerHTML=`<a href="/proof/${entry?.parent_id||id}" target="_blank" class="proof-link-a">📎 Proof</a>`;
+    toast('Proof uploaded',false,false);
+  } catch {
+    if (btn) btn.textContent='📎 Proof';
+    toast('Upload failed',true,false);
+  }
+}
+
+// ─── Payment released notify ──────────────────────────────────────────────────
+function hasProof(e) {
+  if (e.has_proof) return true;
+  if (e.parent_id) {
+    const parent = allEntries.find(p => p.id === e.parent_id);
+    return parent ? !!parent.has_proof : false;
+  }
+  return false;
+}
+
+function notifyBtnHtml(e, stopProp) {
+  const ok = hasProof(e);
+  const click = stopProp
+    ? `onclick="event.stopPropagation();sendPaymentNotice(${e.id},this)"`
+    : `onclick="sendPaymentNotice(${e.id},this)"`;
+  return ok
+    ? `<button class="btn-notify" id="notify-${e.id}" ${click}>Notify vendor</button>`
+    : `<button class="btn-notify" id="notify-${e.id}" disabled title="Upload proof of payment before notifying">Notify vendor</button>`;
+}
+
+async function sendPaymentNotice(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending…'; }
+  try {
+    const res = await fetch(`/send-payment-email/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({source: 'danny'})
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (btn) { btn.textContent = '✓ Sent'; btn.style.color = '#16a34a'; btn.style.borderColor = '#16a34a'; }
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = '📧 Notify'; }
+      alert('Email failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = '📧 Notify'; }
+    alert('Email failed: ' + err.message);
+  }
+}
+
+// ─── Mark Paid ────────────────────────────────────────────────────────────────
+async function markOnePaid(id) {
+  const entry=allEntries.find(e=>e.id===id);
+  if (!entry||entry.payment_status==='Paid') return;
+  const prev=entry.payment_status||'Unpaid';
+  try {
+    const r=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:'Paid',paid_by:CURRENT_USER})});
+    if (!r.ok) throw new Error();
+    entry.payment_status='Paid'; entry.paid_by=CURRENT_USER;
+    undoStack.push([{id,prevStatus:prev}]);
+    updateKPIs(); applyFilters();
+    toast('Marked as paid',false,true);
+  } catch { toast('Failed to update',true,false); }
+}
+
+// ─── CSV ──────────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const rows=[['Date','Payee','Artist','Song','Inv #','Amount','Currency','Due','Status','Notes']];
+  allEntries.forEach(e=>{
+    const due=e.dueDate?e.dueDate.toISOString().slice(0,10):'';
+    rows.push([e.invoice_date||'',e.payee||'',e.artist||'',e.song||'',e.invoice_number||'',e.amount||'',e.currency||'USD',due,e.payment_status||'Unpaid',e.notes||'']);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='paypal-invoices.csv'; a.click();
+}
+
+load();
+</script>
+</body>
+</html>
