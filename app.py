@@ -39,14 +39,17 @@ ALLOWED_FILE_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png'}
 MAX_UPLOAD_MB = 20
 
 # Google SSO — map allowed email addresses to (display_name, role).
-# role is either "admin" or "user".
+# Roles in descending order of privilege: superadmin > admin > manager > user
 GOOGLE_ALLOWED_EMAILS = {
-    "johns@boomrecords.co":   ("John",   "admin"),
+    "johns@boomrecords.co":   ("John",   "superadmin"),
     "jesse@boomrecords.co":   ("Jesse",  "admin"),
     "felipe@boomrecords.co":  ("Felipe", "admin"),
-    "soli@boomrecords.co":    ("Soli",   "admin"),
+    "soli@boomrecords.co":    ("Soli",   "manager"),
     "dannyk@boomrecords.co":  ("Danny",  "user"),
 }
+
+# Numeric level for hierarchy comparisons (lower = more privileged)
+ROLE_LEVEL = {"superadmin": 0, "admin": 1, "manager": 2, "user": 3}
 
 # Legacy password accounts kept as fallback for local dev (no Google creds set).
 _ADMIN_ACCOUNTS_RAW = [
@@ -240,6 +243,9 @@ def init_db():
                 cur.execute(
                     "INSERT INTO app_users (email, name, role, allowed_pages) VALUES (%s,%s,%s,%s) ON CONFLICT (email) DO NOTHING",
                     (_email, _name, _role, _seed))
+        # Role migrations: apply correct hierarchy roles
+        cur.execute("UPDATE app_users SET role='superadmin' WHERE LOWER(email)='johns@boomrecords.co' AND role IN ('admin','user')")
+        cur.execute("UPDATE app_users SET role='manager' WHERE LOWER(email)='soli@boomrecords.co' AND role IN ('admin','user')")
     else:
         cur.execute("""CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -317,6 +323,11 @@ def init_db():
                         "INSERT OR IGNORE INTO app_users (email, name, role, allowed_pages) VALUES (?,?,?,?)",
                         (_email, _name, _role, _seed))
                 except: pass
+        # Role migrations
+        try: cur.execute("UPDATE app_users SET role='superadmin' WHERE LOWER(email)='johns@boomrecords.co' AND role IN ('admin','user')")
+        except: pass
+        try: cur.execute("UPDATE app_users SET role='manager' WHERE LOWER(email)='soli@boomrecords.co' AND role IN ('admin','user')")
+        except: pass
     conn.commit(); conn.close()
 
 
@@ -336,7 +347,7 @@ def get_db_user(email):
 
 def page_allowed(page):
     """Return True if the current user may access the given page key."""
-    if session.get("role") == "admin": return True
+    if session.get("role") in ("superadmin", "admin"): return True
     return page in session.get("allowed_pages", ALL_PAGE_KEYS)
 
 def page_required(page):
@@ -361,13 +372,13 @@ def login_required(f):
 def admin_required(f):
     @wraps(f)
     def dec(*a, **kw):
-        if session.get("role") != "admin":
+        if session.get("role") not in ("superadmin", "admin"):
             return jsonify({"error": "Admin access required"}), 403
         return f(*a, **kw)
     return dec
 
 def is_admin():
-    return session.get("role") == "admin"
+    return session.get("role") in ("superadmin", "admin")
 
 @app.context_processor
 def inject_globals():
@@ -378,7 +389,7 @@ def inject_globals():
             count = cur.fetchone()[0]; conn.close()
         except:
             count = 0
-        _allowed = ALL_PAGE_KEYS if session.get("role") == "admin" else session.get("allowed_pages", ALL_PAGE_KEYS)
+        _allowed = ALL_PAGE_KEYS if session.get("role") in ("superadmin", "admin") else session.get("allowed_pages", ALL_PAGE_KEYS)
         return {
             "pending_count": count,
             "current_user": session.get("user_name"),
@@ -2961,15 +2972,30 @@ def export_1099():
 def settings_page():
     try:
         conn, kind = get_db(); cur = conn.cursor()
-        cur.execute("SELECT id,email,name,role,allowed_pages,active FROM app_users ORDER BY role DESC, name ASC")
+        cur.execute("SELECT id,email,name,role,allowed_pages,active FROM app_users ORDER BY role, name ASC")
         rows = cur.fetchall(); conn.close()
     except: rows = []
+    my_level = ROLE_LEVEL.get(session.get("role","user"), 99)
     users = []
     for r in rows:
         pages = json.loads(r[4] or "[]") if r[4] else []
+        u_level = ROLE_LEVEL.get(r[3], 99)
         users.append({"id": r[0], "email": r[1], "name": r[2],
-                      "role": r[3], "allowed_pages": pages, "active": bool(r[5])})
-    return render_template("settings.html", users=users, all_pages=ALL_PAGES, is_admin=True)
+                      "role": r[3], "allowed_pages": pages, "active": bool(r[5]),
+                      "editable": u_level > my_level})
+    # Roles this user is allowed to assign (strictly below their own level)
+    assignable = [r for r, lvl in ROLE_LEVEL.items() if lvl > my_level]
+    return render_template("settings.html", users=users, all_pages=ALL_PAGES,
+                           is_admin=True, assignable_roles=assignable,
+                           my_role=session.get("role","user"))
+
+def _check_hierarchy(target_role):
+    """Return error string if current user cannot manage a user with target_role, else None."""
+    my_level = ROLE_LEVEL.get(session.get("role","user"), 99)
+    target_level = ROLE_LEVEL.get(target_role, 99)
+    if target_level <= my_level:
+        return "You cannot manage users at or above your own role level."
+    return None
 
 @app.route("/settings/users/add", methods=["POST"])
 @login_required
@@ -2981,7 +3007,10 @@ def settings_add_user():
     pages  = request.form.getlist("pages")
     if not email or not name:
         return jsonify({"error": "Email and name are required"}), 400
-    if role not in ("admin", "user"): role = "user"
+    # Validate role is within allowed range
+    if role not in ROLE_LEVEL: role = "user"
+    err = _check_hierarchy(role)
+    if err: return jsonify({"error": err}), 403
     pages_json = json.dumps(pages)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
@@ -3013,7 +3042,19 @@ def settings_update_user(uid):
     pages  = request.form.getlist("pages")
     active = request.form.get("active", "1") == "1"
     if not name: return jsonify({"error": "Name is required"}), 400
-    if role not in ("admin", "user"): role = "user"
+    if role not in ROLE_LEVEL: role = "user"
+    # Fetch existing role to verify hierarchy
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT role FROM app_users WHERE id={ph}", (uid,))
+        existing = cur.fetchone(); conn.close()
+        if not existing: return jsonify({"error": "User not found"}), 404
+        err = _check_hierarchy(existing[0])
+        if err: return jsonify({"error": err}), 403
+        err = _check_hierarchy(role)
+        if err: return jsonify({"error": err}), 403
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     pages_json = json.dumps(pages)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
@@ -3035,14 +3076,17 @@ def settings_update_user(uid):
 def settings_delete_user(uid):
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-        cur.execute(f"SELECT name FROM app_users WHERE id={ph}", (uid,))
-        row = cur.fetchone()
-        if row and row[0] == session.get("user_name"):
-            conn.close()
+        cur.execute(f"SELECT name, role FROM app_users WHERE id={ph}", (uid,))
+        row = cur.fetchone(); conn.close()
+        if not row: return jsonify({"error": "User not found"}), 404
+        if row[0] == session.get("user_name"):
             return jsonify({"error": "Cannot delete your own account"}), 400
+        err = _check_hierarchy(row[1])
+        if err: return jsonify({"error": err}), 403
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"DELETE FROM app_users WHERE id={ph}", (uid,))
         conn.commit(); conn.close()
-        log_action("delete_user", details=f"Deleted user id={uid}")
+        log_action("delete_user", details=f"Deleted user id={uid} ({row[0]})")
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

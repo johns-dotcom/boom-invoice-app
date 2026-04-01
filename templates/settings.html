@@ -46,9 +46,11 @@
   .badge {
     display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700;
   }
-  .badge-admin { background:#fef3c7; color:#92400e; }
-  .badge-user  { background:#eff6ff; color:#1d4ed8; }
-  .badge-off   { background:#f3f4f6; color:#9ca3af; }
+  .badge-superadmin { background:#fdf4ff; color:#7e22ce; }
+  .badge-admin      { background:#fef3c7; color:#92400e; }
+  .badge-manager    { background:#ecfdf5; color:#065f46; }
+  .badge-user       { background:#eff6ff; color:#1d4ed8; }
+  .badge-off        { background:#f3f4f6; color:#9ca3af; }
 
   /* Page pills */
   .pages-wrap { display:flex; flex-wrap:wrap; gap:4px; max-width:360px; }
@@ -156,12 +158,10 @@
             <td style="font-weight:700">{{ u.name }}</td>
             <td style="color:var(--muted)">{{ u.email }}</td>
             <td>
-              <span class="badge {{ 'badge-admin' if u.role == 'admin' else 'badge-user' }}">
-                {{ u.role }}
-              </span>
+              <span class="badge badge-{{ u.role }}">{{ u.role }}</span>
             </td>
             <td>
-              {% if u.role == 'admin' %}
+              {% if u.role in ('superadmin', 'admin') %}
                 <span style="font-size:12px;color:var(--muted);font-style:italic">All pages</span>
               {% else %}
                 <div class="pages-wrap">
@@ -179,6 +179,7 @@
               </span>
             </td>
             <td style="text-align:right;white-space:nowrap">
+              {% if u.editable %}
               <button class="btn btn-ghost btn-sm"
                 onclick="openEditModal({{ u.id }}, {{ u.name|tojson }}, {{ u.email|tojson }}, {{ u.role|tojson }}, {{ u.allowed_pages|tojson }}, {{ u.active|tojson }})">
                 Edit
@@ -187,6 +188,9 @@
                 onclick="deleteUser({{ u.id }}, {{ u.name|tojson }})">
                 Delete
               </button>
+              {% else %}
+              <span style="font-size:11px;color:var(--muted)">—</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -214,8 +218,9 @@
     <div class="form-row">
       <label>Role</label>
       <select id="add-role" onchange="togglePageSection('add-pages-section', this.value)">
-        <option value="user">User</option>
-        <option value="admin">Admin</option>
+        {% for r in assignable_roles %}
+        <option value="{{ r }}">{{ r|capitalize }}</option>
+        {% endfor %}
       </select>
     </div>
     <div class="form-row" id="add-pages-section">
@@ -254,8 +259,9 @@
     <div class="form-row">
       <label>Role</label>
       <select id="edit-role" onchange="togglePageSection('edit-pages-section', this.value)">
-        <option value="user">User</option>
-        <option value="admin">Admin</option>
+        {% for r in assignable_roles %}
+        <option value="{{ r }}">{{ r|capitalize }}</option>
+        {% endfor %}
       </select>
     </div>
     <div class="form-row" id="edit-pages-section">
@@ -324,7 +330,7 @@ function deselectAll(gridId) {
   });
 }
 function togglePageSection(sectionId, role) {
-  document.getElementById(sectionId).style.display = role === 'admin' ? 'none' : '';
+  document.getElementById(sectionId).style.display = (role === 'admin' || role === 'superadmin') ? 'none' : '';
 }
 
 // ── Add modal ─────────────────────────────────────────────────────────────────
