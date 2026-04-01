@@ -601,16 +601,23 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
         msg["Subject"] = subject
         msg["From"]    = f"Boom.Records <{sender}>"
         msg["To"]      = vendor_email
+        if status == "approved" and rep_email:
+            msg["Cc"] = rep_email
         msg.attach(MIMEText(html, "html"))
+
+        # Build recipient list (vendor + boom rep CC on approvals)
+        recipients = [vendor_email]
+        if status == "approved" and rep_email:
+            recipients.append(rep_email)
 
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
         urllib.request.urlopen(urllib.request.Request(
             "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-            data=json.dumps({"raw": raw}).encode(),
+            data=json.dumps({"raw": raw, "deliveryReceipt": False}).encode(),
             headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
             method="POST"
         ))
-        print(f"Vendor status email ({status}) sent to {vendor_email}")
+        print(f"Vendor status email ({status}) sent to {recipients}")
     except Exception as e:
         print(f"Vendor status email error: {e}")
 
