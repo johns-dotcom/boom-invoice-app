@@ -1890,6 +1890,27 @@ def export_excel():
                      download_name=f"BoomRecords_Expenses_{date.today():%Y-%m-%d}.xlsx",
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+@app.route("/export-danny")
+@login_required
+def export_danny():
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind == "pg" else "?"
+        cur.execute(f"""SELECT invoice_date,payee,description,category,artist,song,
+                               invoice_number,amount,payment_method,payment_date,
+                               in_quickbooks,qb_entry_date,uploaded_to_stem,stem_upload_date,
+                               notes,cobrand,approved_by,approved_at,currency,created_at,created_by
+                        FROM expenses
+                        WHERE (status = 'approved' OR status IS NULL)
+                          AND deleted IS NOT TRUE
+                          AND LOWER(payment_method) = LOWER({ph})
+                        ORDER BY invoice_date ASC, id ASC""", ("PayPal",))
+        rows = cur.fetchall(); conn.close()
+    except Exception as e: return jsonify({"error": str(e)}), 500
+    wb = _build_excel(rows); buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    return send_file(buf, as_attachment=True,
+                     download_name=f"BoomRecords_PayPal_{date.today():%Y-%m-%d}.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 @app.route("/export-qbo")
 @login_required
 def export_qbo():
