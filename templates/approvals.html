@@ -168,6 +168,8 @@
       <option value="oldest">Oldest first</option>
       <option value="amount-desc">Amount (high–low)</option>
       <option value="amount-asc">Amount (low–high)</option>
+      <option value="artist-asc">Artist (A–Z)</option>
+      <option value="artist-desc">Artist (Z–A)</option>
     </select>
     <button class="btn-clear-filters" id="btn-clear" onclick="clearFilters()" style="display:none">Clear filters</button>
     <span class="filter-count" id="filter-count"></span>
@@ -537,9 +539,11 @@ function applyFilters() {
   // Sort visible cards
   const visibleCards = cards.filter(c => c.style.display !== 'none');
   visibleCards.sort((a, b) => {
-    if (sort === 'oldest')      return a.dataset.date.localeCompare(b.dataset.date);
-    if (sort === 'amount-desc') return parseFloat(b.dataset.amount) - parseFloat(a.dataset.amount);
-    if (sort === 'amount-asc')  return parseFloat(a.dataset.amount) - parseFloat(b.dataset.amount);
+    if (sort === 'oldest')       return a.dataset.date.localeCompare(b.dataset.date);
+    if (sort === 'amount-desc')  return parseFloat(b.dataset.amount) - parseFloat(a.dataset.amount);
+    if (sort === 'amount-asc')   return parseFloat(a.dataset.amount) - parseFloat(b.dataset.amount);
+    if (sort === 'artist-asc')   return a.dataset.artist.localeCompare(b.dataset.artist);
+    if (sort === 'artist-desc')  return b.dataset.artist.localeCompare(a.dataset.artist);
     return b.dataset.date.localeCompare(a.dataset.date); // newest
   });
   visibleCards.forEach(c => container.appendChild(c));
