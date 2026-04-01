@@ -1679,13 +1679,36 @@ def invoices_page():
 def w9s_page():
     try:
         conn, kind = get_db(); cur = conn.cursor()
-        cur.execute("""SELECT id,created_at,vendor_name,vendor_email,w9_filename,
-                              payee,invoice_date,amount
-                       FROM expenses
-                       WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
-                         AND (status = 'approved' OR status IS NULL)
-                         AND deleted IS NOT TRUE
-                       ORDER BY id DESC""")
+        if kind == "pg":
+            # One row per unique vendor (by normalised name), keep the most recent W9
+            cur.execute("""
+                SELECT DISTINCT ON (LOWER(COALESCE(NULLIF(vendor_name,''), payee, '')))
+                       id, created_at, vendor_name, vendor_email, w9_filename,
+                       payee, invoice_date, amount
+                FROM expenses
+                WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
+                  AND (status = 'approved' OR status IS NULL)
+                  AND deleted IS NOT TRUE
+                  AND (parent_id IS NULL OR parent_id = 0)
+                ORDER BY LOWER(COALESCE(NULLIF(vendor_name,''), payee, '')), id DESC
+            """)
+        else:
+            # SQLite: grab max id per vendor name, then join
+            cur.execute("""
+                SELECT e.id, e.created_at, e.vendor_name, e.vendor_email, e.w9_filename,
+                       e.payee, e.invoice_date, e.amount
+                FROM expenses e
+                INNER JOIN (
+                    SELECT MAX(id) AS max_id
+                    FROM expenses
+                    WHERE w9_filename IS NOT NULL AND w9_data IS NOT NULL
+                      AND (status = 'approved' OR status IS NULL)
+                      AND deleted IS NOT TRUE
+                      AND (parent_id IS NULL OR parent_id = 0)
+                    GROUP BY LOWER(COALESCE(NULLIF(vendor_name,''), payee, ''))
+                ) sub ON e.id = sub.max_id
+                ORDER BY e.id DESC
+            """)
         rows = cur.fetchall(); conn.close()
         items = [{"id":r[0],"created_at":str(r[1] or ""),"vendor_name":str(r[2] or ""),
                   "vendor_email":str(r[3] or ""),"w9_filename":str(r[4] or ""),
