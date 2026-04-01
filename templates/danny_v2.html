@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom.Records — PayPal</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --red: #e31e24;
+  --border: #e5e7eb;
+  --muted: #9ca3af;
+  --green: #16a34a;
+  --amber: #d97706;
+  --pp-blue: #003087;
+  --bg: #f8f8f8;
+}
+
+body {
+  background: var(--bg);
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  color: #111;
+}
+
+/* ─── Top bar ─────────────────────────────────────────────────────── */
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo { font-size: 20px; font-weight: 900; color: var(--red); letter-spacing: -0.5px; flex-shrink: 0; }
+.topbar-search {
+  flex: 1;
+  max-width: 320px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px 7px 34px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: #f9fafb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23aaa' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E") no-repeat 11px center;
+  transition: border-color .15s;
+  color: #111;
+}
+.topbar-search:focus { border-color: var(--red); background-color: #fff; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.pill-btn {
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: #fff;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all .15s;
+  white-space: nowrap;
+}
+.pill-btn:hover { border-color: #111; color: #111; }
+.pill-btn.active { background: #111; color: #fff; border-color: #111; }
+.pill-btn.red-active { background: var(--red); color: #fff; border-color: var(--red); }
+
+/* ─── Page ─────────────────────────────────────────────────────────── */
+.page { max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+
+/* ─── Summary strip ─────────────────────────────────────────────────── */
+.summary-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.stat {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  position: relative;
+  overflow: hidden;
+}
+.stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--border);
+  border-radius: 3px 0 0 3px;
+}
+.stat.red::before { background: var(--red); }
+.stat.amber::before { background: var(--amber); }
+.stat.green::before { background: var(--green); }
+.stat.blue::before { background: var(--pp-blue); }
+.stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 5px; }
+.stat-val { font-size: 22px; font-weight: 900; line-height: 1; }
+.stat.red .stat-val { color: var(--red); }
+.stat.amber .stat-val { color: var(--amber); }
+.stat.green .stat-val { color: var(--green); }
+.stat.blue .stat-val { color: var(--pp-blue); }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ─── Controls row ───────────────────────────────────────────────────── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.controls-left { display: flex; gap: 6px; flex-wrap: wrap; }
+.controls-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.section-count { font-size: 12px; color: var(--muted); font-weight: 600; }
+select.ctl-select {
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #555;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+select.ctl-select:focus { border-color: var(--red); }
+
+/* ─── Overdue banner ─────────────────────────────────────────────────── */
+.overdue-banner {
+  display: none;
+  background: #fff5f5;
+  border: 1.5px solid #fca5a5;
+  border-radius: 10px;
+  padding: 11px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #b91c1c;
+  font-weight: 600;
+  align-items: center;
+  gap: 10px;
+}
+.overdue-banner.on { display: flex; }
+
+/* ─── Grid ───────────────────────────────────────────────────────────── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+/* ─── Group header ───────────────────────────────────────────────────── */
+.group-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 2px;
+  margin-top: 6px;
+}
+.group-header:first-child { margin-top: 0; }
+.group-label {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+.group-line { flex: 1; height: 1px; background: var(--border); }
+.group-sum {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* ─── Card ───────────────────────────────────────────────────────────── */
+.inv-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow .15s, transform .1s;
+  position: relative;
+}
+.inv-card:hover {
+  box-shadow: 0 4px 18px rgba(0,0,0,.07);
+  transform: translateY(-1px);
+}
+.inv-card.paid {
+  opacity: .7;
+}
+
+/* Status stripe on left */
+.card-stripe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--border);
+}
+.card-stripe.overdue { background: var(--red); }
+.card-stripe.soon    { background: var(--amber); }
+.card-stripe.ok      { background: var(--green); }
+.card-stripe.paid    { background: #d1d5db; }
+
+.card-inner { padding: 16px 16px 14px 20px; }
+
+/* Song / track is the hero */
+.card-song {
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+  line-height: 1.2;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-song.no-song {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  font-style: italic;
+}
+.card-artist {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-artist-tag {
+  background: #fef2f2;
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #fca5a5;
+}
+.split-tag {
+  background: #ede9fe;
+  color: #7c3aed;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Payee row */
+.card-payee {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.payee-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+.payee-name { font-size: 13px; font-weight: 700; color: #333; line-height: 1.2; }
+.payee-email { font-size: 11px; color: #6366f1; font-weight: 600; }
+
+/* Bottom meta row */
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.card-amount {
+  font-size: 18px;
+  font-weight: 900;
+  color: #111;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.card-amount.paid { color: var(--muted); }
+.card-amount.overdue { color: var(--red); }
+.meta-spacer { flex: 1; }
+
+.due-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.due-overdue { background: #fef2f2; color: var(--red); }
+.due-soon    { background: #fef3c7; color: #92400e; }
+.due-ok      { background: #f0fdf4; color: var(--green); }
+.due-none    { background: #f4f4f4; color: #bbb; }
+.due-hold    { background: #faf5ff; color: #7c3aed; }
+.due-paid    { background: #f0fdf4; color: var(--green); }
+
+/* Card actions */
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px 12px 20px;
+  background: #fafafa;
+  border-top: 1px solid #f3f4f6;
+}
+.card-inv-link {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6366f1;
+  text-decoration: none;
+}
+.card-inv-link:hover { text-decoration: underline; }
+.card-inv-num {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.card-date {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.actions-spacer { flex: 1; }
+
+/* Proof / pay buttons */
+.btn-pay {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.btn-pay:hover { background: #c41a1f; }
+.btn-pay-done {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green);
+}
+.proof-drop {
+  border: 1.5px dashed #d1d5db;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #bbb;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+  background: #fff;
+}
+.proof-drop:hover, .proof-drop.drag-over {
+  border-color: var(--red); color: var(--red); background: #fff5f5;
+}
+.proof-drop.uploading { border-color: #93c5fd; color: #3b82f6; background: #eff6ff; cursor: wait; }
+.proof-link {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--green); font-weight: 700; font-size: 11px;
+  text-decoration: none; white-space: nowrap;
+}
+.proof-link:hover { text-decoration: underline; }
+
+/* Empty state */
+.empty {
+  grid-column: 1/-1;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.empty-icon { font-size: 32px; margin-bottom: 10px; }
+
+/* Spinner */
+.spinner-wrap { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 60px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.spin { width: 18px; height: 18px; border: 2px solid #e2e2e2; border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Totals bar */
+.totals-bar {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.tot-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }
+.tot-val { font-size: 16px; font-weight: 900; }
+.tot-val.red { color: var(--red); }
+.tot-val.blue { color: var(--pp-blue); }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: #111; color: #fff; padding: 10px 20px; border-radius: 20px;
+  font-size: 13px; font-weight: 700; opacity: 0; transition: opacity .3s;
+  pointer-events: none; z-index: 300; display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18);
+}
+#toast.show { opacity: 1; pointer-events: auto; }
+#toast.err { background: #dc2626; }
+#toast-undo {
+  background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.4);
+  color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px;
+  border-radius: 5px; cursor: pointer; white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .summary-strip { grid-template-columns: 1fr 1fr; }
+  .topbar-search { max-width: 200px; }
+}
+@media (max-width: 500px) {
+  .summary-strip { grid-template-columns: 1fr; }
+  .cards-grid { grid-template-columns: 1fr; }
+}
+
+{% include "_nav_styles.html" %}
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="page">
+
+  <!-- Summary strip -->
+  <div class="summary-strip" id="summary-strip">
+    <div class="stat red">
+      <div class="stat-label">Overdue</div>
+      <div class="stat-val" id="s-overdue-amt">—</div>
+      <div class="stat-sub" id="s-overdue-ct">—</div>
+    </div>
+    <div class="stat amber">
+      <div class="stat-label">Due within 7 days</div>
+      <div class="stat-val" id="s-soon-amt">—</div>
+      <div class="stat-sub" id="s-soon-ct">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total Unpaid</div>
+      <div class="stat-val" id="s-unpaid-amt">—</div>
+      <div class="stat-sub" id="s-unpaid-ct">—</div>
+    </div>
+    <div class="stat green">
+      <div class="stat-label">Total Paid</div>
+      <div class="stat-val" id="s-paid-amt">—</div>
+      <div class="stat-sub" id="s-paid-ct">—</div>
+    </div>
+  </div>
+
+  <!-- Overdue banner -->
+  <div class="overdue-banner" id="overdue-banner">
+    <span>🔴</span>
+    <span id="overdue-banner-text"></span>
+    <button class="pill-btn red-active" onclick="setView('overdue')" style="margin-left:auto;border-radius:6px;font-size:12px;padding:5px 12px">View Overdue</button>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="controls-left">
+      <button class="pill-btn active" id="view-all"     onclick="setView('all')">All</button>
+      <button class="pill-btn"        id="view-unpaid"  onclick="setView('unpaid')">Unpaid</button>
+      <button class="pill-btn"        id="view-overdue" onclick="setView('overdue')">Overdue</button>
+    </div>
+    <input class="topbar-search" type="text" id="search" placeholder="Search artist, payee, song…" oninput="applyFilters()" style="max-width:240px"/>
+    <select class="ctl-select" id="group-by" onchange="applyFilters()">
+      <option value="status">Group by Status</option>
+      <option value="due">Group by Due Date</option>
+      <option value="none">No Grouping</option>
+    </select>
+    <div class="controls-right">
+      <span class="section-count" id="showing-count">—</span>
+      <button class="pill-btn" onclick="exportCSV()" style="font-size:11px;padding:5px 12px">⬇ CSV</button>
+    </div>
+  </div>
+
+  <!-- Cards grid -->
+  <div id="spinner-wrap" class="spinner-wrap"><div class="spin"></div> Loading…</div>
+
+  <div class="cards-grid" id="cards-grid" style="display:none"></div>
+
+  <!-- Totals bar -->
+  <div class="totals-bar" id="totals-bar" style="display:none">
+    <div>
+      <div class="tot-label">Filtered Unpaid</div>
+      <div class="tot-val red" id="tot-unpaid">$0.00</div>
+    </div>
+    <div>
+      <div class="tot-label">Filtered Total</div>
+      <div class="tot-val blue" id="tot-total">$0.00</div>
+    </div>
+    <div style="margin-left:auto">
+      <div class="tot-label">Showing</div>
+      <div style="font-size:14px;font-weight:700;color:var(--muted)" id="tot-showing">—</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"><span id="toast-msg"></span><button id="toast-undo" style="display:none" onclick="undoLast()">Undo</button></div>
+
+<script>
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const CURRENCY_SYMBOLS = {USD:'$',EUR:'€',GBP:'£',CAD:'CA$',AUD:'A$',MXN:'MX$',JPY:'¥'};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmt(amount, currency) {
+  if (amount == null || amount === '') return '—';
+  const num = Number(amount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const code = (currency||'USD').toUpperCase();
+  const sym = CURRENCY_SYMBOLS[code];
+  return sym ? sym+num : code+'\u00a0'+num;
+}
+
+function fmtDate(d) {
+  if (!d || d==='None') return '—';
+  const dt = new Date(d.slice(0,10)+'T00:00:00');
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function esc(s) {
+  return (s||'').toString()
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function dueDateFromTerms(uploaded, terms) {
+  if (!terms||terms==='Hold'||!uploaded) return null;
+  const days = terms==='Net15'?15:terms==='Net30'?30:0;
+  if (!days) return null;
+  const d = new Date(uploaded+'T00:00:00');
+  d.setDate(d.getDate()+days);
+  return d;
+}
+
+function dueStatus(dueDate) {
+  if (!dueDate) return 'none';
+  const diff = Math.round((dueDate-TODAY)/86400000);
+  if (diff<0) return 'overdue';
+  if (diff<=7) return 'soon';
+  return 'ok';
+}
+
+function daysLate(d)  { return Math.max(0, Math.round((TODAY-d)/86400000)); }
+function daysUntil(d) { return Math.max(0, Math.round((d-TODAY)/86400000)); }
+
+function initials(name) {
+  const parts = (name||'').split(' ').filter(Boolean);
+  if (!parts.length) return '?';
+  return parts.length===1 ? parts[0][0].toUpperCase() : (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
+}
+
+// ─── Toast / Undo ─────────────────────────────────────────────────────────────
+let undoStack = [];
+let toastTimer = null;
+
+function toast(msg, isErr, showUndo) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-undo').style.display = showUndo ? 'inline-block' : 'none';
+  t.className = isErr ? 'show err' : 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className=''; }, showUndo?6000:3000);
+}
+
+async function undoLast() {
+  if (!undoStack.length) return;
+  const batch = undoStack.pop();
+  document.getElementById('toast').className = '';
+  let ok=0, fail=0;
+  await Promise.all(batch.map(async ({id,prevStatus}) => {
+    try {
+      const r = await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:prevStatus})});
+      if (!r.ok) throw new Error();
+      const e = allEntries.find(e=>e.id===id);
+      if (e) e.payment_status = prevStatus;
+      ok++;
+    } catch { fail++; }
+  }));
+  updateKPIs(); applyFilters();
+  toast(fail?`Reverted ${ok}, failed ${fail}`:`Undone — ${ok} back to Unpaid`, !!fail, false);
+}
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+let allEntries = [];
+let currentView = 'all';
+let sortField = 'due';
+let sortDir = 1;
+
+async function load() {
+  try {
+    const res = await fetch('/danny-entries');
+    const data = await res.json();
+    allEntries = data.map(e => ({...e, dueDate: dueDateFromTerms(e.date_uploaded, e.payment_terms)}));
+    document.getElementById('spinner-wrap').style.display = 'none';
+    document.getElementById('cards-grid').style.display = 'grid';
+    document.getElementById('totals-bar').style.display = 'flex';
+    updateKPIs();
+    applyFilters();
+  } catch {
+    document.getElementById('spinner-wrap').textContent = 'Failed to load.';
+  }
+}
+
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+function updateKPIs() {
+  const sum = arr => arr.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const unpaid  = allEntries.filter(e=>(e.payment_status||'Unpaid')==='Unpaid');
+  const paid    = allEntries.filter(e=>(e.payment_status||'Unpaid')==='Paid');
+  const overdue = unpaid.filter(e=>dueStatus(e.dueDate)==='overdue');
+  const soon    = unpaid.filter(e=>dueStatus(e.dueDate)==='soon');
+
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+  set('s-overdue-amt', fmt(sum(overdue)));
+  set('s-overdue-ct',  `${overdue.length} invoice${overdue.length!==1?'s':''}`);
+  set('s-soon-amt',    fmt(sum(soon)));
+  set('s-soon-ct',     `${soon.length} invoice${soon.length!==1?'s':''}`);
+  set('s-unpaid-amt',  fmt(sum(unpaid)));
+  set('s-unpaid-ct',   `${unpaid.length} invoice${unpaid.length!==1?'s':''}`);
+  set('s-paid-amt',    fmt(sum(paid)));
+  set('s-paid-ct',     `${paid.length} paid`);
+
+  const banner = document.getElementById('overdue-banner');
+  if (overdue.length > 0) {
+    const oldest = overdue.reduce((m,e)=>daysLate(e.dueDate)>daysLate(m.dueDate)?e:m);
+    document.getElementById('overdue-banner-text').innerHTML =
+      `<strong>${overdue.length} invoice${overdue.length!==1?' are':' is'} past due.</strong> `
+      +`Total: <strong>${fmt(sum(overdue))}</strong> — oldest is <strong>${daysLate(oldest.dueDate)}d</strong> late.`;
+    banner.classList.add('on');
+  } else {
+    banner.classList.remove('on');
+  }
+}
+
+// ─── Filters ─────────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  ['all','unpaid','overdue'].forEach(id => {
+    document.getElementById('view-'+id).classList.toggle('active', id===v);
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const q       = document.getElementById('search').value.toLowerCase().trim();
+  const groupBy = document.getElementById('group-by').value;
+
+  let f = [...allEntries];
+  if (currentView==='unpaid')  f = f.filter(e=>(e.payment_status||'Unpaid')==='Unpaid');
+  if (currentView==='overdue') f = f.filter(e=>dueStatus(e.dueDate)==='overdue');
+  if (q) f = f.filter(e=>`${e.payee} ${e.artist} ${e.song} ${e.invoice_number} ${e.description}`.toLowerCase().includes(q));
+
+  // Sort
+  f.sort((a,b) => {
+    let av, bv;
+    if (sortField==='due') { av=a.dueDate?a.dueDate.getTime():Infinity; bv=b.dueDate?b.dueDate.getTime():Infinity; }
+    else if (sortField==='amount') { av=Number(a.amount||0); bv=Number(b.amount||0); }
+    else { av=String(a[sortField]||''); bv=String(b[sortField]||''); }
+    return av<bv?-sortDir:av>bv?sortDir:0;
+  });
+
+  renderCards(f, groupBy);
+  updateTotals(f);
+  document.getElementById('showing-count').textContent = `${f.length} of ${allEntries.length} invoices`;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderCards(entries, groupBy) {
+  const grid = document.getElementById('cards-grid');
+
+  if (!entries.length) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🎵</div>No invoices match your filters.</div>`;
+    return;
+  }
+
+  if (groupBy === 'none') {
+    grid.innerHTML = entries.map(cardHtml).join('');
+    return;
+  }
+
+  const groups = {};
+  const groupOrder = [];
+  entries.forEach(e => {
+    let key;
+    if (groupBy === 'status') {
+      key = (e.payment_status||'Unpaid');
+    } else {
+      const s = dueStatus(e.dueDate);
+      key = s==='overdue' ? 'Overdue' : s==='soon' ? 'Due Soon' : e.dueDate ? 'On Track' : 'No Due Date';
+    }
+    if (!groups[key]) { groups[key]=[]; groupOrder.push(key); }
+    groups[key].push(e);
+  });
+
+  const sum = arr => arr.filter(e=>(e.payment_status||'Unpaid')==='Unpaid').reduce((s,e)=>s+(Number(e.amount)||0),0);
+
+  let html = '';
+  groupOrder.forEach(key => {
+    const grp = groups[key];
+    const grpSum = sum(grp);
+    html += `<div class="group-header">
+      <span class="group-label">${esc(key)} <span style="font-weight:400;opacity:.5">${grp.length}</span></span>
+      <span class="group-line"></span>
+      ${grpSum>0 ? `<span class="group-sum">${fmt(grpSum)} unpaid</span>` : ''}
+    </div>`;
+    html += grp.map(cardHtml).join('');
+  });
+
+  grid.innerHTML = html;
+}
+
+function stripeClass(e) {
+  const isPaid = (e.payment_status||'Unpaid') === 'Paid';
+  if (isPaid) return 'paid';
+  const s = dueStatus(e.dueDate);
+  return s === 'none' ? 'ok' : s;
+}
+
+function dueLabelHtml(e) {
+  const isPaid = (e.payment_status||'Unpaid')==='Paid';
+  if (isPaid) return `<span class="due-tag due-paid">✓ Paid</span>`;
+  if (!e.dueDate) {
+    if (e.payment_terms==='Hold') return `<span class="due-tag due-hold">On Hold</span>`;
+    return `<span class="due-tag due-none">No due date</span>`;
+  }
+  const dateStr = fmtDate(e.dueDate.toISOString().slice(0,10));
+  const s = dueStatus(e.dueDate);
+  if (s==='overdue') return `<span class="due-tag due-overdue">⚑ ${dateStr} (${daysLate(e.dueDate)}d late)</span>`;
+  if (s==='soon')    return `<span class="due-tag due-soon">⏰ ${dateStr} (${daysUntil(e.dueDate)}d)</span>`;
+  return `<span class="due-tag due-ok">${dateStr}</span>`;
+}
+
+function cardHtml(e) {
+  const isPaid  = (e.payment_status||'Unpaid') === 'Paid';
+  const isSplit = !!e.parent_id;
+  const invId   = e.parent_id || e.id;
+  const stripe  = stripeClass(e);
+  const hasSong = !!(e.song && e.song.trim());
+
+  return `
+  <div class="inv-card${isPaid?' paid':''}" id="card-${e.id}">
+    <div class="card-stripe ${stripe}"></div>
+    <div class="card-inner">
+
+      <!-- Song / Track as hero -->
+      <div class="card-song${hasSong?'':' no-song'}" title="${esc(e.song)}">${hasSong ? esc(e.song) : 'No track listed'}</div>
+      <div class="card-artist">
+        ${e.artist ? `<span class="card-artist-tag">${esc(e.artist)}</span>` : '<span style="color:#ccc;font-size:10px">No artist</span>'}
+        ${isSplit ? '<span class="split-tag">↳ split</span>' : ''}
+      </div>
+
+      <!-- Payee -->
+      <div class="card-payee">
+        <div class="payee-avatar">${esc(initials(e.payee))}</div>
+        <div>
+          <div class="payee-name">${esc(e.payee)||'—'}</div>
+          ${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" class="payee-email">${esc(e.contact_email)}</a>` : ''}
+        </div>
+      </div>
+
+      <!-- Amount + due -->
+      <div class="card-meta">
+        <div class="card-amount${isPaid?' paid':stripe==='overdue'?' overdue':''}">${fmt(e.amount, e.currency)}</div>
+        <div class="meta-spacer"></div>
+        ${dueLabelHtml(e)}
+      </div>
+
+    </div>
+
+    <!-- Actions footer -->
+    <div class="card-actions">
+      <span class="card-date">${fmtDate(e.invoice_date)}</span>
+      ${e.invoice_number ? `<span class="card-inv-num">#${esc(e.invoice_number)}</span>` : ''}
+      ${e.has_invoice ? `<a href="/invoice/${invId}" target="_blank" class="card-inv-link">Invoice ↗</a>` : ''}
+      <div class="actions-spacer"></div>
+      <div id="proof-cell-${e.id}">${proofCellHtml(e)}</div>
+      ${isPaid
+        ? `<span class="btn-pay-done">✓ Paid</span>`
+        : `<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
+    </div>
+  </div>`;
+}
+
+// ─── Totals ───────────────────────────────────────────────────────────────────
+function updateTotals(filtered) {
+  const unpaidSum = filtered.filter(e=>(e.payment_status||'Unpaid')==='Unpaid').reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const totalSum  = filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  document.getElementById('tot-unpaid').textContent  = fmt(unpaidSum);
+  document.getElementById('tot-total').textContent   = fmt(totalSum);
+  document.getElementById('tot-showing').textContent = `${filtered.length} invoices`;
+}
+
+// ─── Proof ────────────────────────────────────────────────────────────────────
+function proofCellHtml(e) {
+  if (e.has_proof) {
+    const pid = e.parent_id||e.id;
+    return `<a href="/proof/${pid}" target="_blank" class="proof-link">📎 Proof</a>`;
+  }
+  return `
+    <div class="proof-drop" id="proof-drop-${e.id}"
+      onclick="document.getElementById('proof-input-${e.id}').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');handleProofDrop(${e.id},event)">
+      📎 Proof
+    </div>
+    <input type="file" id="proof-input-${e.id}" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"
+      onchange="uploadProofFile(${e.id},this)"/>`;
+}
+
+function handleProofDrop(id, ev) { const f=ev.dataTransfer.files[0]; if(f) uploadProof(id,f); }
+function uploadProofFile(id, input) { const f=input.files[0]; if(f) uploadProof(id,f); }
+
+async function uploadProof(id, file) {
+  const drop = document.getElementById(`proof-drop-${id}`);
+  if (drop) { drop.textContent='Uploading…'; drop.classList.add('uploading'); }
+  const fd = new FormData(); fd.append('proof_file', file);
+  try {
+    const r = await fetch(`/upload-proof/${id}`, {method:'POST', body:fd});
+    if (!r.ok) throw new Error();
+    const entry = allEntries.find(e=>e.id===id);
+    if (entry) entry.has_proof = true;
+    const cell = document.getElementById(`proof-cell-${id}`);
+    if (cell) cell.innerHTML = `<a href="/proof/${entry?.parent_id||id}" target="_blank" class="proof-link">📎 Proof</a>`;
+    toast('Proof uploaded', false, false);
+  } catch {
+    if (drop) { drop.textContent='📎 Proof'; drop.classList.remove('uploading'); }
+    toast('Upload failed', true, false);
+  }
+}
+
+// ─── Mark paid ────────────────────────────────────────────────────────────────
+async function markOnePaid(id) {
+  const entry = allEntries.find(e=>e.id===id);
+  if (!entry||entry.payment_status==='Paid') return;
+  const prev = entry.payment_status||'Unpaid';
+  try {
+    const r = await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:'Paid'})});
+    if (!r.ok) throw new Error();
+    entry.payment_status = 'Paid';
+    undoStack.push([{id,prevStatus:prev}]);
+    updateKPIs(); applyFilters();
+    toast('Marked as paid', false, true);
+  } catch {
+    toast('Failed to update', true, false);
+  }
+}
+
+// ─── CSV export ───────────────────────────────────────────────────────────────
+function exportCSV() {
+  const rows = [['Date','Payee','Artist','Song','Inv #','Amount','Currency','Due','Status','Notes']];
+  allEntries.forEach(e => {
+    const due = e.dueDate ? e.dueDate.toISOString().slice(0,10) : '';
+    rows.push([e.invoice_date||'',e.payee||'',e.artist||'',e.song||'',e.invoice_number||'',e.amount||'',e.currency||'USD',due,e.payment_status||'Unpaid',e.notes||'']);
+  });
+  const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'paypal-invoices.csv';
+  a.click();
+}
+
+load();
+</script>
+</body>
+</html>
