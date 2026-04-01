@@ -1275,11 +1275,6 @@ def ledger():
 def danny():
     return render_template("danny.html", current_user=session.get("user_name"))
 
-@app.route("/danny-v2")
-@login_required
-@danny_required
-def danny_v2():
-    return render_template("danny_v2.html", current_user=session.get("user_name"))
 
 @app.route("/danny-entries")
 @login_required
