@@ -6,13 +6,13 @@
 <title>Boom.Records — Approvals</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
 <style>
-  :root { --red:#e31e24; --red-dark:#c41a1f; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  :root { --red:#e31e24; --red-dark:#c41a1f; --red-light:#fef2f2; --red-border:#fca5a5; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --green-dark:#15803d; --green-disabled:#86efac; --danger:#dc2626; --radius:10px; }
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
   .page { max-width:860px; margin:28px auto; padding:0 20px 80px; }
   .page-heading { display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
   h1 { font-size:20px; font-weight:900; color:#111; }
-  .count-pill { background:#fef2f2; color:var(--red); font-size:12px; font-weight:700; padding:2px 9px; border-radius:20px; border:1px solid #fca5a5; }
+  .count-pill { background:var(--red-light); color:var(--red); font-size:12px; font-weight:700; padding:2px 9px; border-radius:20px; border:1px solid var(--red-border); }
   .subtitle { font-size:13px; color:var(--muted); margin-bottom:20px; }
 
   .empty-state { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:60px; text-align:center; }
@@ -24,8 +24,8 @@
   .card { background:#fff; border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
 
   /* ── Header ── */
-  .card-header { padding:12px 16px; display:flex; align-items:center; gap:10px; }
-  .vendor-avatar { width:34px; height:34px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:var(--red); flex-shrink:0; }
+  .card-header { padding:12px 16px; display:flex; align-items:center; gap:10px; position:relative; }
+  .vendor-avatar { width:34px; height:34px; border-radius:50%; background:var(--red-light); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:var(--red); flex-shrink:0; }
   .vendor-info { flex:1; min-width:0; }
   .vendor-name { font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .vendor-email { font-size:11px; color:var(--muted); }
@@ -61,6 +61,7 @@
   /* ── Breakdown ── */
   .card-breakdown { padding:8px 16px 10px; border-top:1px solid #f3f4f6; }
   .breakdown-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#bbb; margin-bottom:6px; }
+  .tag-split-badge { background:#dbeafe; color:#1e40af; font-size:9px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:4px; }
   .breakdown-row { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:13px; padding:2px 0; }
   .breakdown-row:first-child { font-weight:700; color:#111; }
   .breakdown-row + .breakdown-row { font-weight:600; color:#555; border-top:1px solid #f3f4f6; margin-top:2px; padding-top:4px; }
@@ -70,17 +71,16 @@
   /* ── Files ── */
   .card-files { padding:8px 16px; border-top:1px solid #f3f4f6; display:flex; gap:6px; flex-wrap:wrap; }
   a.file-pill { display:inline-flex; align-items:center; gap:4px; background:#f9fafb; border:1px solid var(--border); border-radius:20px; padding:3px 10px; font-size:11px; font-weight:600; color:#555; text-decoration:none; transition:all .15s; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  a.file-pill:hover { border-color:var(--red); color:var(--red); background:#fff; }
+  a.file-pill:hover { border-color:var(--red); color:var(--red); background:var(--surface); }
 
   /* ── Actions ── */
   .card-actions { padding:8px 16px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; justify-content:flex-end; }
-  .btn-approve { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:7px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; display:flex; align-items:center; gap:6px; }
-  .btn-approve:hover { background:#15803d; }
-  .btn-approve:disabled { background:#86efac; cursor:not-allowed; }
-  .btn-reject { background:#fff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:7px; padding:7px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .15s; }
-  .btn-reject:hover { background:#fef2f2; border-color:#dc2626; }
+  .btn-approve { background:var(--green); color:#fff; border:none; border-radius:7px; padding:7px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; display:flex; align-items:center; gap:6px; }
+  .btn-approve:hover { background:var(--green-dark); }
+  .btn-approve:disabled { background:var(--green-disabled); cursor:not-allowed; }
+  .btn-reject { background:#fff; color:var(--danger); border:1.5px solid var(--red-border); border-radius:7px; padding:7px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .15s; }
+  .btn-reject:hover { background:var(--red-light); border-color:var(--danger); }
   .btn-reject:disabled { opacity:.5; cursor:not-allowed; }
-  .action-note { font-size:12px; color:var(--muted); margin-right:auto; }
 
   #confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; align-items:center; justify-content:center; }
   #confirm-overlay.open { display:flex; }
@@ -91,11 +91,11 @@
   #reject-reason:focus { border-color:var(--red); }
   .reason-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#555; margin-bottom:5px; display:block; }
   .confirm-actions { display:flex; gap:10px; }
-  .btn-del-confirm { background:#dc2626; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .btn-del-confirm { background:var(--danger); color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
   .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
   #toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:12px 20px; border-radius:8px; font-weight:700; font-size:13px; opacity:0; transform:translateY(10px); transition:all .3s; pointer-events:none; z-index:999; }
   #toast.show { opacity:1; transform:translateY(0); }
-  #toast.error { background:#dc2626; }
+  #toast.error { background:var(--danger); }
 
   /* Bulk approve floating bar */
   .bulk-bar { display:none; position:fixed; bottom:24px; left:24px; right:24px; max-width:500px; margin:0 auto; background:var(--red); color:#fff; padding:14px 20px; border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:998; align-items:center; justify-content:space-between; }
@@ -103,12 +103,12 @@
   @keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
   .bulk-status { flex:1; font-weight:700; font-size:14px; }
   .btn-bulk-approve { background:#fff; color:var(--red); border:none; border-radius:6px; padding:8px 18px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .15s; }
-  .btn-bulk-approve:hover { background:#fef2f2; }
+  .btn-bulk-approve:hover { background:var(--red-light); }
   .btn-bulk-approve:disabled { opacity:.5; cursor:not-allowed; }
 
   /* Checkboxes for cards */
   .card-checkbox { width:16px; height:16px; cursor:pointer; accent-color:var(--red); flex-shrink:0; margin-top:2px; }
-  .select-all-bar { padding:16px 20px; background:#fef2f2; border-bottom:1px solid #fca5a5; display:none; align-items:center; gap:12px; }
+  .select-all-bar { padding:16px 20px; background:var(--red-light); border-bottom:1px solid var(--red-border); display:none; align-items:center; gap:12px; }
   .select-all-bar.show { display:flex; }
   .select-all-checkbox { width:18px; height:18px; cursor:pointer; accent-color:var(--red); }
   .select-all-text { font-size:13px; color:var(--muted); font-weight:600; }
@@ -121,7 +121,7 @@
   .filter-search .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#bbb; font-size:14px; pointer-events:none; }
   .filter-select { border:1.5px solid var(--border); border-radius:8px; padding:7px 28px 7px 10px; font-size:12px; font-weight:700; font-family:inherit; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 10px center; -webkit-appearance:none; appearance:none; cursor:pointer; color:var(--text); outline:none; transition:border-color .15s; }
   .filter-select:focus { border-color:var(--red); }
-  .filter-select.active { border-color:var(--red); color:var(--red); background-color:#fef2f2; }
+  .filter-select.active { border-color:var(--red); color:var(--red); background-color:var(--red-light); }
   .btn-clear-filters { background:none; border:none; font-size:12px; font-weight:700; color:#bbb; cursor:pointer; font-family:inherit; padding:4px 6px; border-radius:5px; transition:color .15s; white-space:nowrap; }
   .btn-clear-filters:hover { color:var(--red); }
   .filter-count { font-size:12px; color:var(--muted); white-space:nowrap; margin-left:auto; }
@@ -134,7 +134,6 @@
     .page { padding:0 12px 80px; margin-top:16px; }
     .card-actions { flex-wrap:wrap; gap:8px; }
     .card-actions .btn-approve, .card-actions .btn-reject { flex:1; justify-content:center; }
-    .action-note { width:100%; margin-right:0; order:-1; }
     .bulk-bar { left:12px; right:12px; }
     .card-amount-large { font-size:15px; }
   }
@@ -209,7 +208,7 @@
       data-amount="{{ item.amount or 0 }}"
       data-date="{{ item.created_at[:10] if item.created_at else '' }}">
       <!-- Header: avatar + vendor info + amount + tags -->
-      <div class="card-header" style="position:relative">
+      <div class="card-header">
         <input type="checkbox" class="card-checkbox" data-id="{{ item.id }}" onchange="updateBulkBar()"/>
         <div class="vendor-avatar">{{ (item.vendor_name or item.payee or '?')[0].upper() }}</div>
         <div class="vendor-info">
@@ -263,7 +262,7 @@
       <!-- Multi-artist breakdown -->
       {% if item.artist_breakdown %}
       <div class="card-breakdown">
-        <div class="breakdown-label">Split <span style="background:#dbeafe;color:#1e40af;font-size:9px;font-weight:800;padding:1px 6px;border-radius:10px;margin-left:4px">{{ item.artist_breakdown|length }} artists</span></div>
+        <div class="breakdown-label">Split <span class="tag-split-badge">{{ item.artist_breakdown|length }} artists</span></div>
         {% for entry in item.artist_breakdown %}
         <div class="breakdown-row">
           <span>{{ entry.artist }}{% if entry.song %} <span style="font-weight:400;color:#888">— {{ entry.song }}</span>{% endif %}</span>
@@ -276,7 +275,7 @@
 
       <!-- Vendor notes (collapsible) -->
       {% if item.notes %}
-      <div class="card-text-block" style="padding-bottom:8px">
+      <div class="card-text-block">
         <span class="text-label">Note</span>
         <div class="text-body" id="notes-{{ item.id }}">{{ item.notes }}</div>
         {% if item.notes|length > 80 %}
