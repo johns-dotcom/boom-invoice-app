@@ -81,6 +81,24 @@ CATEGORIES = ["Recording","Mixing & Mastering","Music Video","Marketing",
               "Sync/Licensing","Distribution","Legal","Merch","Tour/Live","Other"]
 PAYMENT_METHODS = ["ACH","Check","Wire","Credit Card","PayPal","Cash"]
 
+# Pages that can be toggled per-user in Settings
+ALL_PAGES = {
+    "ledger":    "Ledger",
+    "add":       "Add Invoice",
+    "approvals": "Approvals",
+    "invoices":  "Invoices",
+    "w9s":       "W9 / W8",
+    "vendors":   "Vendors",
+    "payments":  "Payments",
+    "danny":     "PayPal Summary",
+    "analytics": "Analytics",
+    "1099":      "1099",
+    "calendar":  "Calendar",
+    "history":   "History",
+    "export":    "Export",
+}
+ALL_PAGE_KEYS = list(ALL_PAGES.keys())
+
 INVOICE_VALIDATE_PROMPT = """Examine this invoice or receipt carefully.
 Return ONLY valid JSON — no markdown, no extra text:
 {
@@ -206,6 +224,22 @@ def init_db():
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
+        # Users table
+        cur.execute("""CREATE TABLE IF NOT EXISTS app_users (
+            id SERIAL PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            role TEXT DEFAULT 'user',
+            allowed_pages TEXT DEFAULT '[]',
+            active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW())""")
+        cur.execute("SELECT COUNT(*) FROM app_users")
+        if cur.fetchone()[0] == 0:
+            _seed = json.dumps(ALL_PAGE_KEYS)
+            for _email, (_name, _role) in GOOGLE_ALLOWED_EMAILS.items():
+                cur.execute(
+                    "INSERT INTO app_users (email, name, role, allowed_pages) VALUES (%s,%s,%s,%s) ON CONFLICT (email) DO NOTHING",
+                    (_email, _name, _role, _seed))
     else:
         cur.execute("""CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -265,10 +299,56 @@ def init_db():
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = 0 WHERE cobrand IS NULL")
+        # Users table
+        cur.execute("""CREATE TABLE IF NOT EXISTS app_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            role TEXT DEFAULT 'user',
+            allowed_pages TEXT DEFAULT '[]',
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')))""")
+        cur.execute("SELECT COUNT(*) FROM app_users")
+        if cur.fetchone()[0] == 0:
+            _seed = json.dumps(ALL_PAGE_KEYS)
+            for _email, (_name, _role) in GOOGLE_ALLOWED_EMAILS.items():
+                try:
+                    cur.execute(
+                        "INSERT OR IGNORE INTO app_users (email, name, role, allowed_pages) VALUES (?,?,?,?)",
+                        (_email, _name, _role, _seed))
+                except: pass
     conn.commit(); conn.close()
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
+
+def get_db_user(email):
+    """Fetch an active user row from app_users by email. Returns dict or None."""
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        ph = "%s" if kind == "pg" else "?"
+        cur.execute(f"SELECT id,email,name,role,allowed_pages,active FROM app_users WHERE LOWER(email)=LOWER({ph})", (email,))
+        row = cur.fetchone(); conn.close()
+        if not row or not row[5]: return None
+        pages = json.loads(row[4] or "[]") if row[4] else []
+        return {"id": row[0], "email": row[1], "name": row[2], "role": row[3], "allowed_pages": pages}
+    except: return None
+
+def page_allowed(page):
+    """Return True if the current user may access the given page key."""
+    if session.get("role") == "admin": return True
+    return page in session.get("allowed_pages", ALL_PAGE_KEYS)
+
+def page_required(page):
+    """Decorator: redirects to /ledger if the user lacks permission for this page."""
+    def decorator(f):
+        @wraps(f)
+        def dec(*a, **kw):
+            if not session.get("authenticated"): return redirect("/login")
+            if not page_allowed(page): return redirect("/ledger")
+            return f(*a, **kw)
+        return dec
+    return decorator
 
 def login_required(f):
     @wraps(f)
@@ -298,8 +378,15 @@ def inject_globals():
             count = cur.fetchone()[0]; conn.close()
         except:
             count = 0
-        return {"pending_count": count, "current_user": session.get("user_name"), "impersonator": session.get("impersonator")}
-    return {"pending_count": 0, "current_user": None, "impersonator": None}
+        _allowed = ALL_PAGE_KEYS if session.get("role") == "admin" else session.get("allowed_pages", ALL_PAGE_KEYS)
+        return {
+            "pending_count": count,
+            "current_user": session.get("user_name"),
+            "impersonator": session.get("impersonator"),
+            "is_admin": is_admin(),
+            "allowed_pages": _allowed,
+        }
+    return {"pending_count": 0, "current_user": None, "impersonator": None, "is_admin": False, "allowed_pages": []}
 
 @app.route("/login", methods=["GET","POST"])
 def login():
@@ -343,11 +430,21 @@ def auth_callback():
     token = google_oauth.authorize_access_token()
     user_info = token.get("userinfo") or {}
     email = user_info.get("email", "").lower()
-    if email in GOOGLE_ALLOWED_EMAILS:
+    # Check DB users first (covers both seeded and settings-added users)
+    db_user = get_db_user(email)
+    if db_user:
+        session["authenticated"] = True
+        session["role"] = db_user["role"]
+        session["user_name"] = db_user["name"]
+        session["allowed_pages"] = db_user["allowed_pages"]
+        return redirect("/ledger")
+    # Fallback: hardcoded allow-list (catches users not yet in DB)
+    elif email in GOOGLE_ALLOWED_EMAILS:
         name, role = GOOGLE_ALLOWED_EMAILS[email]
         session["authenticated"] = True
         session["role"] = role
         session["user_name"] = name
+        session["allowed_pages"] = ALL_PAGE_KEYS
         return redirect("/ledger")
     else:
         return render_template("login.html", error=f"Access denied: {email} is not authorized.")
@@ -859,6 +956,7 @@ def index():
 
 @app.route("/add")
 @login_required
+@page_required("add")
 def invoice_form():
     return render_template("index.html", categories=CATEGORIES,
                            payment_methods=PAYMENT_METHODS,
@@ -1156,6 +1254,7 @@ def restore_entry(eid):
 
 @app.route("/approvals")
 @login_required
+@page_required("approvals")
 def approvals_page():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -1680,6 +1779,7 @@ def entries():
 
 @app.route("/payments")
 @login_required
+@page_required("payments")
 def payments():
     return render_template("payments.html",
                            is_admin=is_admin(),
@@ -1687,6 +1787,7 @@ def payments():
 
 @app.route("/ledger")
 @login_required
+@page_required("ledger")
 def ledger():
     return render_template("ledger.html", categories=CATEGORIES,
                            payment_methods=PAYMENT_METHODS, is_admin=is_admin(),
@@ -1741,6 +1842,7 @@ def danny_entries():
 
 @app.route("/invoices")
 @login_required
+@page_required("invoices")
 def invoices_page():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -1763,6 +1865,7 @@ def invoices_page():
 
 @app.route("/w9s")
 @login_required
+@page_required("w9s")
 def w9s_page():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -1810,7 +1913,7 @@ def w9s_page():
 
 @app.route("/history")
 @login_required
-@history_allowed
+@page_required("history")
 def history():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -1847,6 +1950,7 @@ def clear_history():
 
 @app.route("/analytics")
 @login_required
+@page_required("analytics")
 def analytics():
     return render_template("analytics.html", is_admin=is_admin())
 
@@ -1957,6 +2061,7 @@ def analytics_data():
 
 @app.route("/export")
 @login_required
+@page_required("export")
 def export_excel():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -1997,6 +2102,7 @@ def export_danny():
 
 @app.route("/export-qbo")
 @login_required
+@page_required("export")
 def export_qbo():
     try:
         conn, kind = get_db(); cur = conn.cursor()
@@ -2585,6 +2691,7 @@ def submit_invoice():
 
 @app.route("/vendors")
 @login_required
+@page_required("vendors")
 def vendors_page():
     vendors = []
     conn = None
@@ -2710,6 +2817,7 @@ def vendor_profile(payee):
 
 @app.route("/calendar")
 @login_required
+@page_required("calendar")
 def calendar():
     """Calendar page showing due dates for unpaid invoices with payment terms."""
     return render_template("calendar.html",
@@ -2718,6 +2826,7 @@ def calendar():
 
 @app.route("/1099")
 @login_required
+@page_required("1099")
 def summary_1099():
     year = request.args.get("year", "2025")
     try:
@@ -2843,6 +2952,101 @@ def export_1099():
         "Content-Type": "text/csv",
         "Content-Disposition": f"attachment; filename=1099-summary-{year_int}.csv"
     }
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+@app.route("/settings")
+@login_required
+@admin_required
+def settings_page():
+    try:
+        conn, kind = get_db(); cur = conn.cursor()
+        cur.execute("SELECT id,email,name,role,allowed_pages,active FROM app_users ORDER BY role DESC, name ASC")
+        rows = cur.fetchall(); conn.close()
+    except: rows = []
+    users = []
+    for r in rows:
+        pages = json.loads(r[4] or "[]") if r[4] else []
+        users.append({"id": r[0], "email": r[1], "name": r[2],
+                      "role": r[3], "allowed_pages": pages, "active": bool(r[5])})
+    return render_template("settings.html", users=users, all_pages=ALL_PAGES, is_admin=True)
+
+@app.route("/settings/users/add", methods=["POST"])
+@login_required
+@admin_required
+def settings_add_user():
+    email  = request.form.get("email", "").strip().lower()
+    name   = request.form.get("name",  "").strip()
+    role   = request.form.get("role",  "user")
+    pages  = request.form.getlist("pages")
+    if not email or not name:
+        return jsonify({"error": "Email and name are required"}), 400
+    if role not in ("admin", "user"): role = "user"
+    pages_json = json.dumps(pages)
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        if kind == "pg":
+            cur.execute("""INSERT INTO app_users (email,name,role,allowed_pages)
+                           VALUES (%s,%s,%s,%s)
+                           ON CONFLICT (email) DO UPDATE
+                           SET name=%s, role=%s, allowed_pages=%s, active=TRUE""",
+                        (email, name, role, pages_json, name, role, pages_json))
+        else:
+            try:
+                cur.execute("INSERT INTO app_users (email,name,role,allowed_pages) VALUES (?,?,?,?)",
+                            (email, name, role, pages_json))
+            except:
+                cur.execute("UPDATE app_users SET name=?,role=?,allowed_pages=?,active=1 WHERE LOWER(email)=LOWER(?)",
+                            (name, role, pages_json, email))
+        conn.commit(); conn.close()
+        log_action("add_user", details=f"Added user {email} ({name}) role={role}")
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/settings/users/<int:uid>/update", methods=["POST"])
+@login_required
+@admin_required
+def settings_update_user(uid):
+    name   = request.form.get("name",   "").strip()
+    role   = request.form.get("role",   "user")
+    pages  = request.form.getlist("pages")
+    active = request.form.get("active", "1") == "1"
+    if not name: return jsonify({"error": "Name is required"}), 400
+    if role not in ("admin", "user"): role = "user"
+    pages_json = json.dumps(pages)
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        if kind == "pg":
+            cur.execute(f"UPDATE app_users SET name={ph},role={ph},allowed_pages={ph},active={ph} WHERE id={ph}",
+                        (name, role, pages_json, active, uid))
+        else:
+            cur.execute("UPDATE app_users SET name=?,role=?,allowed_pages=?,active=? WHERE id=?",
+                        (name, role, pages_json, 1 if active else 0, uid))
+        conn.commit(); conn.close()
+        log_action("update_user", details=f"Updated user id={uid} name={name} role={role}")
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/settings/users/<int:uid>/delete", methods=["POST"])
+@login_required
+@admin_required
+def settings_delete_user(uid):
+    try:
+        conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
+        cur.execute(f"SELECT name FROM app_users WHERE id={ph}", (uid,))
+        row = cur.fetchone()
+        if row and row[0] == session.get("user_name"):
+            conn.close()
+            return jsonify({"error": "Cannot delete your own account"}), 400
+        cur.execute(f"DELETE FROM app_users WHERE id={ph}", (uid,))
+        conn.commit(); conn.close()
+        log_action("delete_user", details=f"Deleted user id={uid}")
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/status")
 def status(): return jsonify({"ok":True})

@@ -9,52 +9,73 @@
   <button class="mob-menu-btn" onclick="document.getElementById('mob-nav').classList.toggle('open')">☰</button>
   <div class="header-right">
 
+    {% if is_admin or 'add' in allowed_pages %}
     <a href="/add" class="nav-add">+ Add</a>
+    {% endif %}
 
+    {% if is_admin or 'ledger' in allowed_pages %}
     <a href="/ledger"    class="{{ 'nav-active' if p == '/ledger' else 'nav-link' }}">Ledger</a>
+    {% endif %}
+    {% if is_admin or 'approvals' in allowed_pages %}
     <a href="/approvals" class="{{ 'nav-active' if p == '/approvals' else 'nav-link' }}" style="position:relative">
       Approvals{% if pending_count > 0 %}<span class="nav-badge">{{ pending_count }}</span>{% endif %}
     </a>
+    {% endif %}
 
     <!-- Docs dropdown: Invoices, W9/W8, Vendors -->
+    {% if is_admin or 'invoices' in allowed_pages or 'w9s' in allowed_pages or 'vendors' in allowed_pages %}
     <div class="nav-dropdown-wrap">
       <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if docs_active else '' }}" onclick="toggleNavDropdown('nav-docs-dropdown', event)">
         Docs <span class="caret">▾</span>
       </button>
       <div class="nav-dropdown-menu" id="nav-docs-dropdown">
+        {% if is_admin or 'invoices' in allowed_pages %}
         <a href="/invoices" class="{{ 'active' if p == '/invoices' else '' }}">Invoices</a>
+        {% endif %}
+        {% if is_admin or 'w9s' in allowed_pages %}
         <a href="/w9s"      class="{{ 'active' if p == '/w9s' else '' }}">W9 / W8</a>
+        {% endif %}
+        {% if is_admin or 'vendors' in allowed_pages %}
         <a href="/vendors"  class="{{ 'active' if p.startswith('/vendor') else '' }}">Vendors</a>
+        {% endif %}
       </div>
     </div>
+    {% endif %}
 
-    {% if current_user != 'Danny' %}
+    {% if (is_admin or 'payments' in allowed_pages) and current_user != 'Danny' %}
       <a href="/payments" class="{{ 'nav-active' if p == '/payments' else 'nav-link' }}">Payments</a>
     {% endif %}
-    {% if current_user == 'Danny' %}
+    {% if (is_admin or 'danny' in allowed_pages) and current_user == 'Danny' %}
       <a href="/danny" class="{{ 'nav-active' if p == '/danny' else 'nav-link' }}">PayPal</a>
     {% endif %}
 
     {# More dropdown: Analytics, 1099, Calendar, History #}
+    {% if is_admin or 'analytics' in allowed_pages or '1099' in allowed_pages or 'calendar' in allowed_pages or 'history' in allowed_pages %}
     <div class="nav-dropdown-wrap">
       <button class="nav-dropdown-btn{{ ' nav-dropdown-active' if more_active else '' }}" onclick="toggleNavDropdown('nav-more-dropdown', event)">
         More <span class="caret">▾</span>
       </button>
       <div class="nav-dropdown-menu" id="nav-more-dropdown">
-        {% if is_admin or current_user == 'Danny' %}
+        {% if is_admin or 'analytics' in allowed_pages %}
           <a href="/analytics" class="{{ 'active' if p == '/analytics' else '' }}">Analytics</a>
+        {% endif %}
+        {% if is_admin or '1099' in allowed_pages %}
           <a href="/1099"      class="{{ 'active' if p == '/1099' else '' }}">1099</a>
         {% endif %}
-        <a href="/calendar"  class="{{ 'active' if p == '/calendar' else '' }}">Calendar</a>
-        {% if current_user in ['John', 'Jesse', 'Felipe', 'Danny'] %}
+        {% if is_admin or 'calendar' in allowed_pages %}
+          <a href="/calendar"  class="{{ 'active' if p == '/calendar' else '' }}">Calendar</a>
+        {% endif %}
+        {% if is_admin or 'history' in allowed_pages %}
           <a href="/history"   class="{{ 'active' if p == '/history' else '' }}">History</a>
         {% endif %}
       </div>
     </div>
+    {% endif %}
 
     <div class="nav-divider"></div>
 
     <!-- Export dropdown -->
+    {% if is_admin or 'export' in allowed_pages %}
     <div class="nav-dropdown-wrap">
       <button class="nav-export-btn" onclick="toggleNavDropdown('nav-export-dropdown', event)">
         Export <span class="caret">▾</span>
@@ -68,6 +89,7 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
 
     <!-- User pill -->
     {% if current_user %}
@@ -82,6 +104,11 @@
     </div>
     {% else %}
     <a href="/logout" class="nav-signout" style="margin-left:8px">Sign out</a>
+    {% endif %}
+
+    <!-- Settings (admin only) -->
+    {% if is_admin %}
+    <a href="/settings" class="{{ 'nav-active' if p == '/settings' else 'nav-link' }}" style="font-size:12px;color:#6b7280">⚙ Settings</a>
     {% endif %}
 
     <!-- View As (John only) -->
@@ -110,21 +137,22 @@
 {% endif %}
 
 <nav class="mob-nav" id="mob-nav">
-  <a href="/add">+ Add Invoice</a>
-  <a href="/ledger">Ledger</a>
-  <a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>
-  <a href="/invoices">Invoices</a>
-  <a href="/w9s">W9 / W8</a>
-  <a href="/vendors">Vendors</a>
-  {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
-  {% if current_user == 'Danny' %}<a href="/danny">PayPal Summary</a>{% endif %}
-  {% if is_admin or current_user == 'Danny' %}<a href="/analytics">Analytics</a>{% endif %}
-  {% if is_admin or current_user == 'Danny' %}<a href="/1099">1099 Summary</a>{% endif %}
-  <a href="/calendar">Calendar</a>
-  {% if current_user in ['John', 'Jesse', 'Felipe', 'Danny'] %}<a href="/history">History</a>{% endif %}
-  <a href="/export" style="color:#16a34a">Export Excel</a>
-  <a href="/export-qbo" style="color:#16a34a">Export CSV</a>
+  {% if is_admin or 'add' in allowed_pages %}<a href="/add">+ Add Invoice</a>{% endif %}
+  {% if is_admin or 'ledger' in allowed_pages %}<a href="/ledger">Ledger</a>{% endif %}
+  {% if is_admin or 'approvals' in allowed_pages %}<a href="/approvals">Approvals{% if pending_count > 0 %} ({{ pending_count }}){% endif %}</a>{% endif %}
+  {% if is_admin or 'invoices' in allowed_pages %}<a href="/invoices">Invoices</a>{% endif %}
+  {% if is_admin or 'w9s' in allowed_pages %}<a href="/w9s">W9 / W8</a>{% endif %}
+  {% if is_admin or 'vendors' in allowed_pages %}<a href="/vendors">Vendors</a>{% endif %}
+  {% if (is_admin or 'payments' in allowed_pages) and current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
+  {% if (is_admin or 'danny' in allowed_pages) and current_user == 'Danny' %}<a href="/danny">PayPal Summary</a>{% endif %}
+  {% if is_admin or 'analytics' in allowed_pages %}<a href="/analytics">Analytics</a>{% endif %}
+  {% if is_admin or '1099' in allowed_pages %}<a href="/1099">1099 Summary</a>{% endif %}
+  {% if is_admin or 'calendar' in allowed_pages %}<a href="/calendar">Calendar</a>{% endif %}
+  {% if is_admin or 'history' in allowed_pages %}<a href="/history">History</a>{% endif %}
+  {% if is_admin or 'export' in allowed_pages %}<a href="/export" style="color:#16a34a">Export Excel</a>{% endif %}
+  {% if is_admin or 'export' in allowed_pages %}<a href="/export-qbo" style="color:#16a34a">Export CSV</a>{% endif %}
   {% if is_admin %}<a href="/admin/backup" style="color:#6b7280">DB Backup</a>{% endif %}
+  {% if is_admin %}<a href="/settings" style="color:#6b7280">Settings</a>{% endif %}
   <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
 </nav>
 

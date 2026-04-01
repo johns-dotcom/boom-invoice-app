@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom.Records — Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root { --red:#e31e24; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
+  .page { max-width:1000px; margin:0 auto; padding:28px 24px 60px; }
+  .page-title { font-size:22px; font-weight:900; margin-bottom:4px; }
+  .page-sub   { font-size:13px; color:var(--muted); margin-bottom:28px; }
+
+  /* Tab bar */
+  .tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:28px; }
+  .tab-btn {
+    padding:10px 20px; font-size:13px; font-weight:700; font-family:'Nunito',system-ui,sans-serif;
+    background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-2px;
+    cursor:pointer; color:var(--muted); transition:color .15s,border-color .15s;
+  }
+  .tab-btn.active { color:var(--red); border-bottom-color:var(--red); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  /* Cards / table */
+  .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:24px; }
+  .card-header {
+    padding:14px 20px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--border); background:#fafafa;
+  }
+  .card-header h2 { font-size:14px; font-weight:800; }
+
+  table { width:100%; border-collapse:collapse; }
+  thead th {
+    background:#f9f9f9; padding:10px 14px; text-align:left;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--muted); border-bottom:1px solid var(--border);
+  }
+  tbody tr { border-bottom:1px solid #f0f0f0; transition:background .1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:#fafafa; }
+  td { padding:11px 14px; font-size:13px; vertical-align:middle; }
+  .badge {
+    display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:700;
+  }
+  .badge-admin { background:#fef3c7; color:#92400e; }
+  .badge-user  { background:#eff6ff; color:#1d4ed8; }
+  .badge-off   { background:#f3f4f6; color:#9ca3af; }
+
+  /* Page pills */
+  .pages-wrap { display:flex; flex-wrap:wrap; gap:4px; max-width:360px; }
+  .page-pill {
+    font-size:11px; font-weight:600; padding:2px 7px; border-radius:5px;
+    background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0;
+  }
+  .page-pill-off { background:#f9fafb; color:#9ca3af; border:1px solid #e5e7eb; text-decoration:line-through; }
+
+  /* Buttons */
+  .btn { display:inline-flex; align-items:center; gap:5px; height:32px; padding:0 14px;
+         border:none; border-radius:7px; font-size:12px; font-weight:700;
+         font-family:'Nunito',system-ui,sans-serif; cursor:pointer; transition:opacity .15s; }
+  .btn:hover { opacity:.85; }
+  .btn-red   { background:var(--red); color:#fff; }
+  .btn-ghost { background:#f3f4f6; color:#374151; }
+  .btn-sm    { height:28px; padding:0 10px; font-size:11px; }
+  .btn-danger { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+
+  /* Modal */
+  .modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:900;
+    align-items:center; justify-content:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:#fff; border-radius:12px; width:min(560px,94vw); max-height:88vh;
+    overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.2); padding:28px;
+  }
+  .modal h3 { font-size:16px; font-weight:900; margin-bottom:18px; }
+  .form-row { margin-bottom:14px; }
+  .form-row label { display:block; font-size:11px; font-weight:700; text-transform:uppercase;
+                    letter-spacing:.05em; color:var(--muted); margin-bottom:5px; }
+  .form-row input[type="text"],
+  .form-row input[type="email"],
+  .form-row select {
+    width:100%; height:36px; border:1.5px solid var(--border); border-radius:7px;
+    padding:0 11px; font-size:13px; font-family:'Nunito',system-ui,sans-serif;
+    outline:none; transition:border-color .15s;
+  }
+  .form-row input:focus, .form-row select:focus { border-color:var(--red); }
+
+  /* Page checkboxes grid */
+  .pages-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin-top:4px; }
+  .page-check {
+    display:flex; align-items:center; gap:7px; padding:7px 10px;
+    border:1.5px solid var(--border); border-radius:7px; cursor:pointer;
+    transition:border-color .15s, background .15s; user-select:none;
+  }
+  .page-check:hover { border-color:#d1d5db; background:#fafafa; }
+  .page-check input[type="checkbox"] { accent-color:var(--red); width:14px; height:14px; cursor:pointer; }
+  .page-check span { font-size:12px; font-weight:600; }
+  .page-check.checked { border-color:var(--red); background:#fff5f5; }
+
+  .modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+
+  /* Toast */
+  .toast {
+    position:fixed; bottom:24px; right:24px; padding:10px 18px; border-radius:8px;
+    font-size:13px; font-weight:700; color:#fff; z-index:999;
+    opacity:0; transform:translateY(8px); transition:opacity .25s,transform .25s;
+  }
+  .toast.show { opacity:1; transform:translateY(0); }
+  .toast-ok  { background:#16a34a; }
+  .toast-err { background:#dc2626; }
+
+  /* Select/deselect all */
+  .pages-actions { display:flex; gap:8px; margin-bottom:8px; }
+  .link-btn { background:none; border:none; font-size:11px; font-weight:700; color:var(--red); cursor:pointer; padding:0; }
+  .link-btn:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+{% include '_nav_styles.html' %}
+{% include '_nav.html' %}
+
+<div class="page">
+  <div class="page-title">Settings</div>
+  <div class="page-sub">Manage users and their page access.</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('users', this)">Users</button>
+  </div>
+
+  <!-- Users tab -->
+  <div class="tab-panel active" id="tab-users">
+    <div class="card">
+      <div class="card-header">
+        <h2>Users ({{ users|length }})</h2>
+        <button class="btn btn-red" onclick="openAddModal()">+ Add User</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Pages</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td style="font-weight:700">{{ u.name }}</td>
+            <td style="color:var(--muted)">{{ u.email }}</td>
+            <td>
+              <span class="badge {{ 'badge-admin' if u.role == 'admin' else 'badge-user' }}">
+                {{ u.role }}
+              </span>
+            </td>
+            <td>
+              {% if u.role == 'admin' %}
+                <span style="font-size:12px;color:var(--muted);font-style:italic">All pages</span>
+              {% else %}
+                <div class="pages-wrap">
+                  {% for key, label in all_pages.items() %}
+                    <span class="page-pill {% if key not in u.allowed_pages %}page-pill-off{% endif %}">
+                      {{ label }}
+                    </span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge {{ '' if u.active else 'badge-off' }}">
+                {{ 'Active' if u.active else 'Inactive' }}
+              </span>
+            </td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn btn-ghost btn-sm"
+                onclick="openEditModal({{ u.id }}, {{ u.name|tojson }}, {{ u.email|tojson }}, {{ u.role|tojson }}, {{ u.allowed_pages|tojson }}, {{ u.active|tojson }})">
+                Edit
+              </button>
+              <button class="btn btn-danger btn-sm" style="margin-left:4px"
+                onclick="deleteUser({{ u.id }}, {{ u.name|tojson }})">
+                Delete
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not users %}
+          <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">No users yet.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <h3>Add User</h3>
+    <div class="form-row">
+      <label>Name</label>
+      <input type="text" id="add-name" placeholder="e.g. Alex" autocomplete="off"/>
+    </div>
+    <div class="form-row">
+      <label>Email</label>
+      <input type="email" id="add-email" placeholder="alex@boomrecords.co" autocomplete="off"/>
+    </div>
+    <div class="form-row">
+      <label>Role</label>
+      <select id="add-role" onchange="togglePageSection('add-pages-section', this.value)">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="form-row" id="add-pages-section">
+      <label>Pages</label>
+      <div class="pages-actions">
+        <button class="link-btn" type="button" onclick="selectAll('add-pages-grid')">Select all</button>
+        <button class="link-btn" type="button" onclick="deselectAll('add-pages-grid')">Deselect all</button>
+      </div>
+      <div class="pages-grid" id="add-pages-grid">
+        {% for key, label in all_pages.items() %}
+        <label class="page-check" id="add-lbl-{{ key }}">
+          <input type="checkbox" class="page-cb" value="{{ key }}" checked
+                 onchange="updateCheckStyle(this)"/>
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-red" onclick="submitAdd()">Add User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <h3>Edit User</h3>
+    <input type="hidden" id="edit-id"/>
+    <div class="form-row">
+      <label>Name</label>
+      <input type="text" id="edit-name" autocomplete="off"/>
+    </div>
+    <div class="form-row" style="color:var(--muted);font-size:12px" id="edit-email-display"></div>
+    <div class="form-row">
+      <label>Role</label>
+      <select id="edit-role" onchange="togglePageSection('edit-pages-section', this.value)">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="form-row" id="edit-pages-section">
+      <label>Pages</label>
+      <div class="pages-actions">
+        <button class="link-btn" type="button" onclick="selectAll('edit-pages-grid')">Select all</button>
+        <button class="link-btn" type="button" onclick="deselectAll('edit-pages-grid')">Deselect all</button>
+      </div>
+      <div class="pages-grid" id="edit-pages-grid">
+        {% for key, label in all_pages.items() %}
+        <label class="page-check" id="edit-lbl-{{ key }}">
+          <input type="checkbox" class="page-cb" value="{{ key }}"
+                 onchange="updateCheckStyle(this)"/>
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Status</label>
+      <select id="edit-active">
+        <option value="1">Active</option>
+        <option value="0">Inactive</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')">Cancel</button>
+      <button class="btn btn-red" onclick="submitEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Close modal on backdrop click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+// ── Checkbox styling ─────────────────────────────────────────────────────────
+function updateCheckStyle(cb) {
+  cb.closest('.page-check').classList.toggle('checked', cb.checked);
+}
+function selectAll(gridId) {
+  document.querySelectorAll(`#${gridId} .page-cb`).forEach(cb => {
+    cb.checked = true; updateCheckStyle(cb);
+  });
+}
+function deselectAll(gridId) {
+  document.querySelectorAll(`#${gridId} .page-cb`).forEach(cb => {
+    cb.checked = false; updateCheckStyle(cb);
+  });
+}
+function togglePageSection(sectionId, role) {
+  document.getElementById(sectionId).style.display = role === 'admin' ? 'none' : '';
+}
+
+// ── Add modal ─────────────────────────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-email').value = '';
+  document.getElementById('add-role').value = 'user';
+  document.getElementById('add-pages-section').style.display = '';
+  selectAll('add-pages-grid');
+  openModal('modal-add');
+  setTimeout(() => document.getElementById('add-name').focus(), 80);
+}
+
+async function submitAdd() {
+  const name  = document.getElementById('add-name').value.trim();
+  const email = document.getElementById('add-email').value.trim();
+  const role  = document.getElementById('add-role').value;
+  if (!name || !email) { showToast('Name and email are required', false); return; }
+  const pages = [...document.querySelectorAll('#add-pages-grid .page-cb:checked')].map(c => c.value);
+  const fd = new FormData();
+  fd.append('name', name); fd.append('email', email); fd.append('role', role);
+  pages.forEach(p => fd.append('pages', p));
+  const res = await fetch('/settings/users/add', { method:'POST', body:fd });
+  const data = await res.json();
+  if (data.ok) { showToast('User added'); setTimeout(() => location.reload(), 900); closeModal('modal-add'); }
+  else showToast(data.error || 'Error', false);
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEditModal(id, name, email, role, pages, active) {
+  document.getElementById('edit-id').value   = id;
+  document.getElementById('edit-name').value = name;
+  document.getElementById('edit-email-display').textContent = email;
+  document.getElementById('edit-role').value   = role;
+  document.getElementById('edit-active').value = active ? '1' : '0';
+  togglePageSection('edit-pages-section', role);
+  // Set checkboxes
+  document.querySelectorAll('#edit-pages-grid .page-cb').forEach(cb => {
+    cb.checked = pages.includes(cb.value);
+    updateCheckStyle(cb);
+  });
+  openModal('modal-edit');
+  setTimeout(() => document.getElementById('edit-name').focus(), 80);
+}
+
+async function submitEdit() {
+  const id     = document.getElementById('edit-id').value;
+  const name   = document.getElementById('edit-name').value.trim();
+  const role   = document.getElementById('edit-role').value;
+  const active = document.getElementById('edit-active').value;
+  if (!name) { showToast('Name is required', false); return; }
+  const pages = [...document.querySelectorAll('#edit-pages-grid .page-cb:checked')].map(c => c.value);
+  const fd = new FormData();
+  fd.append('name', name); fd.append('role', role); fd.append('active', active);
+  pages.forEach(p => fd.append('pages', p));
+  const res = await fetch(`/settings/users/${id}/update`, { method:'POST', body:fd });
+  const data = await res.json();
+  if (data.ok) { showToast('Saved'); setTimeout(() => location.reload(), 900); closeModal('modal-edit'); }
+  else showToast(data.error || 'Error', false);
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deleteUser(id, name) {
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  const res  = await fetch(`/settings/users/${id}/delete`, { method:'POST' });
+  const data = await res.json();
+  if (data.ok) { showToast('User deleted'); setTimeout(() => location.reload(), 900); }
+  else showToast(data.error || 'Error', false);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let _toastTimer;
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  void t.offsetWidth;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
