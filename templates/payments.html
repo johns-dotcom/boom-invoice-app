@@ -102,6 +102,15 @@ tr.split-child:hover td { background: #f3eeff; }
 .tag-hold { background: #faf5ff; color: #7c3aed; }
 .tag-method { background: #eef2ff; color: #3730a3; }
 .tag-split { background: #ede9fe; color: #7c3aed; font-size: 10px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; }
+.due-unset { cursor:pointer; }
+.due-unset:hover { background:#e0e7ff; color:#4338ca; }
+.due-edit-icon { cursor:pointer; font-size:10px; color:#bbb; margin-left:4px; opacity:.6; vertical-align:middle; }
+.due-edit-icon:hover { opacity:1; color:var(--red); }
+.due-date-picker-wrap { display:flex; gap:4px; align-items:center; margin-top:4px; }
+.due-date-input { border:1.5px solid var(--border); border-radius:6px; padding:3px 7px; font-size:12px; font-family:inherit; outline:none; }
+.due-date-input:focus { border-color:var(--red); }
+.due-date-save { background:var(--green); color:#fff; border:none; border-radius:5px; padding:3px 9px; font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; }
+.due-date-clear { background:#f3f4f6; color:#666; border:none; border-radius:5px; padding:3px 9px; font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; }
 
 /* ─── Amounts ─── */
 .amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -449,10 +458,12 @@ async function load() {
   try {
     const res = await fetch('/entries');
     const data = await res.json();
-    // Enrich with computed due date
+    // Enrich with due date — scheduled overrides computed
     allEntries = data.map(e => ({
       ...e,
-      dueDate: dueDateFromTerms(e.date_uploaded, e.payment_terms)
+      dueDate: e.scheduled_payment_date
+        ? new Date(e.scheduled_payment_date + 'T00:00:00')
+        : dueDateFromTerms(e.date_uploaded, e.payment_terms)
     }));
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('tbl-wrap').style.display = 'block';
@@ -604,15 +615,66 @@ function renderTable(entries, groupBy) {
 }
 
 function dueBadge(e) {
+  const isPaid = (e.payment_status||'Unpaid') === 'Paid';
   const s = dueStatus(e.dueDate);
+  const editIcon = !isPaid && IS_ADMIN
+    ? `<span class="due-edit-icon" onclick="event.stopPropagation();openDatePicker(${e.id}, '${e.scheduled_payment_date||''}')">✏</span>`
+    : '';
   if (!e.dueDate) {
-    if (e.payment_terms === 'Hold') return '<span class="tag tag-hold">On Hold</span>';
-    return '<span class="tag tag-none">—</span>';
+    if (e.payment_terms === 'Hold') return `<span class="tag tag-hold">On Hold</span>${editIcon}`;
+    return `<span class="tag tag-none due-unset" onclick="event.stopPropagation();${!isPaid&&IS_ADMIN?`openDatePicker(${e.id},'')`:''}">Schedule${!isPaid&&IS_ADMIN?' +':''}</span>`;
   }
   const dateStr = fmtDate(e.dueDate.toISOString().slice(0,10));
-  if (s === 'overdue') return `<span class="tag tag-overdue">${dateStr} <span style="opacity:.7">(${daysLate(e.dueDate)}d late)</span></span>`;
-  if (s === 'soon')    return `<span class="tag tag-soon">${dateStr} <span style="opacity:.7">(${daysUntil(e.dueDate)}d)</span></span>`;
-  return `<span class="tag tag-ok">${dateStr}</span>`;
+  const isScheduled = !!e.scheduled_payment_date;
+  if (s === 'overdue') return `<span class="tag tag-overdue">${dateStr} <span style="opacity:.7">(${daysLate(e.dueDate)}d late)</span></span>${editIcon}`;
+  if (s === 'soon')    return `<span class="tag tag-soon">${dateStr} <span style="opacity:.7">(${daysUntil(e.dueDate)}d)</span></span>${editIcon}`;
+  return `<span class="tag tag-ok">${isScheduled ? '📅 ' : ''}${dateStr}</span>${editIcon}`;
+}
+
+function openDatePicker(id, current) {
+  // Remove any existing picker
+  document.querySelectorAll('.due-date-picker-wrap').forEach(el => el.remove());
+  const cell = document.querySelector(`#row-${id} td:nth-child(9)`);
+  if (!cell) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'due-date-picker-wrap';
+  wrap.innerHTML = `
+    <input type="date" class="due-date-input" value="${current}" />
+    <button class="due-date-save" onclick="saveScheduledDate(${id}, this.previousElementSibling.value)">Set</button>
+    ${current ? `<button class="due-date-clear" onclick="saveScheduledDate(${id}, '')">Clear</button>` : ''}
+  `;
+  cell.appendChild(wrap);
+  wrap.querySelector('input').focus();
+  wrap.querySelector('input').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') saveScheduledDate(id, ev.target.value);
+    if (ev.key === 'Escape') wrap.remove();
+  });
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function handler(ev) {
+      if (!wrap.contains(ev.target)) { wrap.remove(); document.removeEventListener('click', handler); }
+    });
+  }, 0);
+}
+
+async function saveScheduledDate(id, dateStr) {
+  document.querySelectorAll('.due-date-picker-wrap').forEach(el => el.remove());
+  const res = await fetch(`/update/${id}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({scheduled_payment_date: dateStr || null})
+  });
+  if (res.ok) {
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) {
+      entry.scheduled_payment_date = dateStr;
+      entry.dueDate = dateStr ? new Date(dateStr + 'T00:00:00') : dueDateFromTerms(entry.date_uploaded, entry.payment_terms);
+    }
+    applyFilters();
+    toast(dateStr ? `Scheduled for ${fmtDate(dateStr)}` : 'Schedule cleared');
+  } else {
+    toast('Failed to save date', true);
+  }
 }
 
 // ─── Split grouping ───────────────────────────────────────────────────────────
