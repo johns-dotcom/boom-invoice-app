@@ -171,7 +171,8 @@ def init_db():
                     "is_reimbursement BOOLEAN DEFAULT FALSE",
                     "payment_terms TEXT",
                     "artist_breakdown TEXT",
-                    "parent_id INTEGER"]:
+                    "parent_id INTEGER",
+                    "boom_rep TEXT"]:
             cur.execute(f"ALTER TABLE expenses ADD COLUMN IF NOT EXISTS {col}")
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
         cur.execute("UPDATE expenses SET cobrand = FALSE WHERE cobrand IS NULL")
@@ -226,7 +227,8 @@ def init_db():
                     "is_reimbursement INTEGER DEFAULT 0",
                     "payment_terms TEXT",
                     "artist_breakdown TEXT",
-                    "parent_id INTEGER"]:
+                    "parent_id INTEGER",
+                    "boom_rep TEXT"]:
             try: cur.execute(f"ALTER TABLE expenses ADD COLUMN {col}")
             except: pass
         cur.execute("UPDATE expenses SET status = 'approved' WHERE status IS NULL")
@@ -464,6 +466,7 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
       {row(True,'Amount',f"<strong style='color:#e31e24'>{amt_str}</strong>")}
       {row(False,'Description',fields.get('description') or '—')}
       {row(True,'Category',fields.get('category') or '—')}
+      {row(False,'Boom Rep',fields.get('boom_rep') or '—')}
     </table>
     {w9_block}{warn_block}
     <div style='margin-top:20px'>
@@ -588,7 +591,7 @@ def add_expense():
 @login_required
 def update_entry(eid):
     allowed = {"in_quickbooks","uploaded_to_stem","artist","song","notes",
-               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status","vendor_email","payment_terms","invoice_number"}
+               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status","vendor_email","payment_terms","invoice_number","boom_rep"}
     updates = {k:v for k,v in request.json.items() if k in allowed}
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
@@ -823,7 +826,7 @@ def approvals_page():
                               invoice_date, payee, description, category,
                               invoice_number, amount, notes,
                               invoice_filename, w9_filename, artist, song, cobrand,
-                              is_reimbursement, artist_breakdown
+                              is_reimbursement, artist_breakdown, boom_rep
                        FROM expenses WHERE status = 'pending'
                        ORDER BY created_at ASC""")
         rows = cur.fetchall(); conn.close()
@@ -835,7 +838,8 @@ def approvals_page():
                   "invoice_filename":str(r[11] or ""),"w9_filename":str(r[12] or ""),
                   "artist":str(r[13] or ""),"song":str(r[14] or ""),
                   "cobrand":bool(r[15]),"is_reimbursement":bool(r[16]),
-                  "artist_breakdown": _parse_json_list(r[17])} for r in rows]
+                  "artist_breakdown": _parse_json_list(r[17]),
+                  "boom_rep": str(r[18] or "")} for r in rows]
     except Exception as e:
         items = []
     return render_template("approvals.html", items=items, is_admin=is_admin())
@@ -1229,7 +1233,7 @@ def entries():
                               invoice_filename,proof_filename,cobrand,
                               approved_by,approved_at,currency,payment_status,
                               created_at,created_by,vendor_email,is_reimbursement,
-                              payment_terms,parent_id
+                              payment_terms,parent_id,boom_rep
                        FROM expenses
                        WHERE (status = 'approved' OR status IS NULL) AND deleted IS NOT TRUE
                        ORDER BY invoice_date DESC, id DESC""")
@@ -1252,7 +1256,8 @@ def entries():
                          "contact_email":str(r[26] or ""),
                          "is_reimbursement":bool(r[27]),
                          "payment_terms":str(r[28] or ""),
-                         "parent_id":r[29]} for r in rows])
+                         "parent_id":r[29],
+                         "boom_rep":str(r[30] or "")} for r in rows])
     except Exception as e:
         return jsonify({"error":str(e)}), 500
 
@@ -1756,6 +1761,7 @@ def submit_invoice():
     notes            = request.form.get("notes","").strip()
     is_reimbursement = request.form.get("is_reimbursement") == "yes"
     artist_breakdown = request.form.get("artist_breakdown","").strip() or None
+    boom_rep         = request.form.get("boom_rep","").strip() or None
 
     def err(msg):
         return render_template("submit.html", error=msg, categories=CATEGORIES)
@@ -1822,19 +1828,20 @@ def submit_invoice():
            fields.get("payment_method",""), None, "No", None, "No", None, notes,
            True, vendor_name, vendor_email, vendor_address,
            w9_fname, w9_b64, inv_fname, inv_b64, receipt_fname, receipt_b64, "pending", cobrand, is_reimbursement,
-           artist_breakdown)
+           artist_breakdown, boom_rep)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,vendor_submitted,
             vendor_name,vendor_email,vendor_address,w9_filename,w9_data,invoice_filename,invoice_data,
-            proof_filename,proof_data,status,cobrand,is_reimbursement,artist_breakdown)
-            VALUES ({','.join([ph]*29)})""", row)
+            proof_filename,proof_data,status,cobrand,is_reimbursement,artist_breakdown,boom_rep)
+            VALUES ({','.join([ph]*30)})""", row)
         conn.commit(); conn.close()
     except Exception as e:
         return err(f"Submission failed: {e}")
 
+    fields["boom_rep"] = boom_rep
     send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_fname, is_reimbursement=is_reimbursement)
     return render_template("submit_success.html", vendor_name=vendor_name)
 

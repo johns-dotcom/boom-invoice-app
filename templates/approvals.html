@@ -197,6 +197,12 @@
           {% endif %}
         </div>
         {% endif %}
+        {% if item.boom_rep %}
+        <div class="field">
+          <div class="field-label">Boom Rep</div>
+          <div class="field-value">{{ item.boom_rep }}</div>
+        </div>
+        {% endif %}
         {% if item.is_reimbursement %}
         <div class="field">
           <div class="field-label">Type</div>
