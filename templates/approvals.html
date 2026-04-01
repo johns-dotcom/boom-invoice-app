@@ -501,6 +501,9 @@ function toast(msg, isError=false) {
 
   // Show count
   document.getElementById('filter-count').textContent = `${cards.length} pending`;
+
+  // Apply default sort (newest first) on load
+  applyFilters();
 })();
 
 function applyFilters() {
