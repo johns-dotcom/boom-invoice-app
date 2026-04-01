@@ -358,6 +358,7 @@ tr.split-child:hover td { background: #f3eeff; }
 
 <script>
 const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
+const CURRENT_USER = {{ current_user | tojson }};
 const TODAY = new Date();
 TODAY.setHours(0,0,0,0);
 
@@ -951,10 +952,10 @@ async function markOnePaid(id) {
   try {
     const res = await fetch(`/update/${id}`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({payment_status:'Paid'})
+      body: JSON.stringify({payment_status:'Paid', paid_by: CURRENT_USER})
     });
     if (!res.ok) throw new Error();
-    entry.payment_status = 'Paid';
+    entry.payment_status = 'Paid'; entry.paid_by = CURRENT_USER;
     selected.delete(id);
     undoStack.push([{id, prevStatus}]);
     updateKPIs();
@@ -979,10 +980,10 @@ async function markSelectedPaid() {
     try {
       const res = await fetch(`/update/${e.id}`, {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({payment_status:'Paid'})
+        body: JSON.stringify({payment_status:'Paid', paid_by: CURRENT_USER})
       });
       if (!res.ok) throw new Error();
-      e.payment_status = 'Paid'; ok++;
+      e.payment_status = 'Paid'; e.paid_by = CURRENT_USER; ok++;
     } catch { fail++; }
   }));
 

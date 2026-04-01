@@ -256,6 +256,7 @@ body { background: var(--bg); font-family: 'Nunito', system-ui, sans-serif; font
 
 <script>
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const CURRENT_USER = {{ current_user | tojson }};
 const CURRENCY_SYMBOLS = {USD:'$',EUR:'€',GBP:'£',CAD:'CA$',AUD:'A$',MXN:'MX$',JPY:'¥'};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -705,9 +706,9 @@ async function markOnePaid(id) {
   if (!entry||entry.payment_status==='Paid') return;
   const prev=entry.payment_status||'Unpaid';
   try {
-    const r=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:'Paid'})});
+    const r=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:'Paid',paid_by:CURRENT_USER})});
     if (!r.ok) throw new Error();
-    entry.payment_status='Paid';
+    entry.payment_status='Paid'; entry.paid_by=CURRENT_USER;
     undoStack.push([{id,prevStatus:prev}]);
     updateKPIs(); applyFilters();
     toast('Marked as paid',false,true);

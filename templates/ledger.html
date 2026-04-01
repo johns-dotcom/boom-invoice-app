@@ -360,6 +360,7 @@ const CATEGORIES      = {{ categories | tojson }};
 const PAYMENT_METHODS = {{ payment_methods | tojson }};
 const IS_ADMIN        = {{ is_admin | tojson }};
 const IS_JOHN         = {{ is_john | tojson }};
+const IS_JOHN_NAME    = {{ current_user | tojson }};
 const IS_EDITOR       = true; // all logged-in users can edit soft fields
 
 let allEntries = [];
@@ -755,7 +756,9 @@ async function toggleCobrand(id, current) {
 function paymentBadge(id, val) {
   const v = val || 'Unpaid';
   const cls = v==='Paid'?'badge-paid':v==='Partial'?'badge-partial':'badge-unpaid';
-  return `<span class="badge ${cls}" onclick="openPaymentEdit(${id},this)">${v} <span class="edit-icon">▾</span></span>`;
+  const entry = allEntries.find(e=>e.id===id);
+  const paidBy = (v==='Paid' && entry && entry.paid_by) ? `<span style="font-size:9px;font-weight:600;color:#6b7280;display:block;margin-top:1px">${entry.paid_by}</span>` : '';
+  return `<span class="badge ${cls}" onclick="openPaymentEdit(${id},this)" style="display:inline-flex;flex-direction:column;align-items:center;cursor:pointer">${v} <span class="edit-icon">▾</span>${paidBy}</span>`;
 }
 
 function openPaymentEdit(id, badgeEl) {
@@ -772,7 +775,11 @@ function openPaymentEdit(id, badgeEl) {
   const save = async () => {
     if (committed) return; committed = true;
     const newVal = sel.value; sel.classList.add('saving');
-    const res = await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:newVal})});
+    const paidBy = newVal === 'Paid' ? IS_JOHN_NAME : null;
+    const body = {payment_status: newVal, paid_by: paidBy};
+    const res = await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (entry && newVal === 'Paid') entry.paid_by = paidBy;
+    else if (entry) entry.paid_by = null;
     document.getElementById(`paid-${id}`).innerHTML = paymentBadge(id, newVal);
     if (res.ok) {
       pushUndo({type:'field', id, field:'payment_status', oldVal: currentVal});
