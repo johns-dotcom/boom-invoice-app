@@ -289,6 +289,7 @@ tr.split-row:hover td { background: #f3eeff; }
             <th onclick="sortBy('artist')" id="th-artist">Artist</th>
             <th onclick="sortBy('invoice_number')" id="th-invoice_number">Inv #</th>
             <th onclick="sortBy('amount')" id="th-amount">Amount</th>
+            <th onclick="sortBy('currency')" id="th-currency">Currency</th>
             <th onclick="sortBy('payment_method')" id="th-payment_method">Method</th>
             <th onclick="sortBy('due')" id="th-due">Due Date</th>
             <th onclick="sortBy('payment_status')" id="th-payment_status">Status</th>
@@ -578,7 +579,7 @@ function renderTable(entries, groupBy) {
 
   let html = '';
   const sum = arr => arr.filter(e => (e.payment_status||'Unpaid') === 'Unpaid').reduce((s,e) => s + (Number(e.amount)||0), 0);
-  const colCount = IS_ADMIN ? 13 : 12;
+  const colCount = IS_ADMIN ? 14 : 13;
 
   keys.forEach(key => {
     const grp = groups[key];
@@ -630,7 +631,12 @@ function rowHtml(e) {
       onblur="saveInvNum(this)"
       onkeydown="if(event.key==='Enter'){this.blur()}"
     /></td>
-    <td class="amt ${isPaid ? 'amt-muted' : ''}">${fmt(e.amount, e.currency)}</td>
+    <td class="amt ${isPaid ? 'amt-muted' : ''}" id="amt-cell-${e.id}">${fmt(e.amount, e.currency)}</td>
+    <td>
+      <select data-id="${e.id}" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:700;color:#666;padding:2px 2px;outline:none;cursor:pointer;font-family:inherit" onchange="saveCurrency(${e.id},this)">
+        ${['USD','EUR','GBP','CAD','AUD','CHF','SEK','NOK','DKK','JPY','MXN','BRL'].map(c=>`<option value="${c}" ${(e.currency||'USD').toUpperCase()===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </td>
     <td><span class="tag tag-method">${esc(e.payment_method)||'—'}</span></td>
     <td>${dueBadge(e)}</td>
     <td><span class="tag ${isPaid ? 'tag-paid' : 'tag-unpaid'}">${e.payment_status||'Unpaid'}</span></td>
@@ -724,6 +730,27 @@ async function saveInvNum(input) {
     input.style.borderBottomColor = '#e53935';
     input.value = orig;
     setTimeout(() => input.style.borderBottomColor = '#bbb', 1500);
+  }
+}
+
+async function saveCurrency(id, sel) {
+  const val = sel.value;
+  try {
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({currency: val})
+    });
+    if (!r.ok) throw new Error();
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) entry.currency = val;
+    const amtCell = document.getElementById(`amt-cell-${id}`);
+    if (amtCell && entry) amtCell.textContent = fmt(entry.amount, val);
+    sel.style.borderBottomColor = '#4caf50';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1200);
+  } catch {
+    sel.style.borderBottomColor = '#e53935';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
   }
 }
 

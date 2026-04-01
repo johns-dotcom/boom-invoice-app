@@ -620,7 +620,11 @@ function renderRows(entries) {
       <td><span id="split-song-${e.id}" class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'song',this,'${esc(e.song)}')">${isParent ? '<span style="color:#6366f1;font-weight:700">Multi</span>' : e.song||'—'}</span></td>
       <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
       <td class="td-amount" id="split-amt-${e.id}">${isParent ? fmt(children.reduce((s,c) => s + (Number(c.amount)||0), Number(e.amount)||0), e.currency) : fmt(e.amount, e.currency)}</td>
-      <td style="font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap">${(e.currency||'USD').toUpperCase()}</td>
+      <td style="white-space:nowrap">
+        ${IS_ADMIN ? `<select onchange="saveCurrencyLedger(${e.id},this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:700;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit">
+          ${['USD','EUR','GBP','CAD','AUD','CHF','SEK','NOK','DKK','JPY','MXN','BRL'].map(c=>`<option value="${c}" ${(e.currency||'USD').toUpperCase()===c?'selected':''}>${c}</option>`).join('')}
+        </select>` : `<span style="font-size:12px;font-weight:700;color:var(--muted)">${(e.currency||'USD').toUpperCase()}</span>`}
+      </td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${e.payment_method||'—'}</td>
       <td id="terms-${e.id}">${termsSelect(e.id, e.payment_terms)}</td>
       <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms)}</td>
@@ -862,6 +866,29 @@ function toggleNote(id) {
   const expanded = wrap.classList.toggle('notes-expanded');
   const btn = wrap.querySelector('.notes-toggle');
   if (btn) btn.textContent = expanded ? '▴' : '▾';
+}
+
+// ─── Currency select (admin only) ────────────────────────────────────────────
+async function saveCurrencyLedger(id, sel) {
+  const val = sel.value;
+  try {
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({currency: val})
+    });
+    if (!r.ok) throw new Error();
+    const entry = allEntries ? allEntries.find(e => e.id === id) : null;
+    if (entry) entry.currency = val;
+    // Refresh amount cell to show updated currency symbol
+    const amtEl = document.getElementById(`split-amt-${id}`);
+    if (amtEl && entry) amtEl.textContent = fmt(entry.amount, val);
+    sel.style.borderBottomColor = '#4caf50';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1200);
+  } catch {
+    sel.style.borderBottomColor = '#e53935';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
+  }
 }
 
 // ─── Category dropdown (admin only) ───────────────────────────────────────────
