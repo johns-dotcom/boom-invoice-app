@@ -45,6 +45,9 @@
   .field-value { font-size:13px; color:#111; font-weight:600; line-height:1.4; }
   .field-value.muted { font-weight:400; color:#bbb; font-style:italic; }
   .field-value.amount { color:var(--red); font-size:16px; font-weight:900; }
+  .name-mismatch-flag { grid-column:1/-1; display:flex; gap:8px; align-items:flex-start; background:#fffbeb; border:1.5px solid #fcd34d; border-radius:8px; padding:10px 14px; font-size:12px; color:#92400e; font-weight:600; margin-bottom:4px; }
+  .name-mismatch-flag .mm-icon { font-size:14px; flex-shrink:0; margin-top:1px; }
+  .name-mismatch-flag strong { color:#78350f; }
   .notes-row { grid-column:1/-1; }
 
   .card-files { padding:10px 20px; background:#f9f9f9; border-top:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap; }
@@ -154,6 +157,14 @@
       </div>
 
       <div class="card-body">
+        {% set vn = item.vendor_name.lower().strip() %}
+        {% set ip = item.payee.lower().strip() %}
+        {% if item.payee and item.vendor_name and vn != ip %}
+        <div class="name-mismatch-flag">
+          <span class="mm-icon">⚠️</span>
+          <span>Name mismatch — submitted as <strong>{{ item.vendor_name }}</strong> but invoice reads <strong>{{ item.payee }}</strong>. Both are saved to the ledger.</span>
+        </div>
+        {% endif %}
         <div class="field">
           <div class="field-label">Invoice Date</div>
           <div class="field-value {% if not item.invoice_date %}muted{% endif %}">{{ item.invoice_date or 'Not found' }}</div>

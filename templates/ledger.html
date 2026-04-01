@@ -608,7 +608,13 @@ function renderRows(entries) {
     return `
     <tr id="row-${e.id}"${rowClass ? ` class="${rowClass}"` : ''}${isParent ? ` onclick="toggleSplitGroup(${e.id})"` : ''}${isChild ? ` data-parent="${e.parent_id}" style="display:none"` : ''}>
       <td class="td-date">${IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'invoice_date',this,'${esc(e.invoice_date)}')">${e.invoice_date||'—'}</span>` : e.invoice_date||'—'}</td>
-      <td class="td-payee">${isChild ? '' : IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'payee',this,'${esc(e.payee)}')" title="Click to edit">${e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none">${e.payee}</a>` : '<span style="color:#ccc">Add payee</span>'}</span>` : (e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}">${e.payee}</a>` : '—')}</td>
+      <td class="td-payee">${isChild ? '' : (() => {
+        const mismatch = hasMismatch(e) ? `<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px;line-height:1.3">⚠ Submitted as: ${e.vendor_name}</div>` : '';
+        const payeeLink = IS_JOHN
+          ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'payee',this,'${esc(e.payee)}')" title="Click to edit">${e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none">${e.payee}</a>` : '<span style="color:#ccc">Add payee</span>'}</span>`
+          : (e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}">${e.payee}</a>` : '—');
+        return payeeLink + mismatch;
+      })()}</td>
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
@@ -675,6 +681,12 @@ function renderRows(entries) {
 }
 
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+function hasMismatch(e) {
+  return e.vendor_submitted &&
+         e.vendor_name && e.payee &&
+         e.vendor_name.trim().toLowerCase() !== e.payee.trim().toLowerCase();
+}
 
 function fmtDate(d) {
   if (!d || d === 'None') return '—';

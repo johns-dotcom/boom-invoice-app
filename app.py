@@ -2068,10 +2068,12 @@ def check_w9():
         return jsonify({"has_w9": False})
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-        if kind == "pg":
-            cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (name,))
-        else:
-            cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (name,))
+        # Check both payee and vendor_name columns so returning vendors are always found
+        cur.execute(f"""SELECT id FROM expenses
+                        WHERE (LOWER(payee)=LOWER({ph}) OR LOWER(vendor_name)=LOWER({ph}))
+                          AND w9_filename IS NOT NULL AND w9_data IS NOT NULL
+                          AND deleted IS NOT TRUE
+                        LIMIT 1""", (name, name))
         row = cur.fetchone(); conn.close()
         return jsonify({"has_w9": bool(row)})
     except Exception as e:
@@ -2115,7 +2117,11 @@ def submit_invoice():
     if not is_reimbursement:
         try:
             conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-            cur.execute(f"SELECT id FROM expenses WHERE LOWER(payee)=LOWER({ph}) AND w9_filename IS NOT NULL AND w9_data IS NOT NULL AND deleted IS NOT TRUE LIMIT 1", (vendor_name,))
+            cur.execute(f"""SELECT id FROM expenses
+                            WHERE (LOWER(payee)=LOWER({ph}) OR LOWER(vendor_name)=LOWER({ph}))
+                              AND w9_filename IS NOT NULL AND w9_data IS NOT NULL
+                              AND deleted IS NOT TRUE
+                            LIMIT 1""", (vendor_name, vendor_name))
             w9_on_file = bool(cur.fetchone()); conn.close()
         except: pass
 
