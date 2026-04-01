@@ -24,7 +24,7 @@
   .card { background:#fff; border:1px solid var(--border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
 
   /* ── Header ── */
-  .card-header { padding:14px 16px; display:flex; align-items:center; gap:10px; }
+  .card-header { padding:12px 16px; display:flex; align-items:center; gap:10px; }
   .vendor-avatar { width:34px; height:34px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:var(--red); flex-shrink:0; }
   .vendor-info { flex:1; min-width:0; }
   .vendor-name { font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -43,19 +43,20 @@
   .name-mismatch-flag strong { color:#78350f; }
 
   /* ── Meta strip ── */
-  .card-meta { padding:8px 16px; border-top:1px solid #f3f4f6; display:flex; flex-wrap:wrap; gap:4px 0; align-items:center; font-size:12px; color:#777; }
+  .card-meta { padding:6px 16px; border-top:1px solid #f3f4f6; display:flex; flex-wrap:wrap; gap:3px 0; align-items:center; font-size:12px; color:#777; }
   .meta-item { display:flex; align-items:center; }
   .meta-item + .meta-item::before { content:'·'; margin:0 8px; color:#ddd; }
   .meta-key { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#bbb; margin-right:4px; }
   .meta-val { font-weight:600; color:#444; }
 
   /* ── Description / Notes ── */
-  .card-text-block { padding:8px 16px 0; }
+  .card-text-block { padding:6px 16px 0; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
   .card-text-block:last-of-type { padding-bottom:8px; }
-  .text-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#bbb; margin-bottom:3px; }
-  .text-body { font-size:13px; color:#444; line-height:1.5; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .text-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#ccc; flex-shrink:0; }
+  .text-body { font-size:12px; color:#666; line-height:1.45; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; flex:1; min-width:0; }
   .text-body.expanded { -webkit-line-clamp:unset; display:block; }
-  .btn-toggle-text { background:none; border:none; color:#6366f1; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; padding:3px 0 6px; display:block; }
+  .btn-toggle-text { background:none; border:none; color:#aaa; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; padding:0; display:inline; flex-shrink:0; }
+  .btn-toggle-text:hover { color:var(--red); }
 
   /* ── Breakdown ── */
   .card-breakdown { padding:8px 16px 10px; border-top:1px solid #f3f4f6; }
@@ -72,11 +73,11 @@
   a.file-pill:hover { border-color:var(--red); color:var(--red); background:#fff; }
 
   /* ── Actions ── */
-  .card-actions { padding:10px 16px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; justify-content:flex-end; }
-  .btn-approve { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:8px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; display:flex; align-items:center; gap:6px; }
+  .card-actions { padding:8px 16px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; justify-content:flex-end; }
+  .btn-approve { background:#16a34a; color:#fff; border:none; border-radius:7px; padding:7px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; display:flex; align-items:center; gap:6px; }
   .btn-approve:hover { background:#15803d; }
   .btn-approve:disabled { background:#86efac; cursor:not-allowed; }
-  .btn-reject { background:#fff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:7px; padding:8px 20px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .15s; }
+  .btn-reject { background:#fff; color:#dc2626; border:1.5px solid #fca5a5; border-radius:7px; padding:7px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:all .15s; }
   .btn-reject:hover { background:#fef2f2; border-color:#dc2626; }
   .btn-reject:disabled { opacity:.5; cursor:not-allowed; }
   .action-note { font-size:12px; color:var(--muted); margin-right:auto; }
@@ -251,10 +252,10 @@
       <!-- Description (collapsible) -->
       {% if item.description %}
       <div class="card-text-block">
-        <div class="text-label">Description</div>
+        <span class="text-label">Desc</span>
         <div class="text-body" id="desc-{{ item.id }}">{{ item.description }}</div>
-        {% if item.description|length > 120 %}
-        <button class="btn-toggle-text" onclick="toggleText('desc-{{ item.id }}', this)">Show more</button>
+        {% if item.description|length > 80 %}
+        <button class="btn-toggle-text" onclick="toggleText('desc-{{ item.id }}', this)">more</button>
         {% endif %}
       </div>
       {% endif %}
@@ -275,11 +276,11 @@
 
       <!-- Vendor notes (collapsible) -->
       {% if item.notes %}
-      <div class="card-text-block" style="padding-bottom:10px">
-        <div class="text-label">Vendor Notes</div>
+      <div class="card-text-block" style="padding-bottom:8px">
+        <span class="text-label">Note</span>
         <div class="text-body" id="notes-{{ item.id }}">{{ item.notes }}</div>
-        {% if item.notes|length > 120 %}
-        <button class="btn-toggle-text" onclick="toggleText('notes-{{ item.id }}', this)">Show more</button>
+        {% if item.notes|length > 80 %}
+        <button class="btn-toggle-text" onclick="toggleText('notes-{{ item.id }}', this)">more</button>
         {% endif %}
       </div>
       {% endif %}
@@ -299,7 +300,6 @@
       <!-- Actions -->
       <div class="card-actions">
         {% if is_admin %}
-        <span class="action-note">Approving adds this to the ledger.</span>
         <button class="btn-reject" onclick="askReject({{ item.id }}, '{{ item.vendor_name or item.payee }}')">Reject</button>
         <button class="btn-approve" onclick="approve({{ item.id }}, this)">Approve</button>
         {% else %}
@@ -475,7 +475,7 @@ function updateBadge(delta) {
 function toggleText(id, btn) {
   const el = document.getElementById(id);
   const expanded = el.classList.toggle('expanded');
-  btn.textContent = expanded ? 'Show less' : 'Show more';
+  btn.textContent = expanded ? 'less' : 'more';
 }
 
 function toast(msg, isError=false) {
