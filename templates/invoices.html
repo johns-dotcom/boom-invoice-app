@@ -150,7 +150,7 @@
       </thead>
       <tbody id="list-tbody">
         {% for item in items %}
-        <tr data-id="{{ item.id }}" data-parent="{{ item.parent_id or '' }}" data-search="{{ (item.payee + ' ' + item.artist + ' ' + item.invoice_number) | lower }}">
+        <tr data-id="{{ item.id }}" data-parent="{{ item.parent_id or '' }}" data-amount="{{ item.amount or 0 }}" data-search="{{ (item.payee + ' ' + item.artist + ' ' + item.invoice_number) | lower }}">
           <td class="tl-payee">{{ item.payee or '—' }}</td>
           <td class="tl-artist">{{ item.artist or '—' }}</td>
           <td class="tl-muted">{% if item.invoice_number %}#{{ item.invoice_number }}{% else %}—{% endif %}</td>
@@ -214,6 +214,16 @@ function initSplitGroups() {
       firstTd.prepend(toggle);
     }
     parentRow.addEventListener('click', () => toggleInvChildren(pid));
+
+    // Sum parent + all children amounts and update the parent's amount cell
+    const siblingRows = Array.from(tbody.querySelectorAll(`tr[data-parent="${pid}"]`));
+    const parentAmt  = parseFloat(parentRow.dataset.amount) || 0;
+    const childTotal = siblingRows.reduce((s, r) => s + (parseFloat(r.dataset.amount) || 0), 0);
+    const grandTotal = parentAmt + childTotal;
+    const amtCell = parentRow.querySelector('.tl-amount');
+    if (amtCell && grandTotal > 0) {
+      amtCell.textContent = '$' + grandTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
   });
 }
 
