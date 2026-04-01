@@ -138,6 +138,15 @@
   .due-soon     { background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
   .due-ok       { background:#f1f5f9; color:#475569; font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; white-space:nowrap; }
   .due-hold     { background:#ede9fe; color:#6d28d9; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+  .due-unset    { background:#f4f4f4; color:#aaa; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; cursor:pointer; }
+  .due-unset:hover { background:#e0e7ff; color:#4338ca; }
+  .due-edit-icon { cursor:pointer; font-size:10px; color:#bbb; margin-left:4px; opacity:.6; vertical-align:middle; }
+  .due-edit-icon:hover { opacity:1; color:var(--red); }
+  .due-date-picker-wrap { display:flex; gap:4px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+  .due-date-input { border:1.5px solid var(--border); border-radius:6px; padding:3px 7px; font-size:12px; font-family:inherit; outline:none; }
+  .due-date-input:focus { border-color:var(--red); }
+  .due-date-save { background:var(--green); color:#fff; border:none; border-radius:5px; padding:3px 9px; font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .due-date-clear { background:#f3f4f6; color:#666; border:none; border-radius:5px; padding:3px 9px; font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; }
   /* Terms dropdown */
   .terms-select { background:#fff; border:1.5px solid var(--border); border-radius:5px; font-size:12px; padding:3px 6px; font-family:inherit; color:var(--text); cursor:pointer; max-width:80px; }
   .terms-select:focus { outline:none; border-color:var(--red); }
@@ -409,7 +418,7 @@ async function undoLastChange() {
         if (entry) entry.payment_terms = item.oldVal || null;
         const sel = document.querySelector(`#terms-${item.id} select`);
         if (sel) sel.value = item.oldVal || '';
-        document.getElementById(`due-${item.id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, item.oldVal || null);
+        document.getElementById(`due-${item.id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, item.oldVal || null, entry ? entry.scheduled_payment_date : null, entry ? entry.payment_status : null, item.id);
         renderBell(allEntries);
       } else {
         // text fields — re-render the whole row to be safe
@@ -636,7 +645,7 @@ function renderRows(entries) {
       <td style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">${IS_JOHN ? `<select onchange="saveFieldLedger(${e.id},'boom_rep',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:600;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['Felipe','Jesse','John','Soli','Danny','Georgia','Bradley'].map(r=>`<option value="${r}" ${e.boom_rep===r?'selected':''}>${r}</option>`).join('')}</select>` : e.boom_rep||'—'}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${IS_JOHN ? `<select onchange="saveFieldLedger(${e.id},'payment_method',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['ACH','Check','Wire','Credit Card','PayPal','Cash'].map(m=>`<option value="${m}" ${e.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>` : e.payment_method||'—'}</td>
       <td id="terms-${e.id}">${termsSelect(e.id, e.payment_terms)}</td>
-      <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms)}</td>
+      <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms, e.scheduled_payment_date, e.payment_status, e.id)}</td>
       <td id="paid-${e.id}">${paymentBadge(e.id, e.payment_status)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
@@ -1234,17 +1243,78 @@ function dueDateFromTerms(invoiceDate, terms) {
   return d;
 }
 
-function dueDateCell(invoiceDate, terms) {
-  if (!terms) return '<span style="color:#ccc;font-size:12px">—</span>';
-  if (terms === 'Hold') return '<span class="due-hold">On Hold</span>';
+function dueDateCell(invoiceDate, terms, scheduledDate, paymentStatus, id) {
+  const isPaid = (paymentStatus || 'Unpaid') === 'Paid';
+  const editBtn = IS_JOHN && !isPaid
+    ? `<span class="due-edit-icon" onclick="event.stopPropagation();openDatePickerLedger(${id},'${scheduledDate||''}')">✏</span>`
+    : '';
+
+  // Scheduled date overrides computed
+  if (scheduledDate) {
+    const due = new Date(scheduledDate + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diff = Math.round((due - today) / 86400000);
+    const label = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    if (diff < 0)  return `<span class="due-overdue" title="${diff*-1} days overdue">⚠ ${label}</span>${editBtn}`;
+    if (diff <= 7) return `<span class="due-soon" title="Due in ${diff} day${diff===1?'':'s'}">📅 ${label}</span>${editBtn}`;
+    return `<span class="due-ok">📅 ${label}</span>${editBtn}`;
+  }
+
+  if (!terms) {
+    if (!IS_JOHN || isPaid) return '<span style="color:#ccc;font-size:12px">—</span>';
+    return `<span class="due-unset" onclick="event.stopPropagation();openDatePickerLedger(${id},'')">Schedule +</span>`;
+  }
+  if (terms === 'Hold') return `<span class="due-hold">On Hold</span>${editBtn}`;
   const due = dueDateFromTerms(invoiceDate, terms);
-  if (!due) return '<span style="color:#ccc;font-size:12px">—</span>';
+  if (!due) return `<span style="color:#ccc;font-size:12px">—</span>${editBtn}`;
   const today = new Date(); today.setHours(0,0,0,0);
   const diff = Math.round((due - today) / 86400000);
   const label = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  if (diff < 0)  return `<span class="due-overdue" title="${diff*-1} days overdue">⚠ ${label}</span>`;
-  if (diff <= 7) return `<span class="due-soon" title="Due in ${diff} day${diff===1?'':'s'}">${label}</span>`;
-  return `<span class="due-ok">${label}</span>`;
+  if (diff < 0)  return `<span class="due-overdue" title="${diff*-1} days overdue">⚠ ${label}</span>${editBtn}`;
+  if (diff <= 7) return `<span class="due-soon" title="Due in ${diff} day${diff===1?'':'s'}">${label}</span>${editBtn}`;
+  return `<span class="due-ok">${label}</span>${editBtn}`;
+}
+
+function openDatePickerLedger(id, current) {
+  document.querySelectorAll('.due-date-picker-wrap').forEach(el => el.remove());
+  const cell = document.getElementById(`due-${id}`);
+  if (!cell) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'due-date-picker-wrap';
+  wrap.innerHTML = `
+    <input type="date" class="due-date-input" value="${current}" />
+    <button class="due-date-save" onclick="saveScheduledDateLedger(${id}, this.previousElementSibling.value)">Set</button>
+    ${current ? `<button class="due-date-clear" onclick="saveScheduledDateLedger(${id}, '')">Clear</button>` : ''}
+  `;
+  cell.appendChild(wrap);
+  wrap.querySelector('input').focus();
+  wrap.querySelector('input').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') saveScheduledDateLedger(id, ev.target.value);
+    if (ev.key === 'Escape') wrap.remove();
+  });
+  setTimeout(() => {
+    document.addEventListener('click', function handler(ev) {
+      if (!wrap.contains(ev.target)) { wrap.remove(); document.removeEventListener('click', handler); }
+    });
+  }, 0);
+}
+
+async function saveScheduledDateLedger(id, dateStr) {
+  document.querySelectorAll('.due-date-picker-wrap').forEach(el => el.remove());
+  const res = await fetch(`/update/${id}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({scheduled_payment_date: dateStr || null})
+  });
+  if (res.ok) {
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) entry.scheduled_payment_date = dateStr;
+    const cell = document.getElementById(`due-${id}`);
+    if (cell && entry) cell.innerHTML = dueDateCell(entry.date_uploaded, entry.payment_terms, dateStr, entry.payment_status, id);
+    toast(dateStr ? `Scheduled for ${new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : 'Schedule cleared');
+  } else {
+    toast('Failed to save date', true);
+  }
 }
 
 function termsSelect(id, terms) {
@@ -1265,7 +1335,7 @@ async function saveTerms(id, sel) {
   if (res.ok) {
     pushUndo({type: 'field', id, field: 'payment_terms', oldVal: prev || ''});
     if (entry) entry.payment_terms = next;
-    document.getElementById(`due-${id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, next);
+    document.getElementById(`due-${id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, next, entry ? entry.scheduled_payment_date : null, entry ? entry.payment_status : null, id);
     flashRow(id); toast('Terms updated');
     renderBell(allEntries);
   } else {
