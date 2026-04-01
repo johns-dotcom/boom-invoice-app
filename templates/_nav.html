@@ -41,12 +41,12 @@
         More <span class="caret">▾</span>
       </button>
       <div class="nav-dropdown-menu" id="nav-more-dropdown">
-        {% if is_admin %}
+        {% if is_admin or current_user == 'Danny' %}
           <a href="/analytics" class="{{ 'active' if p == '/analytics' else '' }}">Analytics</a>
           <a href="/1099"      class="{{ 'active' if p == '/1099' else '' }}">1099</a>
         {% endif %}
         <a href="/calendar"  class="{{ 'active' if p == '/calendar' else '' }}">Calendar</a>
-        {% if current_user in ['John', 'Jesse', 'Felipe'] %}
+        {% if current_user in ['John', 'Jesse', 'Felipe', 'Danny'] %}
           <a href="/history"   class="{{ 'active' if p == '/history' else '' }}">History</a>
         {% endif %}
       </div>
@@ -88,10 +88,10 @@
   <a href="/vendors">Vendors</a>
   {% if current_user != 'Danny' %}<a href="/payments">Payments</a>{% endif %}
   {% if current_user == 'Danny' %}<a href="/danny">PayPal Summary</a>{% endif %}
-  {% if is_admin %}<a href="/analytics">Analytics</a>{% endif %}
-  {% if is_admin %}<a href="/1099">1099 Summary</a>{% endif %}
+  {% if is_admin or current_user == 'Danny' %}<a href="/analytics">Analytics</a>{% endif %}
+  {% if is_admin or current_user == 'Danny' %}<a href="/1099">1099 Summary</a>{% endif %}
   <a href="/calendar">Calendar</a>
-  {% if current_user in ['John', 'Jesse', 'Felipe'] %}<a href="/history">History</a>{% endif %}
+  {% if current_user in ['John', 'Jesse', 'Felipe', 'Danny'] %}<a href="/history">History</a>{% endif %}
   <a href="/export" style="color:#16a34a">Export Excel</a>
   <a href="/export-qbo" style="color:#16a34a">Export CSV</a>
   <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>

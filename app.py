@@ -322,10 +322,10 @@ def danny_required(f):
     return dec
 
 def history_allowed(f):
-    """John, Jesse, and Felipe can view history."""
+    """John, Jesse, Felipe, and Danny can view history."""
     @wraps(f)
     def dec(*a, **kw):
-        if session.get("user_name") not in ("John", "Jesse", "Felipe"):
+        if session.get("user_name") not in ("John", "Jesse", "Felipe", "Danny"):
             return redirect("/")
         return f(*a, **kw)
     return dec
@@ -1763,13 +1763,11 @@ def clear_history():
 
 @app.route("/analytics")
 @login_required
-@admin_required
 def analytics():
     return render_template("analytics.html", is_admin=is_admin())
 
 @app.route("/analytics-data")
 @login_required
-@admin_required
 def analytics_data():
     try:
         # Read optional filter params

@@ -360,6 +360,7 @@ const CATEGORIES      = {{ categories | tojson }};
 const PAYMENT_METHODS = {{ payment_methods | tojson }};
 const IS_ADMIN        = {{ is_admin | tojson }};
 const IS_JOHN         = {{ is_john | tojson }};
+const IS_EDITOR       = true; // all logged-in users can edit soft fields
 
 let allEntries = [];
 let pendingDeleteId = null;
@@ -642,8 +643,8 @@ function renderRows(entries) {
           ${['USD','EUR','GBP','CAD','AUD','CHF','SEK','NOK','DKK','JPY','MXN','BRL'].map(c=>`<option value="${c}" ${(e.currency||'USD').toUpperCase()===c?'selected':''}>${c}</option>`).join('')}
         </select>` : `<span style="font-size:12px;font-weight:700;color:var(--muted)">${(e.currency||'USD').toUpperCase()}</span>`}
       </td>
-      <td style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">${IS_JOHN ? `<select onchange="saveFieldLedger(${e.id},'boom_rep',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:600;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['Felipe','Jesse','John','Soli','Danny','Georgia','Bradley'].map(r=>`<option value="${r}" ${e.boom_rep===r?'selected':''}>${r}</option>`).join('')}</select>` : e.boom_rep||'—'}</td>
-      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${IS_JOHN ? `<select onchange="saveFieldLedger(${e.id},'payment_method',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['ACH','Check','Wire','Credit Card','PayPal','Cash'].map(m=>`<option value="${m}" ${e.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>` : e.payment_method||'—'}</td>
+      <td style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">${IS_EDITOR ? `<select onchange="saveFieldLedger(${e.id},'boom_rep',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:600;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['Felipe','Jesse','John','Soli','Danny','Georgia','Bradley'].map(r=>`<option value="${r}" ${e.boom_rep===r?'selected':''}>${r}</option>`).join('')}</select>` : e.boom_rep||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${IS_EDITOR ? `<select onchange="saveFieldLedger(${e.id},'payment_method',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['ACH','Check','Wire','Credit Card','PayPal','Cash'].map(m=>`<option value="${m}" ${e.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>` : e.payment_method||'—'}</td>
       <td id="terms-${e.id}">${termsSelect(e.id, e.payment_terms)}</td>
       <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms, e.scheduled_payment_date, e.payment_status, e.id)}</td>
       <td id="paid-${e.id}">${paymentBadge(e.id, e.payment_status)}</td>
@@ -1245,7 +1246,7 @@ function dueDateFromTerms(invoiceDate, terms) {
 
 function dueDateCell(invoiceDate, terms, scheduledDate, paymentStatus, id) {
   const isPaid = (paymentStatus || 'Unpaid') === 'Paid';
-  const editBtn = IS_JOHN && !isPaid
+  const editBtn = IS_EDITOR && !isPaid
     ? `<span class="due-edit-icon" onclick="event.stopPropagation();openDatePickerLedger(${id},'${scheduledDate||''}')">✏</span>`
     : '';
 
@@ -1261,7 +1262,7 @@ function dueDateCell(invoiceDate, terms, scheduledDate, paymentStatus, id) {
   }
 
   if (!terms) {
-    if (!IS_JOHN || isPaid) return '<span style="color:#ccc;font-size:12px">—</span>';
+    if (!IS_EDITOR || isPaid) return '<span style="color:#ccc;font-size:12px">—</span>';
     return `<span class="due-unset" onclick="event.stopPropagation();openDatePickerLedger(${id},'')">Schedule +</span>`;
   }
   if (terms === 'Hold') return `<span class="due-hold">On Hold</span>${editBtn}`;
