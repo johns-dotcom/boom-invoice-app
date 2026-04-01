@@ -591,7 +591,8 @@ def add_expense():
 @login_required
 def update_entry(eid):
     allowed = {"in_quickbooks","uploaded_to_stem","artist","song","notes",
-               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status","vendor_email","payment_terms","invoice_number","boom_rep"}
+               "category","payment_method","payment_date","qb_entry_date","stem_upload_date","cobrand","currency","payment_status","vendor_email","payment_terms","invoice_number","boom_rep",
+               "payee","amount","description","invoice_date"}
     updates = {k:v for k,v in request.json.items() if k in allowed}
     if not updates: return jsonify({"error":"No valid fields"}), 400
     try:
@@ -605,6 +606,9 @@ def update_entry(eid):
         for field, val in updates.items():
             if field == "cobrand":
                 val = bool(val)
+            elif field == "amount":
+                try: val = float(str(val).replace(",","").replace("$","").strip()) if val not in (None,"") else None
+                except: val = None
             cur.execute(f"UPDATE expenses SET {field}={ph} WHERE id={ph}", (val if val != "" else None, eid))
             log_action("field_updated", eid, payee_val, field=field,
                        old_value=old_vals.get(field), new_value=val)
@@ -1272,7 +1276,8 @@ def payments():
 @login_required
 def ledger():
     return render_template("ledger.html", categories=CATEGORIES,
-                           payment_methods=PAYMENT_METHODS, is_admin=is_admin())
+                           payment_methods=PAYMENT_METHODS, is_admin=is_admin(),
+                           is_john=session.get("user_name")=="John")
 
 @app.route("/danny")
 @login_required

@@ -350,6 +350,7 @@
 const CATEGORIES      = {{ categories | tojson }};
 const PAYMENT_METHODS = {{ payment_methods | tojson }};
 const IS_ADMIN        = {{ is_admin | tojson }};
+const IS_JOHN         = {{ is_john | tojson }};
 
 let allEntries = [];
 let pendingDeleteId = null;
@@ -606,12 +607,12 @@ function renderRows(entries) {
 
     return `
     <tr id="row-${e.id}"${rowClass ? ` class="${rowClass}"` : ''}${isParent ? ` onclick="toggleSplitGroup(${e.id})"` : ''}${isChild ? ` data-parent="${e.parent_id}" style="display:none"` : ''}>
-      <td class="td-date">${e.invoice_date||'—'}</td>
-      <td class="td-payee">${isChild ? '' : (e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}">${e.payee}</a>` : '—')}</td>
+      <td class="td-date">${IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'invoice_date',this,'${esc(e.invoice_date)}')">${e.invoice_date||'—'}</span>` : e.invoice_date||'—'}</td>
+      <td class="td-payee">${isChild ? '' : IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'payee',this,'${esc(e.payee)}')" title="Click to edit">${e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none">${e.payee}</a>` : '<span style="color:#ccc">Add payee</span>'}</span>` : (e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}">${e.payee}</a>` : '—')}</td>
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
-      <td style="text-align:center;width:32px">${!isChild && e.description ? `<button class="desc-btn" onclick="event.stopPropagation();toggleDesc(event,${e.id})" title="${esc(e.description)}">📋</button>` : ''}</td>
+      <td style="text-align:center;width:32px">${!isChild ? IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'description',this,'${esc(e.description)}')" title="${esc(e.description)||'Add description'}" style="font-size:11px;color:${e.description?'#374151':'#ccc'}">${e.description ? '📋' : '+'}</span>` : (e.description ? `<button class="desc-btn" onclick="event.stopPropagation();toggleDesc(event,${e.id})" title="${esc(e.description)}">📋</button>` : '') : ''}</td>
       <td>${isChild ? '' : IS_ADMIN ? `<span class="editable-cell" onclick="event.stopPropagation();editCategory(${e.id},this,'${esc(e.category)}')">${esc(e.category)||'—'}</span>` : e.category||'—'}</td>
       <td${isChild ? ' style="padding-left:26px"' : ''}>
         ${isChild ? '<span class="split-indent">↳</span>' : ''}
@@ -619,15 +620,15 @@ function renderRows(entries) {
         ${isParent ? `<span class="tag-artists">${artistCount} artists</span><span class="split-toggle" id="toggle-${e.id}">▶</span>` : ''}
       </td>
       <td><span id="split-song-${e.id}" class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'song',this,'${esc(e.song)}')">${isParent ? '<span style="color:#6366f1;font-weight:700">Multi</span>' : e.song||'—'}</span></td>
-      <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
-      <td class="td-amount" id="split-amt-${e.id}">${isParent ? fmt(children.reduce((s,c) => s + (Number(c.amount)||0), Number(e.amount)||0), e.currency) : fmt(e.amount, e.currency)}</td>
+      <td style="color:var(--muted);font-size:12px">${IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'invoice_number',this,'${esc(e.invoice_number)}')">${e.invoice_number||'—'}</span>` : e.invoice_number||'—'}</td>
+      <td class="td-amount" id="split-amt-${e.id}">${IS_JOHN && !isParent ? `<span class="editable-cell" onclick="event.stopPropagation();editAmount(${e.id},this,${e.amount||0},'${(e.currency||'USD').toUpperCase()}')">${fmt(e.amount, e.currency)}</span>` : (isParent ? fmt(children.reduce((s,c) => s + (Number(c.amount)||0), Number(e.amount)||0), e.currency) : fmt(e.amount, e.currency))}</td>
       <td style="white-space:nowrap">
         ${IS_ADMIN ? `<select onchange="saveCurrencyLedger(${e.id},this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:700;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit">
           ${['USD','EUR','GBP','CAD','AUD','CHF','SEK','NOK','DKK','JPY','MXN','BRL'].map(c=>`<option value="${c}" ${(e.currency||'USD').toUpperCase()===c?'selected':''}>${c}</option>`).join('')}
         </select>` : `<span style="font-size:12px;font-weight:700;color:var(--muted)">${(e.currency||'USD').toUpperCase()}</span>`}
       </td>
-      <td style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">${e.boom_rep||'—'}</td>
-      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${e.payment_method||'—'}</td>
+      <td style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">${IS_JOHN ? `<select onchange="saveFieldLedger(${e.id},'boom_rep',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:600;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['Felipe','Jesse','John','Soli','Danny','Georgia','Bradley'].map(r=>`<option value="${r}" ${e.boom_rep===r?'selected':''}>${r}</option>`).join('')}</select>` : e.boom_rep||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${IS_JOHN ? `<select onchange="saveFieldLedger(${e.id},'payment_method',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['ACH','Check','Wire','Credit Card','PayPal','Cash'].map(m=>`<option value="${m}" ${e.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>` : e.payment_method||'—'}</td>
       <td id="terms-${e.id}">${termsSelect(e.id, e.payment_terms)}</td>
       <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms)}</td>
       <td id="paid-${e.id}">${paymentBadge(e.id, e.payment_status)}</td>
@@ -891,6 +892,63 @@ async function saveCurrencyLedger(id, sel) {
     sel.style.borderBottomColor = '#e53935';
     setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
   }
+}
+
+// ─── Generic select saver (John only) ────────────────────────────────────────
+async function saveFieldLedger(id, field, val, sel) {
+  try {
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({[field]: val || null})
+    });
+    if (!r.ok) throw new Error();
+    const entry = allEntries ? allEntries.find(e => e.id === id) : null;
+    if (entry) entry[field] = val;
+    sel.style.borderBottomColor = '#4caf50';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1200);
+    flashRow(id); toast('Saved');
+  } catch {
+    sel.style.borderBottomColor = '#e53935';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
+    toast('Save failed', true);
+  }
+}
+
+// ─── Amount inline edit (John only) ──────────────────────────────────────────
+function editAmount(id, spanEl, currentVal, currency) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentVal ? String(currentVal) : '';
+  input.placeholder = '0.00';
+  input.style.cssText = 'width:90px;font-size:13px;font-weight:900;color:var(--red);padding:2px 4px;border:1px solid #ccc;border-radius:4px;text-align:right;font-family:inherit';
+  spanEl.replaceWith(input);
+  input.focus(); input.select();
+  const save = async () => {
+    const raw = input.value.replace(/[$,\s]/g,'');
+    const newVal = raw ? parseFloat(raw) : null;
+    const span = document.createElement('span');
+    span.className = 'editable-cell td-amount';
+    span.textContent = newVal != null ? fmt(newVal, currency) : '—';
+    span.onclick = (ev) => { ev.stopPropagation(); editAmount(id, span, newVal, currency); };
+    input.replaceWith(span);
+    if (newVal === currentVal) return;
+    pushUndo({type:'field', id, field:'amount', oldVal: currentVal});
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({amount: newVal})
+    });
+    if (r.ok) {
+      const entry = allEntries ? allEntries.find(e => e.id === id) : null;
+      if (entry) entry.amount = newVal;
+      document.getElementById(`split-amt-${id}`).innerHTML = span.outerHTML;
+      flashRow(id); toast('Saved');
+    } else toast('Save failed', true);
+  };
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = currentVal||''; input.blur(); }
+  });
 }
 
 // ─── Category dropdown (admin only) ───────────────────────────────────────────
