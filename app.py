@@ -298,8 +298,8 @@ def inject_globals():
             count = cur.fetchone()[0]; conn.close()
         except:
             count = 0
-        return {"pending_count": count, "current_user": session.get("user_name")}
-    return {"pending_count": 0, "current_user": None}
+        return {"pending_count": count, "current_user": session.get("user_name"), "impersonator": session.get("impersonator")}
+    return {"pending_count": 0, "current_user": None, "impersonator": None}
 
 @app.route("/login", methods=["GET","POST"])
 def login():
@@ -355,6 +355,32 @@ def auth_callback():
 @app.route("/logout")
 def logout():
     session.clear(); return redirect("/login")
+
+# ─── Impersonation (John only) ───────────────────────────────────────────────
+IMPERSONATABLE_USERS = {
+    "John":   "admin",
+    "Jesse":  "admin",
+    "Felipe": "admin",
+    "Soli":   "admin",
+    "Danny":  "user",
+}
+
+@app.route("/impersonate/<username>")
+def impersonate(username):
+    if session.get("user_name") != "John" and session.get("impersonator") != "John":
+        return redirect("/")
+    if username == "John":
+        # Return to real self
+        session.pop("impersonator", None)
+        session["user_name"] = "John"
+        session["role"] = "admin"
+        return redirect("/ledger")
+    if username not in IMPERSONATABLE_USERS:
+        return redirect("/ledger")
+    session["impersonator"] = "John"
+    session["user_name"] = username
+    session["role"] = IMPERSONATABLE_USERS[username]
+    return redirect("/ledger")
 
 def john_required(f):
     @wraps(f)
