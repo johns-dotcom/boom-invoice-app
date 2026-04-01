@@ -305,7 +305,7 @@ def inject_globals():
 def login():
     # Google SSO path
     if google_oauth:
-        redirect_uri = url_for("auth_callback", _external=True)
+        redirect_uri = (APP_URL.rstrip("/") + "/auth/callback") if APP_URL else url_for("auth_callback", _external=True)
         return google_oauth.authorize_redirect(redirect_uri)
 
     # Legacy password fallback (local dev without Google creds)
