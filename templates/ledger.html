@@ -999,23 +999,26 @@ function editCategory(id, spanEl, currentVal) {
 
 function editText(id, field, spanEl, currentVal) {
   const input=document.createElement('input'); input.className='inline-input';
-  input.value=currentVal==='—'?'':currentVal;
+  const normalised=currentVal==='—'?'':currentVal;
+  input.value=normalised;
   spanEl.replaceWith(input); input.focus(); input.select();
   const save=async()=>{
-    const newVal=input.value.trim(); input.classList.add('saving');
-    const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
-    const entry=allEntries.find(e=>e.id===id);
+    const newVal=input.value.trim();
     const span=document.createElement('span'); span.className='editable-cell';
     span.textContent=newVal||'—'; span.title=newVal||'';
     span.onclick=()=>editText(id,field,span,newVal); input.replaceWith(span);
+    if(newVal===normalised) return; // nothing changed — skip save + history
+    input.classList.add('saving');
+    const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
+    const entry=allEntries.find(e=>e.id===id);
     if(res.ok){
-      pushUndo({type:'field', id, field, oldVal: currentVal==='—'?'':currentVal});
+      pushUndo({type:'field', id, field, oldVal: normalised});
       if(entry) entry[field]=newVal;
       flashRow(id);toast('Saved');
     }else toast('Save failed',true);
   };
   input.addEventListener('blur',save);
-  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=currentVal;input.blur();}});
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=normalised;input.blur();}});
 }
 
 function triggerProofUpload(id) {
