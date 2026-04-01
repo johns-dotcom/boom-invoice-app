@@ -65,7 +65,10 @@
   #confirm-overlay.open { display:flex; }
   #confirm-box { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:28px; width:360px; box-shadow:0 8px 32px rgba(0,0,0,.12); }
   #confirm-box h3 { font-size:15px; margin-bottom:8px; }
-  #confirm-box p { color:var(--muted); font-size:13px; margin-bottom:20px; line-height:1.5; }
+  #confirm-box p { color:var(--muted); font-size:13px; margin-bottom:14px; line-height:1.5; }
+  #reject-reason { width:100%; border:1.5px solid var(--border); border-radius:8px; padding:10px 13px; font-size:13px; font-family:inherit; resize:vertical; min-height:72px; outline:none; transition:border-color .15s; margin-bottom:16px; }
+  #reject-reason:focus { border-color:var(--red); }
+  .reason-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#555; margin-bottom:5px; display:block; }
   .confirm-actions { display:flex; gap:10px; }
   .btn-del-confirm { background:#dc2626; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
   .btn-cancel { background:#f3f4f6; color:var(--text); border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; }
@@ -250,6 +253,8 @@
   <div id="confirm-box">
     <h3>Reject this invoice?</h3>
     <p id="confirm-msg"></p>
+    <label class="reason-label" for="reject-reason">Reason <span style="color:#aaa;font-weight:400;text-transform:none;letter-spacing:0">(sent to vendor)</span></label>
+    <textarea id="reject-reason" placeholder="e.g. Missing invoice number, incorrect amount, duplicate submission…"></textarea>
     <div class="confirm-actions">
       <button class="btn-del-confirm" onclick="confirmReject()">Yes, Reject</button>
       <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
@@ -350,8 +355,10 @@ async function approveBulk() {
 function askReject(id, name) {
   pendingRejectId = id;
   document.getElementById('confirm-msg').textContent =
-    `Permanently reject and remove the invoice from "${name}"? This cannot be undone.`;
+    `Reject the invoice from "${name}"? The vendor will be notified by email.`;
+  document.getElementById('reject-reason').value = '';
   document.getElementById('confirm-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('reject-reason').focus(), 100);
 }
 
 function closeConfirm() {
@@ -361,8 +368,14 @@ function closeConfirm() {
 
 async function confirmReject() {
   if (!pendingRejectId) return;
-  const id = pendingRejectId; closeConfirm();
-  const res = await fetch(`/reject/${id}`, {method:'POST'});
+  const id = pendingRejectId;
+  const reason = document.getElementById('reject-reason').value.trim();
+  closeConfirm();
+  const res = await fetch(`/reject/${id}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({reason})
+  });
   if (res.ok) {
     const card = document.getElementById(`card-${id}`);
     card.style.transition = 'opacity .3s';

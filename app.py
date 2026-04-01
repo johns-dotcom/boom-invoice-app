@@ -503,6 +503,118 @@ border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &a
         print(f"Email error: {e}")
 
 
+def boom_rep_email(name):
+    """Return the Boom Rep's email address by name."""
+    if not name:
+        return None
+    special = {"john": "johns@boomrecords.co"}
+    key = name.lower().strip()
+    return special.get(key, f"{key}@boomrecords.co")
+
+
+def send_status_email(vendor_name, vendor_email, status, invoice_info, boom_rep=None, reason=None):
+    """Send an approval or rejection email directly to the vendor."""
+    client_id     = os.environ.get("GMAIL_CLIENT_ID", "")
+    client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
+    refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "")
+    sender        = os.environ.get("GMAIL_USER", "")
+    if not all([client_id, client_secret, refresh_token, sender]):
+        print("Email not configured — vendor status email not sent")
+        return
+    if not vendor_email:
+        print("No vendor email — vendor status email not sent")
+        return
+    try:
+        import base64, urllib.request, urllib.parse, json
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        token_resp = urllib.request.urlopen(urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=urllib.parse.urlencode({
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type":    "refresh_token",
+            }).encode(), method="POST"
+        ))
+        access_token = json.loads(token_resp.read())["access_token"]
+
+        rep_name  = boom_rep or "the Boom.Records team"
+        rep_email = boom_rep_email(boom_rep) if boom_rep else None
+        contact_line = (f'<strong>{rep_name}</strong> at '
+                        f'<a href="mailto:{rep_email}" style="color:#e31e24">{rep_email}</a>'
+                        if rep_email else f'<strong>{rep_name}</strong>')
+
+        amt     = invoice_info.get("amount")
+        amt_str = f"${float(amt):,.2f}" if amt else ""
+        inv_num = invoice_info.get("invoice_number", "")
+        artist  = invoice_info.get("artist", "")
+
+        def row(bg, label, val):
+            s = "background:#f9f9f9;" if bg else ""
+            return (f"<tr><td style='padding:7px 12px;{s}color:#666;width:130px;font-size:13px'>{label}</td>"
+                    f"<td style='padding:7px 12px;{s}font-size:13px'>{val}</td></tr>")
+
+        if status == "approved":
+            subject      = f"Invoice #{inv_num} Approved — Boom.Records" if inv_num else "Invoice Approved — Boom.Records"
+            accent_color = "#16a34a"
+            header_txt   = "Your invoice has been approved ✓"
+            body_html    = f"""
+<p style="margin:0 0 14px">Hi <strong>{vendor_name}</strong>,</p>
+<p style="margin:0 0 14px">Your invoice has been reviewed and approved. Payment will be processed according to the agreed terms.</p>"""
+        else:
+            subject      = f"Invoice #{inv_num} — Follow-Up Needed" if inv_num else "Invoice Submission — Follow-Up Needed"
+            accent_color = "#e31e24"
+            header_txt   = "Follow-up needed on your invoice"
+            reason_block = (f"<div style='background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;"
+                            f"padding:12px 16px;margin:14px 0;font-size:13px;color:#b91c1c'>"
+                            f"<strong>Reason:</strong> {reason}</div>") if reason else ""
+            body_html    = f"""
+<p style="margin:0 0 14px">Hi <strong>{vendor_name}</strong>,</p>
+<p style="margin:0 0 14px">Thank you for submitting your invoice. Unfortunately we weren't able to process it at this time.</p>
+{reason_block}
+<p style="margin:0 0 14px">Please reach out to your Boom Rep for next steps.</p>"""
+
+        detail_rows = ""
+        if artist:  detail_rows += row(True,  "Artist / Project", f"<strong>{artist}</strong>")
+        if inv_num: detail_rows += row(False, "Invoice #", inv_num)
+        if amt_str: detail_rows += row(True,  "Amount", f"<strong style='color:{accent_color}'>{amt_str}</strong>")
+        details_table = (f"<table style='width:100%;border-collapse:collapse;margin:14px 0'>"
+                         f"{detail_rows}</table>") if detail_rows else ""
+
+        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
+border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
+  <div style='background:{accent_color};padding:18px 24px'>
+    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — {header_txt}</h2>
+  </div>
+  <div style='padding:22px;color:#111'>
+    {body_html}
+    {details_table}
+    <p style='margin:14px 0 0;font-size:13px;color:#555'>
+      Questions? Reach out to your Boom Rep: {contact_line}</p>
+    <p style='margin:8px 0 0;font-size:12px;color:#aaa'>Boom.Records LLC</p>
+  </div>
+</div>"""
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"Boom.Records <{sender}>"
+        msg["To"]      = vendor_email
+        msg.attach(MIMEText(html, "html"))
+
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        urllib.request.urlopen(urllib.request.Request(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            data=json.dumps({"raw": raw}).encode(),
+            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+            method="POST"
+        ))
+        print(f"Vendor status email ({status}) sent to {vendor_email}")
+    except Exception as e:
+        print(f"Vendor status email error: {e}")
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 
 @app.route("/health")
@@ -864,7 +976,8 @@ def approve_entry(eid):
                                vendor_address, w9_filename, w9_data,
                                invoice_filename, invoice_data,
                                proof_filename, proof_data,
-                               cobrand, is_reimbursement, currency, payment_terms, created_at
+                               cobrand, is_reimbursement, currency, payment_terms, created_at,
+                               boom_rep
                         FROM expenses WHERE id={ph}""", (eid,))
         row = cur.fetchone()
         if not row:
@@ -877,7 +990,8 @@ def approve_entry(eid):
          vendor_addr, w9_fname, w9_data_val,
          inv_fname, inv_data_val,
          proof_fname, proof_data_val,
-         cobrand, is_reimb, currency, pay_terms, created_at_val) = row
+         cobrand, is_reimb, currency, pay_terms, created_at_val,
+         boom_rep) = row
 
         breakdown = _parse_json_list(breakdown_str)
 
@@ -945,6 +1059,13 @@ def approve_entry(eid):
         if total_amount: detail_parts.append(f"${total_amount}")
         log_action("invoice_approved", eid, payee,
                    details=" | ".join(detail_parts) if detail_parts else None)
+        # Email vendor
+        first_artist = breakdown[0].get("artist","") if breakdown else payee
+        send_status_email(
+            vendor_name or payee, vendor_email, "approved",
+            {"invoice_number": inv_num, "amount": total_amount, "artist": first_artist},
+            boom_rep=boom_rep
+        )
         return jsonify({"ok":True, "approved_by": approver, "approved_at": now.strftime("%Y-%m-%d %H:%M")})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
@@ -1155,13 +1276,23 @@ def approve_bulk():
 @admin_required
 def reject_entry(eid):
     try:
+        reason = (request.json or {}).get("reason", "").strip() if request.is_json else ""
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
-        cur.execute(f"SELECT payee, invoice_number FROM expenses WHERE id={ph}", (eid,))
+        cur.execute(f"""SELECT payee, invoice_number, vendor_name, vendor_email,
+                               amount, artist, boom_rep
+                        FROM expenses WHERE id={ph}""", (eid,))
         row = cur.fetchone()
         cur.execute(f"DELETE FROM expenses WHERE id={ph}", (eid,))
         conn.commit(); conn.close()
-        log_action("invoice_rejected", eid, row[0] if row else None,
-                   details=f"Invoice #{row[1]}" if row and row[1] else None)
+        if row:
+            payee, inv_num, vendor_name, vendor_email, amount, artist, boom_rep = row
+            log_action("invoice_rejected", eid, payee,
+                       details=f"Invoice #{inv_num}" if inv_num else None)
+            send_status_email(
+                vendor_name or payee, vendor_email, "rejected",
+                {"invoice_number": inv_num, "amount": amount, "artist": artist},
+                boom_rep=boom_rep, reason=reason or None
+            )
         return jsonify({"ok":True})
     except Exception as e:
         return jsonify({"error":str(e)}), 500
