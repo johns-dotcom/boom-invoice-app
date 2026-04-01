@@ -445,34 +445,35 @@ def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=N
                     f"W9/W8 submitted: <strong>{w9_filename}</strong></div>") if w9_filename else ""
 
         def row(bg, label, val):
-            bg_s = "background:#f9f9f9;" if bg else ""
-            return (f"<tr><td style='padding:7px 12px;{bg_s}color:#666;width:150px'>{label}</td>"
-                    f"<td style='padding:7px 12px;{bg_s}'>{val}</td></tr>")
+            return (f"<tr style='border-bottom:1px solid #e5e7eb'>"
+                    f"<td style='padding:9px 12px;color:#888;width:140px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;vertical-align:top'>{label}</td>"
+                    f"<td style='padding:9px 12px;font-size:13px;color:#111'>{val}</td></tr>")
 
         doc_type = "Reimbursement" if is_reimbursement else "Invoice"
-        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
-border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
-  <div style='background:#e31e24;padding:18px 24px'>
-    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — New {doc_type} Pending Approval</h2>
-  </div>
-  <div style='padding:22px;color:#111'>
-    <p style='margin:0 0 14px'>A vendor submitted an invoice — it's waiting in your approval queue.</p>
-    <table style='width:100%;border-collapse:collapse;font-size:13px'>
-      {row(True,'Vendor',f"<strong>{vendor_name}</strong> ({vendor_email})")}
+        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;border:1px solid #e5e7eb'>
+  <div style='padding:24px 28px 0'>
+    <div style='font-size:13px;font-weight:800;color:#111;letter-spacing:-.2px'>boom.</div>
+    <div style='height:2px;background:#e31e24;margin:10px 0 20px'></div>
+    <h1 style='margin:0 0 6px;font-size:18px;font-weight:700;color:#111'>New {doc_type} Pending Review</h1>
+    <p style='margin:0 0 20px;font-size:13px;color:#555'>A vendor submitted an invoice — it&rsquo;s waiting in your approval queue.</p>
+    <table style='width:100%;border-collapse:collapse;font-size:13px;border-top:1px solid #e5e7eb'>
+      {row(False,'Vendor',f"<strong>{vendor_name}</strong><br><span style='color:#888;font-size:12px'>{vendor_email}</span>")}
       {row(False,'Artist / Project',f"<strong>{fields.get('artist') or '—'}</strong>")}
-      {row(True,'Song',fields.get('song') or '—')}
+      {row(False,'Song',fields.get('song') or '—')}
       {row(False,'Invoice Date',fields.get('invoice_date') or '—')}
       {row(False,'Invoice #',fields.get('invoice_number') or '—')}
-      {row(True,'Amount',f"<strong style='color:#e31e24'>{amt_str}</strong>")}
+      {row(False,'Amount',f"<strong style='color:#e31e24;font-size:14px'>{amt_str}</strong>")}
       {row(False,'Description',fields.get('description') or '—')}
-      {row(True,'Category',fields.get('category') or '—')}
+      {row(False,'Category',fields.get('category') or '—')}
       {row(False,'Boom Rep',fields.get('boom_rep') or '—')}
     </table>
     {w9_block}{warn_block}
-    <div style='margin-top:20px'>
-      <a href='{review_url}' style='background:#e31e24;color:#fff;padding:9px 18px;
-border-radius:7px;text-decoration:none;font-weight:600;font-size:13px'>Review &amp; Approve</a>
+    <div style='margin-top:22px;padding-bottom:24px'>
+      <a href='{review_url}' style='display:inline-block;background:#e31e24;color:#fff;padding:10px 20px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.01em'>Review &amp; Approve</a>
     </div>
+  </div>
+  <div style='background:#f9fafb;border-top:1px solid #e5e7eb;padding:12px 28px'>
+    <p style='margin:0;font-size:11px;color:#9ca3af'>Boom.Records LLC — internal notification</p>
   </div>
 </div>"""
 
@@ -551,49 +552,46 @@ def send_status_email(vendor_name, vendor_email, status, invoice_info, boom_rep=
         inv_num = invoice_info.get("invoice_number", "")
         artist  = invoice_info.get("artist", "")
 
-        def row(bg, label, val):
-            s = "background:#f9f9f9;" if bg else ""
-            return (f"<tr><td style='padding:7px 12px;{s}color:#666;width:130px;font-size:13px'>{label}</td>"
-                    f"<td style='padding:7px 12px;{s}font-size:13px'>{val}</td></tr>")
+        def row(label, val):
+            return (f"<tr style='border-bottom:1px solid #e5e7eb'>"
+                    f"<td style='padding:9px 12px;color:#888;width:140px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;vertical-align:top'>{label}</td>"
+                    f"<td style='padding:9px 12px;font-size:13px;color:#111'>{val}</td></tr>")
 
         if status == "approved":
-            subject      = f"Invoice #{inv_num} Approved — Boom.Records" if inv_num else "Invoice Approved — Boom.Records"
+            subject      = f"Invoice #{inv_num} Approved" if inv_num else "Invoice Approved — Boom.Records"
             accent_color = "#16a34a"
-            header_txt   = "Your invoice has been approved ✓"
-            body_html    = f"""
-<p style="margin:0 0 14px">Hi <strong>{vendor_name}</strong>,</p>
-<p style="margin:0 0 14px">Your invoice has been reviewed and approved. Payment will be processed according to the agreed terms.</p>"""
+            header_txt   = "Invoice Approved"
+            body_html    = f"""<p style="margin:0 0 14px;font-size:14px;color:#111">Hi <strong>{vendor_name}</strong>,</p>
+<p style="margin:0 0 20px;font-size:13px;color:#555;line-height:1.6">Your invoice has been reviewed and approved. Payment will be processed according to the agreed terms.</p>"""
         else:
-            subject      = f"Invoice #{inv_num} — Follow-Up Needed" if inv_num else "Invoice Submission — Follow-Up Needed"
+            subject      = f"Invoice #{inv_num} — Follow-Up Needed" if inv_num else "Invoice — Follow-Up Needed"
             accent_color = "#e31e24"
-            header_txt   = "Follow-up needed on your invoice"
-            reason_block = (f"<div style='background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;"
-                            f"padding:12px 16px;margin:14px 0;font-size:13px;color:#b91c1c'>"
+            header_txt   = "Follow-Up Needed"
+            reason_block = (f"<div style='background:#fef2f2;border-left:3px solid #e31e24;"
+                            f"padding:10px 14px;margin:0 0 16px;font-size:13px;color:#b91c1c;line-height:1.5'>"
                             f"<strong>Reason:</strong> {reason}</div>") if reason else ""
-            body_html    = f"""
-<p style="margin:0 0 14px">Hi <strong>{vendor_name}</strong>,</p>
-<p style="margin:0 0 14px">Thank you for submitting your invoice. Unfortunately we weren't able to process it at this time.</p>
-{reason_block}
-<p style="margin:0 0 14px">Please reach out to your Boom Rep for next steps.</p>"""
+            body_html    = f"""<p style="margin:0 0 14px;font-size:14px;color:#111">Hi <strong>{vendor_name}</strong>,</p>
+<p style="margin:0 0 16px;font-size:13px;color:#555;line-height:1.6">Thank you for submitting your invoice. We weren&rsquo;t able to process it at this time.</p>
+{reason_block}<p style="margin:0 0 20px;font-size:13px;color:#555;line-height:1.6">Please reach out to your Boom Rep for next steps.</p>"""
 
         detail_rows = ""
-        if artist:  detail_rows += row(True,  "Artist / Project", f"<strong>{artist}</strong>")
-        if inv_num: detail_rows += row(False, "Invoice #", inv_num)
-        if amt_str: detail_rows += row(True,  "Amount", f"<strong style='color:{accent_color}'>{amt_str}</strong>")
-        details_table = (f"<table style='width:100%;border-collapse:collapse;margin:14px 0'>"
+        if artist:  detail_rows += row("Artist / Project", f"<strong>{artist}</strong>")
+        if inv_num: detail_rows += row("Invoice #", inv_num)
+        if amt_str: detail_rows += row("Amount", f"<strong style='color:{accent_color};font-size:14px'>{amt_str}</strong>")
+        details_table = (f"<table style='width:100%;border-collapse:collapse;border-top:1px solid #e5e7eb;margin:0 0 20px'>"
                          f"{detail_rows}</table>") if detail_rows else ""
 
-        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
-border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
-  <div style='background:{accent_color};padding:18px 24px'>
-    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — {header_txt}</h2>
-  </div>
-  <div style='padding:22px;color:#111'>
+        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;border:1px solid #e5e7eb'>
+  <div style='padding:24px 28px 0'>
+    <div style='font-size:13px;font-weight:800;color:#111;letter-spacing:-.2px'>boom.</div>
+    <div style='height:2px;background:{accent_color};margin:10px 0 20px'></div>
+    <h1 style='margin:0 0 18px;font-size:18px;font-weight:700;color:#111'>{header_txt}</h1>
     {body_html}
     {details_table}
-    <p style='margin:14px 0 0;font-size:13px;color:#555'>
-      Questions? Reach out to your Boom Rep: {contact_line}</p>
-    <p style='margin:8px 0 0;font-size:12px;color:#aaa'>Boom.Records LLC</p>
+    <p style='margin:0 0 6px;font-size:13px;color:#555'>Questions? Contact your Boom Rep: {contact_line}</p>
+  </div>
+  <div style='background:#f9fafb;border-top:1px solid #e5e7eb;padding:12px 28px;margin-top:20px'>
+    <p style='margin:0;font-size:11px;color:#9ca3af'>Boom.Records LLC</p>
   </div>
 </div>"""
 
@@ -665,17 +663,17 @@ def send_payment_released_email(vendor_name, vendor_email, invoice_info,
         artist  = invoice_info.get("artist", "")
         pay_date = invoice_info.get("payment_date", "")
 
-        def row(bg, label, val):
-            s = "background:#f9f9f9;" if bg else ""
-            return (f"<tr><td style='padding:7px 12px;{s}color:#666;width:130px;font-size:13px'>{label}</td>"
-                    f"<td style='padding:7px 12px;{s}font-size:13px'>{val}</td></tr>")
+        def row(label, val):
+            return (f"<tr style='border-bottom:1px solid #e5e7eb'>"
+                    f"<td style='padding:9px 12px;color:#888;width:140px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;vertical-align:top'>{label}</td>"
+                    f"<td style='padding:9px 12px;font-size:13px;color:#111'>{val}</td></tr>")
 
         detail_rows = ""
-        if artist:   detail_rows += row(True,  "Artist / Project", f"<strong>{artist}</strong>")
-        if inv_num:  detail_rows += row(False, "Invoice #", inv_num)
-        if amt_str:  detail_rows += row(True,  "Amount", f"<strong style='color:#16a34a'>{amt_str}</strong>")
-        if pay_date: detail_rows += row(False, "Payment Date", pay_date)
-        details_table = (f"<table style='width:100%;border-collapse:collapse;margin:14px 0'>"
+        if artist:   detail_rows += row("Artist / Project", f"<strong>{artist}</strong>")
+        if inv_num:  detail_rows += row("Invoice #", inv_num)
+        if amt_str:  detail_rows += row("Amount", f"<strong style='color:#16a34a;font-size:14px'>{amt_str}</strong>")
+        if pay_date: detail_rows += row("Payment Date", pay_date)
+        details_table = (f"<table style='width:100%;border-collapse:collapse;border-top:1px solid #e5e7eb;margin:0 0 20px'>"
                          f"{detail_rows}</table>") if detail_rows else ""
 
         att_note = ""
@@ -686,18 +684,18 @@ def send_payment_released_email(vendor_name, vendor_email, invoice_info,
         elif proof_fname:
             att_note = "Proof of payment is attached for your records."
 
-        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;
-border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
-  <div style='background:#16a34a;padding:18px 24px'>
-    <h2 style='margin:0;font-size:15px;color:#fff;font-weight:900'>boom. — Payment Released 💸</h2>
-  </div>
-  <div style='padding:22px;color:#111'>
-    <p style='margin:0 0 14px'>Hi <strong>{vendor_name}</strong>,</p>
-    <p style='margin:0 0 14px'>Your payment has been released. {att_note}</p>
+        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;border:1px solid #e5e7eb'>
+  <div style='padding:24px 28px 0'>
+    <div style='font-size:13px;font-weight:800;color:#111;letter-spacing:-.2px'>boom.</div>
+    <div style='height:2px;background:#16a34a;margin:10px 0 20px'></div>
+    <h1 style='margin:0 0 18px;font-size:18px;font-weight:700;color:#111'>Payment Released</h1>
+    <p style='margin:0 0 14px;font-size:14px;color:#111'>Hi <strong>{vendor_name}</strong>,</p>
+    <p style='margin:0 0 20px;font-size:13px;color:#555;line-height:1.6'>Your payment has been released.{' ' + att_note if att_note else ''}</p>
     {details_table}
-    <p style='margin:14px 0 0;font-size:13px;color:#555'>
-      Questions? Reach out to your Boom Rep: {contact_line}</p>
-    <p style='margin:8px 0 0;font-size:12px;color:#aaa'>Boom.Records LLC</p>
+    <p style='margin:0 0 6px;font-size:13px;color:#555'>Questions? Contact your Boom Rep: {contact_line}</p>
+  </div>
+  <div style='background:#f9fafb;border-top:1px solid #e5e7eb;padding:12px 28px;margin-top:20px'>
+    <p style='margin:0;font-size:11px;color:#9ca3af'>Boom.Records LLC</p>
   </div>
 </div>"""
 
