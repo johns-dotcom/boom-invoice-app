@@ -61,12 +61,30 @@
   .spinner { display:inline-block; width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg); } }
 
-  .legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:20px; padding:12px 0; font-size:12px; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; padding:12px 0; font-size:12px; }
   .legend-item { display:flex; align-items:center; gap:6px; }
   .legend-color { width:12px; height:12px; border-radius:2px; }
   .legend-color.overdue { background:#fee2e2; }
   .legend-color.soon { background:#fef3c7; }
   .legend-color.later { background:#dcfce7; }
+
+  /* ── Filter bar ── */
+  .filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+  .filter-search { flex:1; min-width:180px; position:relative; }
+  .filter-search input { width:100%; border:1.5px solid var(--border); border-radius:8px; padding:8px 12px 8px 34px; font-size:13px; font-family:inherit; outline:none; background:#fff; color:var(--text); transition:border-color .15s; }
+  .filter-search input:focus { border-color:var(--red); }
+  .filter-search .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#bbb; font-size:14px; pointer-events:none; }
+  .filter-select { border:1.5px solid var(--border); border-radius:8px; padding:7px 28px 7px 10px; font-size:12px; font-weight:700; font-family:inherit; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 10px center; -webkit-appearance:none; appearance:none; cursor:pointer; color:var(--text); outline:none; transition:border-color .15s; }
+  .filter-select:focus { border-color:var(--red); }
+  .filter-select.active { border-color:var(--red); color:var(--red); background-color:#fef2f2; }
+  .filter-pills { display:flex; gap:6px; }
+  .fpill { border:1.5px solid var(--border); border-radius:20px; padding:6px 14px; font-size:12px; font-weight:700; font-family:inherit; background:#fff; color:var(--muted); cursor:pointer; transition:all .15s; }
+  .fpill:hover { border-color:var(--red); color:var(--red); }
+  .fpill.active { background:var(--red); border-color:var(--red); color:#fff; }
+  .fpill.active-yellow { background:#d97706; border-color:#d97706; color:#fff; }
+  .btn-clear-filters { background:none; border:none; font-size:12px; font-weight:700; color:#bbb; cursor:pointer; font-family:inherit; padding:4px 6px; border-radius:5px; transition:color .15s; white-space:nowrap; }
+  .btn-clear-filters:hover { color:var(--red); }
+  .filter-count { font-size:12px; color:var(--muted); white-space:nowrap; margin-left:auto; }
 
   /* ── Mobile nav ─────────────────────────────────────────────────────────── */
   
@@ -99,19 +117,32 @@
     </div>
   </div>
 
-  <div class="legend">
-    <div class="legend-item">
-      <div class="legend-color overdue"></div>
-      <span>Overdue</span>
+  <div style="display:flex; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:4px;">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color overdue"></div><span>Overdue</span></div>
+      <div class="legend-item"><div class="legend-color soon"></div><span>Due within 7 days</span></div>
+      <div class="legend-item"><div class="legend-color later"></div><span>Due later</span></div>
     </div>
-    <div class="legend-item">
-      <div class="legend-color soon"></div>
-      <span>Due within 7 days</span>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-search">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="filter-search" placeholder="Search vendor, artist…" oninput="applyFilters()"/>
     </div>
-    <div class="legend-item">
-      <div class="legend-color later"></div>
-      <span>Due later</span>
+    <select class="filter-select" id="filter-rep" onchange="applyFilters()">
+      <option value="">All reps</option>
+    </select>
+    <select class="filter-select" id="filter-method" onchange="applyFilters()">
+      <option value="">All methods</option>
+    </select>
+    <div class="filter-pills">
+      <button class="fpill active" id="fpill-all"     onclick="setStatus('all')">All</button>
+      <button class="fpill"        id="fpill-overdue" onclick="setStatus('overdue')">Overdue</button>
+      <button class="fpill"        id="fpill-soon"    onclick="setStatus('soon')">Due Soon</button>
     </div>
+    <button class="btn-clear-filters" id="btn-clear" onclick="clearFilters()" style="display:none">Clear</button>
+    <span class="filter-count" id="filter-count"></span>
   </div>
 
   <div class="calendar-wrap">
@@ -142,16 +173,81 @@
 <script>
 let allEntries = [];
 let currentDate = new Date();
+let activeStatus = 'all';
 
 async function loadEntries() {
   try {
     const res = await fetch('/entries');
     if (!res.ok) throw new Error('Failed to load entries');
     allEntries = await res.json();
-    renderCalendar();
+    populateDropdowns();
+    applyFilters();
   } catch (e) {
     console.error('Error loading entries:', e);
   }
+}
+
+function populateDropdowns() {
+  const reps = [...new Set(allEntries.map(e => e.boom_rep).filter(Boolean))].sort();
+  const repSel = document.getElementById('filter-rep');
+  reps.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; repSel.appendChild(o); });
+
+  const methods = [...new Set(allEntries.map(e => e.payment_method).filter(Boolean))].sort();
+  const methSel = document.getElementById('filter-method');
+  methods.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; methSel.appendChild(o); });
+}
+
+function getFilteredEntries() {
+  const q   = (document.getElementById('filter-search').value || '').toLowerCase();
+  const rep = document.getElementById('filter-rep').value;
+  const meth = document.getElementById('filter-method').value;
+  return allEntries.filter(e => {
+    if (e.payment_status === 'Paid') return false;
+    const due = getDueDate(e);
+    if (!due) return false;
+    if (!matchesStatus(due)) return false;
+    if (q && ![(e.payee||''), (e.artist||''), (e.vendor_name||'')].some(v => v.toLowerCase().includes(q))) return false;
+    if (rep  && e.boom_rep !== rep) return false;
+    if (meth && e.payment_method !== meth) return false;
+    return true;
+  });
+}
+
+function matchesStatus(dueDate) {
+  if (activeStatus === 'all') return true;
+  return getDueStatus(dueDate) === activeStatus;
+}
+
+function setStatus(s) {
+  activeStatus = s;
+  ['all','overdue','soon'].forEach(v => {
+    const el = document.getElementById(`fpill-${v}`);
+    el.className = 'fpill' + (v === s ? (v === 'overdue' ? ' active' : v === 'soon' ? ' active-yellow' : ' active') : '');
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const q    = document.getElementById('filter-search').value;
+  const rep  = document.getElementById('filter-rep').value;
+  const meth = document.getElementById('filter-method').value;
+  const hasFilter = q || rep || meth || activeStatus !== 'all';
+  document.getElementById('btn-clear').style.display = hasFilter ? '' : 'none';
+  document.getElementById('filter-rep').classList.toggle('active', !!rep);
+  document.getElementById('filter-method').classList.toggle('active', !!meth);
+  renderCalendar();
+}
+
+function clearFilters() {
+  document.getElementById('filter-search').value = '';
+  document.getElementById('filter-rep').value = '';
+  document.getElementById('filter-method').value = '';
+  setStatus('all');
+}
+
+function getDueDate(e) {
+  if (e.scheduled_payment_date) return new Date(e.scheduled_payment_date + 'T00:00:00');
+  return dueDateFromTerms(e.date_uploaded, e.payment_terms);
 }
 
 function dueDateFromTerms(uploadDate, terms) {
@@ -163,8 +259,9 @@ function dueDateFromTerms(uploadDate, terms) {
   if (match) {
     const days = parseInt(match[1], 10);
     date.setDate(date.getDate() + days);
+    return date;
   }
-  return date;
+  return null;
 }
 
 function getDueStatus(dueDate) {
@@ -195,13 +292,12 @@ function renderCalendar() {
   document.getElementById('month-label').textContent = firstDay.toLocaleDateString('en-US', {month:'long', year:'numeric'});
   document.getElementById('summary-month').textContent = firstDay.toLocaleDateString('en-US', {month:'long', year:'numeric'});
 
-  // Build day map
+  // Build day map from filtered entries
+  const filtered = getFilteredEntries();
   const dayMap = {};
-  allEntries.forEach(e => {
-    if (e.payment_status === 'Paid') return;
-    const dueDate = dueDateFromTerms(e.date_uploaded, e.payment_terms);
+  filtered.forEach(e => {
+    const dueDate = getDueDate(e);
     if (!dueDate) return;
-
     const dayStr = formatDate(dueDate);
     if (!dayMap[dayStr]) dayMap[dayStr] = [];
     dayMap[dayStr].push({
@@ -211,6 +307,7 @@ function renderCalendar() {
       song: e.song,
       amount: e.amount,
       method: e.payment_method,
+      rep: e.boom_rep,
       dueDate: dueDate,
       status: getDueStatus(dueDate)
     });
@@ -252,6 +349,9 @@ function renderCalendar() {
 
   document.getElementById('summary-total').textContent = `$${totalUnpaid.toFixed(2)}`;
   document.getElementById('summary-count').textContent = `${countUnpaid} invoice${countUnpaid !== 1 ? 's' : ''}`;
+  document.getElementById('filter-count').textContent = countUnpaid < allEntries.filter(e => e.payment_status !== 'Paid' && getDueDate(e)).length
+    ? `${countUnpaid} of ${allEntries.filter(e => e.payment_status !== 'Paid' && getDueDate(e)).length} shown`
+    : '';
 }
 
 function prevMonth() {
@@ -286,6 +386,7 @@ function showPopover(ev, item) {
       <div class="popover-label">Method</div>
       <div class="popover-value">${item.method || '—'}</div>
     </div>
+    ${item.rep ? `<div class="popover-item"><div class="popover-label">Rep</div><div class="popover-value">${item.rep}</div></div>` : ''}
     <a href="/invoice/${item.id}" target="_blank" class="popover-link">View Invoice →</a>
   `;
 
@@ -306,7 +407,7 @@ document.addEventListener('click', (ev) => {
   }
 });
 
-window.addEventListener('load', loadEntries);
+window.addEventListener('load', () => { loadEntries(); });
 </script>
 
 </body>
