@@ -601,13 +601,12 @@ border:1px solid #e2e2e2;border-radius:10px;overflow:hidden'>
         msg["Subject"] = subject
         msg["From"]    = f"Boom.Records <{sender}>"
         msg["To"]      = vendor_email
-        if status == "approved" and rep_email:
+        if rep_email:
             msg["Cc"] = rep_email
         msg.attach(MIMEText(html, "html"))
 
-        # Build recipient list (vendor + boom rep CC on approvals)
         recipients = [vendor_email]
-        if status == "approved" and rep_email:
+        if rep_email:
             recipients.append(rep_email)
 
         raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
