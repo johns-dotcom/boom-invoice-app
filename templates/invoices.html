@@ -54,6 +54,12 @@
   tbody tr { border-bottom:1px solid #f3f4f6; transition:background .1s; }
   tbody tr:last-child { border-bottom:none; }
   tbody tr:hover { background:#fafafa; }
+  tr.inv-parent { cursor:pointer; }
+  tr.inv-parent:hover td { background:#fef2f2; }
+  tr.inv-child td { background:#f9f8ff; border-left:3px solid #ede9fe; }
+  tr.inv-child:hover td { background:#f3eeff; }
+  .inv-toggle { font-size:9px; color:#aaa; margin-right:5px; transition:transform .15s; display:inline-block; }
+  .inv-toggle.open { transform:rotate(90deg); }
   tbody td { padding:11px 16px; vertical-align:middle; }
   .tl-payee { font-weight:700; }
   .tl-artist { font-size:12px; color:var(--muted); }
@@ -144,7 +150,7 @@
       </thead>
       <tbody id="list-tbody">
         {% for item in items %}
-        <tr data-search="{{ (item.payee + ' ' + item.artist + ' ' + item.invoice_number) | lower }}">
+        <tr data-id="{{ item.id }}" data-parent="{{ item.parent_id or '' }}" data-search="{{ (item.payee + ' ' + item.artist + ' ' + item.invoice_number) | lower }}">
           <td class="tl-payee">{{ item.payee or '—' }}</td>
           <td class="tl-artist">{{ item.artist or '—' }}</td>
           <td class="tl-muted">{% if item.invoice_number %}#{{ item.invoice_number }}{% else %}—{% endif %}</td>
@@ -154,8 +160,8 @@
           <td>{% if item.vendor_submitted %}<span class="tag-vendor">Vendor</span>{% else %}<span class="tl-muted">Internal</span>{% endif %}</td>
           <td>
             <div style="display:flex;gap:6px;align-items:center">
-            <a href="/invoice/{{ item.id }}" target="_blank" class="btn-view">View</a>
-            <a href="/invoice/{{ item.id }}" download="{{ item.invoice_filename }}" class="btn-dl">↓</a>
+            <a href="/invoice/{{ item.parent_id or item.id }}" target="_blank" class="btn-view">View</a>
+            <a href="/invoice/{{ item.parent_id or item.id }}" download="{{ item.invoice_filename }}" class="btn-dl">↓</a>
             </div>
           </td>
         </tr>
@@ -172,6 +178,7 @@ const total = {{ items | length }};
 document.getElementById('count-label').textContent = total ? `(${total})` : '';
 let currentView = localStorage.getItem('invoices-view') || 'list';
 setView(currentView, true);
+initSplitGroups();
 
 function setView(v, init) {
   currentView = v;
@@ -180,6 +187,42 @@ function setView(v, init) {
   document.getElementById('list-view').style.display = v === 'list' ? 'block' : 'none';
   document.getElementById('btn-grid').classList.toggle('active', v === 'grid');
   document.getElementById('btn-list').classList.toggle('active', v === 'list');
+}
+
+// ─── Split collapse (list view) ───────────────────────────────────────────────
+function initSplitGroups() {
+  const tbody = document.getElementById('list-tbody');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+  const childRows = rows.filter(r => r.dataset.parent);
+  const parentIds = new Set(childRows.map(r => r.dataset.parent));
+
+  childRows.forEach(r => {
+    r.classList.add('inv-child');
+    r.style.display = 'none';
+  });
+
+  parentIds.forEach(pid => {
+    const parentRow = tbody.querySelector(`tr[data-id="${pid}"]`);
+    if (!parentRow) return;
+    parentRow.classList.add('inv-parent');
+    const firstTd = parentRow.querySelector('td');
+    if (firstTd && !firstTd.querySelector('.inv-toggle')) {
+      const toggle = document.createElement('span');
+      toggle.className = 'inv-toggle';
+      toggle.id = `itoggle-${pid}`;
+      toggle.textContent = '▶';
+      firstTd.prepend(toggle);
+    }
+    parentRow.addEventListener('click', () => toggleInvChildren(pid));
+  });
+}
+
+function toggleInvChildren(pid) {
+  const children = document.querySelectorAll(`#list-tbody tr[data-parent="${pid}"]`);
+  const open = children[0]?.style.display !== 'none';
+  children.forEach(r => r.style.display = open ? 'none' : '');
+  const icon = document.getElementById(`itoggle-${pid}`);
+  if (icon) icon.className = 'inv-toggle' + (open ? '' : ' open');
 }
 
 function filterInvoices() {

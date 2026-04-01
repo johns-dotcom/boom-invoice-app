@@ -90,6 +90,11 @@ body { background: var(--bg); font-family: 'Nunito', system-ui, sans-serif; font
 .track-song.no-song { color: var(--muted); font-weight: 600; font-size: 13px; font-style: italic; }
 .track-artist { font-size: 11px; font-weight: 700; color: var(--red); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
 .split-pip { background: #ede9fe; color: #7c3aed; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+.track.split-parent { cursor: pointer; }
+.track.split-parent:hover { box-shadow: 0 2px 8px rgba(227,30,36,.1); }
+.track.split-child { border-left: 3px solid #ede9fe; background: #faf9ff; margin-left: 20px; }
+.track-split-toggle { font-size: 10px; color: var(--muted); margin-left: 4px; transition: transform .15s; display: inline-block; }
+.track-split-toggle.open { transform: rotate(90deg); }
 
 .track-payee-block { flex: 1.4; min-width: 0; }
 .track-payee { font-size: 12px; font-weight: 700; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -406,7 +411,7 @@ function renderTracks(entries, groupBy) {
   }
 
   if (groupBy === 'none') {
-    out.innerHTML = `<div class="track-list">${entries.map((e,i)=>trackHtml(e,i+1)).join('')}</div>`; return;
+    out.innerHTML = `<div class="track-list">${renderGroupedTracks(entries)}</div>`; return;
   }
 
   const groups = {}, groupOrder = [];
@@ -433,7 +438,7 @@ function renderTracks(entries, groupBy) {
       <span class="group-line"></span>
       ${grpSum>0?`<span class="group-total">${fmt(grpSum)} unpaid</span>`:''}
     </div>
-    <div class="track-list">${grp.map(e=>trackHtml(e,idx++)).join('')}</div>`;
+    <div class="track-list">${renderGroupedTracks(grp, idx)}</div>`; idx += grp.length;
   });
   out.innerHTML = html;
 }
@@ -456,6 +461,108 @@ function dueChipHtml(e) {
   if (s==='overdue') return `<span class="due-chip overdue">⚑ ${dateStr} (${daysLate(e.dueDate)}d late)</span>`;
   if (s==='soon')    return `<span class="due-chip soon">⏰ ${dateStr} (${daysUntil(e.dueDate)}d)</span>`;
   return `<span class="due-chip ok">${dateStr}</span>`;
+}
+
+// ─── Split grouping ───────────────────────────────────────────────────────────
+function renderGroupedTracks(entries, startNum) {
+  const childMap = {}, childIds = new Set();
+  entries.forEach(e => {
+    if (e.parent_id) {
+      if (!childMap[e.parent_id]) childMap[e.parent_id] = [];
+      childMap[e.parent_id].push(e);
+      childIds.add(e.id);
+    }
+  });
+  let html = '', num = startNum || 1;
+  entries.forEach(e => {
+    if (childIds.has(e.id)) return;
+    const children = childMap[e.id] || [];
+    if (children.length) {
+      html += trackHtmlParent(e, children, num++);
+      children.forEach(c => { html += trackHtmlChild(c); });
+    } else {
+      html += trackHtml(e, num++);
+    }
+  });
+  return html;
+}
+
+function toggleDannyChildren(pid) {
+  const children = document.querySelectorAll(`.split-child[data-parent="${pid}"]`);
+  const open = children[0]?.style.display !== 'none';
+  children.forEach(c => c.style.display = open ? 'none' : '');
+  const icon = document.getElementById(`dtoggle-${pid}`);
+  if (icon) icon.className = 'track-split-toggle' + (open ? '' : ' open');
+}
+
+function trackHtmlParent(e, children, num) {
+  const isPaid=(e.payment_status||'Unpaid')==='Paid';
+  const totalAmt=(Number(e.amount)||0)+children.reduce((s,c)=>s+(Number(c.amount)||0),0);
+  const allArtists=[e.artist,...children.map(c=>c.artist)].filter(Boolean);
+  const stripe=stripeClass(e);
+  const invId=e.id;
+  return `<div class="track split-parent${isPaid?' paid':''}" id="track-${e.id}" onclick="toggleDannyChildren(${e.id})">
+    <div class="track-accent ${stripe}"></div>
+    <div class="track-body">
+      <span class="track-num">${num}</span>
+      <div class="track-song-block">
+        <div class="track-song">${e.song?esc(e.song):'No track listed'}</div>
+        <div class="track-artist">
+          <span style="color:#6366f1;font-weight:800">Multi (${allArtists.length} artists)</span>
+          <span id="dtoggle-${e.id}" class="track-split-toggle">▶</span>
+        </div>
+      </div>
+      <div class="track-payee-block">
+        <div class="track-payee">${esc(e.payee)||'—'}</div>
+      </div>
+      <div class="track-meta-block">
+        ${e.invoice_number?`<span class="track-invnum">#${esc(e.invoice_number)}</span>`:''}
+        <span class="track-date">${fmtDate(e.invoice_date)}</span>
+      </div>
+    </div>
+    <div class="track-right">
+      <div class="track-amount${isPaid?' paid':stripe==='overdue'?' overdue':''}">${fmt(totalAmt,e.currency)}</div>
+      ${dueChipHtml(e)}
+      <div class="track-actions">
+        ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" onclick="event.stopPropagation()" class="inv-link">Invoice ↗</a>`:''}
+        <div id="proof-cell-${e.id}" onclick="event.stopPropagation()">${proofCellHtml(e)}</div>
+        ${isPaid?`<span class="btn-paid">✓ Paid</span>`:`<button class="btn-pay" onclick="event.stopPropagation();markOnePaid(${e.id})">Mark Paid</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+function trackHtmlChild(e) {
+  const isPaid=(e.payment_status||'Unpaid')==='Paid';
+  const invId=e.parent_id||e.id;
+  const stripe=stripeClass(e);
+  return `<div class="track split-child" id="track-${e.id}" data-parent="${e.parent_id}" style="display:none">
+    <div class="track-accent ${stripe}"></div>
+    <div class="track-body">
+      <span class="track-num" style="color:#bbb;font-size:10px">↳</span>
+      <div class="track-song-block">
+        <div class="track-song" style="font-size:13px;font-weight:700">${e.song?esc(e.song):'<span style="color:var(--muted);font-style:italic">—</span>'}</div>
+        <div class="track-artist">${esc(e.artist)||'—'}</div>
+      </div>
+      <div class="track-payee-block">
+        <div class="track-payee">${esc(e.payee)||'—'}</div>
+        ${e.contact_email?`<div class="track-email">${esc(e.contact_email)}</div>`:''}
+      </div>
+      <div class="track-meta-block">
+        ${e.invoice_number?`<span class="track-invnum">#${esc(e.invoice_number)}</span>`:''}
+        <span class="track-date">${fmtDate(e.invoice_date)}</span>
+      </div>
+    </div>
+    <div class="track-right">
+      <div class="track-amount${isPaid?' paid':stripe==='overdue'?' overdue':''}">${fmt(e.amount,e.currency)}</div>
+      ${dueChipHtml(e)}
+      <div class="track-actions">
+        ${e.has_invoice?`<a href="/invoice/${invId}" target="_blank" class="inv-link">Invoice ↗</a>`:''}
+        <div id="proof-cell-${e.id}">${proofCellHtml(e)}</div>
+        ${isPaid?`<span class="btn-paid">✓ Paid</span>`:`<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}
+      </div>
+    </div>
+  </div>`;
 }
 
 function trackHtml(e, num) {

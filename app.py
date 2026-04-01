@@ -1332,7 +1332,7 @@ def invoices_page():
     try:
         conn, kind = get_db(); cur = conn.cursor()
         cur.execute("""SELECT id,invoice_date,payee,invoice_number,amount,category,
-                              artist,invoice_filename,vendor_submitted,vendor_name
+                              artist,invoice_filename,vendor_submitted,vendor_name,parent_id
                        FROM expenses
                        WHERE invoice_filename IS NOT NULL AND invoice_data IS NOT NULL
                          AND (status = 'approved' OR status IS NULL)
@@ -1342,7 +1342,8 @@ def invoices_page():
         items = [{"id":r[0],"invoice_date":str(r[1] or ""),"payee":str(r[2] or ""),
                   "invoice_number":str(r[3] or ""),"amount":r[4],"category":str(r[5] or ""),
                   "artist":str(r[6] or ""),"invoice_filename":str(r[7] or ""),
-                  "vendor_submitted":bool(r[8]),"vendor_name":str(r[9] or "")} for r in rows]
+                  "vendor_submitted":bool(r[8]),"vendor_name":str(r[9] or ""),
+                  "parent_id":r[10]} for r in rows]
     except Exception as e:
         items = []
     return render_template("invoices.html", items=items, is_admin=is_admin())

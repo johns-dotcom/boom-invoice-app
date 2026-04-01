@@ -84,6 +84,12 @@ tr:hover td { background: #fafafa; }
 tr.sel td { background: #fdf4ff !important; }
 tr.split-row td { background: #faf8ff; }
 tr.split-row:hover td { background: #f3eeff; }
+tr.split-parent td { background: #fafafa; cursor: pointer; }
+tr.split-parent:hover td { background: #fef2f2; }
+tr.split-child td { background: #f9f8ff; border-left: 3px solid #ede9fe; }
+tr.split-child:hover td { background: #f3eeff; }
+.split-toggle { display:inline-block; font-size:9px; color:var(--muted); margin-right:5px; transition:transform .15s; }
+.split-toggle.open { transform: rotate(90deg); }
 
 /* ─── Tags / badges ─── */
 .tag { display: inline-block; padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 700; white-space: nowrap; }
@@ -554,7 +560,7 @@ function renderTable(entries, groupBy) {
   empty.style.display = 'none';
 
   if (groupBy === 'none') {
-    tbody.innerHTML = entries.map(rowHtml).join('');
+    tbody.innerHTML = renderGroupedEntries(entries);
     return;
   }
 
@@ -589,7 +595,7 @@ function renderTable(entries, groupBy) {
       <span style="font-weight:400;color:#ccc;margin-left:8px">${grp.length} invoice${grp.length!==1?'s':''}</span>
       ${grpSum > 0 ? `<span style="float:right;color:var(--red);font-weight:900">${fmt(grpSum)} unpaid</span>` : ''}
     </td></tr>`;
-    html += grp.map(rowHtml).join('');
+    html += renderGroupedEntries(grp);
   });
   tbody.innerHTML = html;
 }
@@ -604,6 +610,79 @@ function dueBadge(e) {
   if (s === 'overdue') return `<span class="tag tag-overdue">${dateStr} <span style="opacity:.7">(${daysLate(e.dueDate)}d late)</span></span>`;
   if (s === 'soon')    return `<span class="tag tag-soon">${dateStr} <span style="opacity:.7">(${daysUntil(e.dueDate)}d)</span></span>`;
   return `<span class="tag tag-ok">${dateStr}</span>`;
+}
+
+// ─── Split grouping ───────────────────────────────────────────────────────────
+function renderGroupedEntries(entries) {
+  const childMap = {}, childIds = new Set();
+  entries.forEach(e => {
+    if (e.parent_id) {
+      if (!childMap[e.parent_id]) childMap[e.parent_id] = [];
+      childMap[e.parent_id].push(e);
+      childIds.add(e.id);
+    }
+  });
+  let html = '';
+  entries.forEach(e => {
+    if (childIds.has(e.id)) return;
+    const children = childMap[e.id] || [];
+    html += children.length ? rowHtmlParent(e, children) + children.map(rowHtmlChild).join('') : rowHtml(e);
+  });
+  return html;
+}
+
+function togglePayChildren(pid) {
+  const rows = document.querySelectorAll(`tr[data-parent="${pid}"]`);
+  const open = rows[0]?.style.display !== 'none';
+  rows.forEach(r => r.style.display = open ? 'none' : '');
+  const icon = document.getElementById(`ptoggle-${pid}`);
+  if (icon) icon.className = 'split-toggle' + (open ? '' : ' open');
+}
+
+function rowHtmlParent(e, children) {
+  const isPaid = (e.payment_status||'Unpaid') === 'Paid';
+  const totalAmt = (Number(e.amount)||0) + children.reduce((s,c) => s+(Number(c.amount)||0), 0);
+  const allArtists = [e.artist, ...children.map(c=>c.artist)].filter(Boolean);
+  const artistLabel = allArtists.length > 1
+    ? `<span style="font-weight:700;color:#6366f1">Multi (${allArtists.length})</span>`
+    : esc(allArtists[0]||'—');
+  return `<tr id="row-${e.id}" class="split-parent" onclick="togglePayChildren(${e.id})">
+    <td><input type="checkbox" ${isPaid?'disabled':''} onchange="event.stopPropagation();toggleSel(${e.id},this)" style="width:14px;height:14px;cursor:pointer;accent-color:var(--red)"/></td>
+    <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(e.invoice_date)}</td>
+    <td style="white-space:nowrap"><div style="font-weight:700">${esc(e.payee)||'—'}</div></td>
+    <td><span id="ptoggle-${e.id}" class="split-toggle">▶</span>${artistLabel}</td>
+    <td><span style="color:var(--muted);font-size:12px">${esc(e.invoice_number||'—')}</span></td>
+    <td class="amt ${isPaid?'amt-muted':''}" id="amt-cell-${e.id}">${fmt(totalAmt, e.currency)}</td>
+    <td><span style="font-size:12px;font-weight:700;color:#666">${(e.currency||'USD').toUpperCase()}</span></td>
+    <td><span class="tag tag-method">${esc(e.payment_method)||'—'}</span></td>
+    <td>${dueBadge(e)}</td>
+    <td><span class="tag ${isPaid?'tag-paid':'tag-unpaid'}">${e.payment_status||'Unpaid'}</span></td>
+    <td style="color:var(--muted);font-size:12px">—</td>
+    <td style="text-align:center"><a href="/invoice/${e.id}" target="_blank" onclick="event.stopPropagation()" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none">View ↗</a></td>
+    <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
+    ${IS_ADMIN ? `<td style="text-align:center">${isPaid?'<span class="btn-pay-done">✓ Paid</span>':`<button class="btn-pay" onclick="event.stopPropagation();markOnePaid(${e.id})">Mark Paid</button>`}</td>` : ''}
+  </tr>`;
+}
+
+function rowHtmlChild(e) {
+  const isPaid = (e.payment_status||'Unpaid') === 'Paid';
+  const isSel  = selected.has(e.id);
+  return `<tr id="row-${e.id}" class="split-child${isSel?' sel':''}" data-parent="${e.parent_id}" style="display:none">
+    <td><input type="checkbox" ${isSel?'checked':''} ${isPaid?'disabled':''} onchange="toggleSel(${e.id},this)" style="width:14px;height:14px;cursor:pointer;accent-color:var(--red)"/></td>
+    <td style="color:var(--muted);font-size:12px;white-space:nowrap">${fmtDate(e.invoice_date)}</td>
+    <td style="white-space:nowrap"><span style="color:#bbb;font-size:12px">↳</span> <span style="font-weight:600;font-size:13px">${esc(e.payee)||'—'}</span></td>
+    <td style="color:#555;padding-left:20px">${esc(e.artist)||'—'}</td>
+    <td><input class="inv-num-input" value="${esc(e.invoice_number||'')}" placeholder="—" data-id="${e.id}" data-orig="${esc(e.invoice_number||'')}" style="width:82px;border:none;border-bottom:1px dashed #bbb;background:transparent;font-size:0.82rem;text-align:center;padding:2px 4px;outline:none;cursor:text;color:#555" onblur="saveInvNum(this)" onkeydown="if(event.key==='Enter'){this.blur()}"/></td>
+    <td class="amt ${isPaid?'amt-muted':''}" id="amt-cell-${e.id}">${fmt(e.amount, e.currency)}</td>
+    <td></td>
+    <td></td>
+    <td>${dueBadge(e)}</td>
+    <td><span class="tag ${isPaid?'tag-paid':'tag-unpaid'}">${e.payment_status||'Unpaid'}</span></td>
+    <td style="color:var(--muted);font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.notes)||'—'}</td>
+    <td style="text-align:center"><a href="/invoice/${e.parent_id}" target="_blank" style="color:var(--green);font-weight:700;font-size:12px;text-decoration:none">View ↗</a></td>
+    <td id="proof-cell-${e.id}" style="text-align:center;padding:8px 10px">${proofCellHtml(e)}</td>
+    ${IS_ADMIN ? `<td style="text-align:center">${isPaid?'<span class="btn-pay-done">✓ Paid</span>':`<button class="btn-pay" onclick="markOnePaid(${e.id})">Mark Paid</button>`}</td>` : ''}
+  </tr>`;
 }
 
 function rowHtml(e) {
