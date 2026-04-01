@@ -397,9 +397,14 @@ def serve_file(data_b64, filename, inline=True):
     file_bytes = base64.b64decode(data_b64)
     mime = ext_mime(filename)
     disposition = "inline" if inline and mime in ("application/pdf","image/jpeg","image/png","image/webp") else "attachment"
-    resp = Response(file_bytes, mimetype=mime)
-    resp.headers["Content-Disposition"] = f'{disposition}; filename="{filename}"'
-    return resp
+    buf = io.BytesIO(file_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype=mime,
+        as_attachment=(disposition == "attachment"),
+        download_name=filename
+    )
 
 def fmt_qbo_date(d):
     if d is None: return datetime.now().strftime("%Y%m%d") + "120000"
