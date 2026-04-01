@@ -138,6 +138,15 @@
   .due-soon     { background:#fef3c7; color:#b45309; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
   .due-ok       { background:#f1f5f9; color:#475569; font-size:11px; font-weight:600; padding:3px 8px; border-radius:4px; white-space:nowrap; }
   .due-hold     { background:#ede9fe; color:#6d28d9; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; }
+  .due-unset    { background:#f4f4f4; color:#aaa; font-size:11px; font-weight:700; padding:3px 8px; border-radius:4px; white-space:nowrap; cursor:pointer; }
+  .due-unset:hover { background:#e0e7ff; color:#4338ca; }
+  .due-edit-icon { cursor:pointer; font-size:10px; color:#bbb; margin-left:4px; opacity:.6; vertical-align:middle; }
+  .due-edit-icon:hover { opacity:1; color:var(--red); }
+  .due-date-picker-wrap { display:flex; gap:4px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+  .due-date-input { border:1.5px solid var(--border); border-radius:6px; padding:3px 7px; font-size:12px; font-family:inherit; outline:none; }
+  .due-date-input:focus { border-color:var(--red); }
+  .due-date-save { background:var(--green); color:#fff; border:none; border-radius:5px; padding:3px 9px; font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; }
+  .due-date-clear { background:#f3f4f6; color:#666; border:none; border-radius:5px; padding:3px 9px; font-size:11px; font-weight:700; font-family:inherit; cursor:pointer; }
   /* Terms dropdown */
   .terms-select { background:#fff; border:1.5px solid var(--border); border-radius:5px; font-size:12px; padding:3px 6px; font-family:inherit; color:var(--text); cursor:pointer; max-width:80px; }
   .terms-select:focus { outline:none; border-color:var(--red); }
@@ -297,6 +306,7 @@
         <th data-col="Artist">Artist</th><th data-col="Song">Song</th><th data-col="Inv #">Inv #</th>
         <th style="text-align:right" data-col="Amount">Amount</th>
         <th data-col="Currency">Currency</th>
+        <th data-col="Boom Rep">Boom Rep</th>
         <th data-col="Method">Method</th>
         <th data-col="Terms">Terms</th><th data-col="Due">Due</th>
         <th data-col="Paid?">Paid?</th><th data-col="In QB?">In QB?</th><th data-col="Stem?">Stem?</th><th data-col="Cobrand?">Cobrand?</th><th data-col="Inv?">Inv?</th><th data-col="W9?">W9?</th><th data-col="Proof?">Proof?</th><th data-col="Notes">Notes</th>
@@ -349,6 +359,9 @@
 const CATEGORIES      = {{ categories | tojson }};
 const PAYMENT_METHODS = {{ payment_methods | tojson }};
 const IS_ADMIN        = {{ is_admin | tojson }};
+const IS_JOHN         = {{ is_john | tojson }};
+const IS_JOHN_NAME    = {{ current_user | tojson }};
+const IS_EDITOR       = true; // all logged-in users can edit soft fields
 
 let allEntries = [];
 let pendingDeleteId = null;
@@ -407,7 +420,7 @@ async function undoLastChange() {
         if (entry) entry.payment_terms = item.oldVal || null;
         const sel = document.querySelector(`#terms-${item.id} select`);
         if (sel) sel.value = item.oldVal || '';
-        document.getElementById(`due-${item.id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, item.oldVal || null);
+        document.getElementById(`due-${item.id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, item.oldVal || null, entry ? entry.scheduled_payment_date : null, entry ? entry.payment_status : null, item.id);
         renderBell(allEntries);
       } else {
         // text fields — re-render the whole row to be safe
@@ -605,12 +618,18 @@ function renderRows(entries) {
 
     return `
     <tr id="row-${e.id}"${rowClass ? ` class="${rowClass}"` : ''}${isParent ? ` onclick="toggleSplitGroup(${e.id})"` : ''}${isChild ? ` data-parent="${e.parent_id}" style="display:none"` : ''}>
-      <td class="td-date">${e.invoice_date||'—'}</td>
-      <td class="td-payee">${isChild ? '' : (e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}">${e.payee}</a>` : '—')}</td>
+      <td class="td-date">${IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'invoice_date',this,'${esc(e.invoice_date)}')">${e.invoice_date||'—'}</span>` : e.invoice_date||'—'}</td>
+      <td class="td-payee">${isChild ? '' : (() => {
+        const mismatch = hasMismatch(e) ? `<div style="font-size:10px;color:#b45309;font-weight:700;margin-top:2px;line-height:1.3">⚠ Submitted as: ${e.vendor_name}</div>` : '';
+        const payeeLink = IS_JOHN
+          ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'payee',this,'${esc(e.payee)}')" title="Click to edit">${e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}" onclick="event.stopPropagation()" style="color:inherit;text-decoration:none">${e.payee}</a>` : '<span style="color:#ccc">Add payee</span>'}</span>`
+          : (e.payee ? `<a href="/vendor/${encodeURIComponent(e.payee)}">${e.payee}</a>` : '—');
+        return payeeLink + mismatch;
+      })()}</td>
       <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
         ${isChild ? '' : `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'vendor_email',this,'${esc(e.contact_email)}')" title="${esc(e.contact_email)}">${e.contact_email ? `<a href="mailto:${esc(e.contact_email)}" onclick="event.stopPropagation()" style="color:#6366f1;text-decoration:none">${esc(e.contact_email)}</a>` : '<span style="color:#ccc">Add email</span>'}</span>`}
       </td>
-      <td style="text-align:center;width:32px">${!isChild && e.description ? `<button class="desc-btn" onclick="event.stopPropagation();toggleDesc(event,${e.id})" title="${esc(e.description)}">📋</button>` : ''}</td>
+      <td style="text-align:center;width:32px">${!isChild ? IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'description',this,'${esc(e.description)}')" title="${esc(e.description)||'Add description'}" style="font-size:11px;color:${e.description?'#374151':'#ccc'}">${e.description ? '📋' : '+'}</span>` : (e.description ? `<button class="desc-btn" onclick="event.stopPropagation();toggleDesc(event,${e.id})" title="${esc(e.description)}">📋</button>` : '') : ''}</td>
       <td>${isChild ? '' : IS_ADMIN ? `<span class="editable-cell" onclick="event.stopPropagation();editCategory(${e.id},this,'${esc(e.category)}')">${esc(e.category)||'—'}</span>` : e.category||'—'}</td>
       <td${isChild ? ' style="padding-left:26px"' : ''}>
         ${isChild ? '<span class="split-indent">↳</span>' : ''}
@@ -618,12 +637,17 @@ function renderRows(entries) {
         ${isParent ? `<span class="tag-artists">${artistCount} artists</span><span class="split-toggle" id="toggle-${e.id}">▶</span>` : ''}
       </td>
       <td><span id="split-song-${e.id}" class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'song',this,'${esc(e.song)}')">${isParent ? '<span style="color:#6366f1;font-weight:700">Multi</span>' : e.song||'—'}</span></td>
-      <td style="color:var(--muted);font-size:12px">${e.invoice_number||'—'}</td>
-      <td class="td-amount" id="split-amt-${e.id}">${isParent ? fmt(children.reduce((s,c) => s + (Number(c.amount)||0), Number(e.amount)||0), e.currency) : fmt(e.amount, e.currency)}</td>
-      <td style="font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap">${(e.currency||'USD').toUpperCase()}</td>
-      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${e.payment_method||'—'}</td>
+      <td style="color:var(--muted);font-size:12px">${IS_JOHN ? `<span class="editable-cell" onclick="event.stopPropagation();editText(${e.id},'invoice_number',this,'${esc(e.invoice_number)}')">${e.invoice_number||'—'}</span>` : e.invoice_number||'—'}</td>
+      <td class="td-amount" id="split-amt-${e.id}">${IS_JOHN && !isParent ? `<span class="editable-cell" onclick="event.stopPropagation();editAmount(${e.id},this,${e.amount||0},'${(e.currency||'USD').toUpperCase()}')">${fmt(e.amount, e.currency)}</span>` : (isParent ? fmt(children.reduce((s,c) => s + (Number(c.amount)||0), Number(e.amount)||0), e.currency) : fmt(e.amount, e.currency))}</td>
+      <td style="white-space:nowrap">
+        ${IS_ADMIN ? `<select onchange="saveCurrencyLedger(${e.id},this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:700;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit">
+          ${['USD','EUR','GBP','CAD','AUD','CHF','SEK','NOK','DKK','JPY','MXN','BRL'].map(c=>`<option value="${c}" ${(e.currency||'USD').toUpperCase()===c?'selected':''}>${c}</option>`).join('')}
+        </select>` : `<span style="font-size:12px;font-weight:700;color:var(--muted)">${(e.currency||'USD').toUpperCase()}</span>`}
+      </td>
+      <td style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap">${IS_EDITOR ? `<select onchange="saveFieldLedger(${e.id},'boom_rep',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;font-weight:600;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['Felipe','Jesse','John','Soli','Danny','Georgia','Bradley'].map(r=>`<option value="${r}" ${e.boom_rep===r?'selected':''}>${r}</option>`).join('')}</select>` : e.boom_rep||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${IS_EDITOR ? `<select onchange="saveFieldLedger(${e.id},'payment_method',this.value,this)" onclick="event.stopPropagation()" style="border:none;border-bottom:1px dashed #ccc;background:transparent;font-size:12px;color:var(--muted);padding:1px 2px;outline:none;cursor:pointer;font-family:inherit"><option value="">—</option>${['ACH','Check','Wire','Credit Card','PayPal','Cash'].map(m=>`<option value="${m}" ${e.payment_method===m?'selected':''}>${m}</option>`).join('')}</select>` : e.payment_method||'—'}</td>
       <td id="terms-${e.id}">${termsSelect(e.id, e.payment_terms)}</td>
-      <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms)}</td>
+      <td id="due-${e.id}">${dueDateCell(e.date_uploaded, e.payment_terms, e.scheduled_payment_date, e.payment_status, e.id)}</td>
       <td id="paid-${e.id}">${paymentBadge(e.id, e.payment_status)}</td>
       <td id="qb-${e.id}">${statusBadge(e.id,'in_quickbooks',e.in_quickbooks)}</td>
       <td id="stem-${e.id}">${statusBadge(e.id,'uploaded_to_stem',e.uploaded_to_stem)}</td>
@@ -668,6 +692,12 @@ function renderRows(entries) {
 }
 
 function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+function hasMismatch(e) {
+  return e.vendor_submitted &&
+         e.vendor_name && e.payee &&
+         e.vendor_name.trim().toLowerCase() !== e.payee.trim().toLowerCase();
+}
 
 function fmtDate(d) {
   if (!d || d === 'None') return '—';
@@ -726,7 +756,9 @@ async function toggleCobrand(id, current) {
 function paymentBadge(id, val) {
   const v = val || 'Unpaid';
   const cls = v==='Paid'?'badge-paid':v==='Partial'?'badge-partial':'badge-unpaid';
-  return `<span class="badge ${cls}" onclick="openPaymentEdit(${id},this)">${v} <span class="edit-icon">▾</span></span>`;
+  const entry = allEntries.find(e=>e.id===id);
+  const paidBy = (v==='Paid' && entry && entry.paid_by) ? `<span style="font-size:9px;font-weight:600;color:#6b7280;display:block;margin-top:1px">${entry.paid_by}</span>` : '';
+  return `<span class="badge ${cls}" onclick="openPaymentEdit(${id},this)" style="display:inline-flex;flex-direction:column;align-items:center;cursor:pointer">${v} <span class="edit-icon">▾</span>${paidBy}</span>`;
 }
 
 function openPaymentEdit(id, badgeEl) {
@@ -743,7 +775,11 @@ function openPaymentEdit(id, badgeEl) {
   const save = async () => {
     if (committed) return; committed = true;
     const newVal = sel.value; sel.classList.add('saving');
-    const res = await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({payment_status:newVal})});
+    const paidBy = newVal === 'Paid' ? IS_JOHN_NAME : null;
+    const body = {payment_status: newVal, paid_by: paidBy};
+    const res = await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if (entry && newVal === 'Paid') entry.paid_by = paidBy;
+    else if (entry) entry.paid_by = null;
     document.getElementById(`paid-${id}`).innerHTML = paymentBadge(id, newVal);
     if (res.ok) {
       pushUndo({type:'field', id, field:'payment_status', oldVal: currentVal});
@@ -864,6 +900,86 @@ function toggleNote(id) {
   if (btn) btn.textContent = expanded ? '▴' : '▾';
 }
 
+// ─── Currency select (admin only) ────────────────────────────────────────────
+async function saveCurrencyLedger(id, sel) {
+  const val = sel.value;
+  try {
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({currency: val})
+    });
+    if (!r.ok) throw new Error();
+    const entry = allEntries ? allEntries.find(e => e.id === id) : null;
+    if (entry) entry.currency = val;
+    // Refresh amount cell to show updated currency symbol
+    const amtEl = document.getElementById(`split-amt-${id}`);
+    if (amtEl && entry) amtEl.textContent = fmt(entry.amount, val);
+    sel.style.borderBottomColor = '#4caf50';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1200);
+  } catch {
+    sel.style.borderBottomColor = '#e53935';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
+  }
+}
+
+// ─── Generic select saver (John only) ────────────────────────────────────────
+async function saveFieldLedger(id, field, val, sel) {
+  try {
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({[field]: val || null})
+    });
+    if (!r.ok) throw new Error();
+    const entry = allEntries ? allEntries.find(e => e.id === id) : null;
+    if (entry) entry[field] = val;
+    sel.style.borderBottomColor = '#4caf50';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1200);
+    flashRow(id); toast('Saved');
+  } catch {
+    sel.style.borderBottomColor = '#e53935';
+    setTimeout(() => sel.style.borderBottomColor = '#ccc', 1500);
+    toast('Save failed', true);
+  }
+}
+
+// ─── Amount inline edit (John only) ──────────────────────────────────────────
+function editAmount(id, spanEl, currentVal, currency) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentVal ? String(currentVal) : '';
+  input.placeholder = '0.00';
+  input.style.cssText = 'width:90px;font-size:13px;font-weight:900;color:var(--red);padding:2px 4px;border:1px solid #ccc;border-radius:4px;text-align:right;font-family:inherit';
+  spanEl.replaceWith(input);
+  input.focus(); input.select();
+  const save = async () => {
+    const raw = input.value.replace(/[$,\s]/g,'');
+    const newVal = raw ? parseFloat(raw) : null;
+    const span = document.createElement('span');
+    span.className = 'editable-cell td-amount';
+    span.textContent = newVal != null ? fmt(newVal, currency) : '—';
+    span.onclick = (ev) => { ev.stopPropagation(); editAmount(id, span, newVal, currency); };
+    input.replaceWith(span);
+    if (newVal === currentVal) return;
+    pushUndo({type:'field', id, field:'amount', oldVal: currentVal});
+    const r = await fetch(`/update/${id}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({amount: newVal})
+    });
+    if (r.ok) {
+      const entry = allEntries ? allEntries.find(e => e.id === id) : null;
+      if (entry) entry.amount = newVal;
+      document.getElementById(`split-amt-${id}`).innerHTML = span.outerHTML;
+      flashRow(id); toast('Saved');
+    } else toast('Save failed', true);
+  };
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') { input.value = currentVal||''; input.blur(); }
+  });
+}
+
 // ─── Category dropdown (admin only) ───────────────────────────────────────────
 function editCategory(id, spanEl, currentVal) {
   const sel = document.createElement('select');
@@ -912,23 +1028,26 @@ function editCategory(id, spanEl, currentVal) {
 
 function editText(id, field, spanEl, currentVal) {
   const input=document.createElement('input'); input.className='inline-input';
-  input.value=currentVal==='—'?'':currentVal;
+  const normalised=currentVal==='—'?'':currentVal;
+  input.value=normalised;
   spanEl.replaceWith(input); input.focus(); input.select();
   const save=async()=>{
-    const newVal=input.value.trim(); input.classList.add('saving');
-    const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
-    const entry=allEntries.find(e=>e.id===id);
+    const newVal=input.value.trim();
     const span=document.createElement('span'); span.className='editable-cell';
     span.textContent=newVal||'—'; span.title=newVal||'';
     span.onclick=()=>editText(id,field,span,newVal); input.replaceWith(span);
+    if(newVal===normalised) return; // nothing changed — skip save + history
+    input.classList.add('saving');
+    const res=await fetch(`/update/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[field]:newVal})});
+    const entry=allEntries.find(e=>e.id===id);
     if(res.ok){
-      pushUndo({type:'field', id, field, oldVal: currentVal==='—'?'':currentVal});
+      pushUndo({type:'field', id, field, oldVal: normalised});
       if(entry) entry[field]=newVal;
       flashRow(id);toast('Saved');
     }else toast('Save failed',true);
   };
   input.addEventListener('blur',save);
-  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=currentVal;input.blur();}});
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=normalised;input.blur();}});
 }
 
 function triggerProofUpload(id) {
@@ -1132,17 +1251,78 @@ function dueDateFromTerms(invoiceDate, terms) {
   return d;
 }
 
-function dueDateCell(invoiceDate, terms) {
-  if (!terms) return '<span style="color:#ccc;font-size:12px">—</span>';
-  if (terms === 'Hold') return '<span class="due-hold">On Hold</span>';
+function dueDateCell(invoiceDate, terms, scheduledDate, paymentStatus, id) {
+  const isPaid = (paymentStatus || 'Unpaid') === 'Paid';
+  const editBtn = IS_EDITOR && !isPaid
+    ? `<span class="due-edit-icon" onclick="event.stopPropagation();openDatePickerLedger(${id},'${scheduledDate||''}')">✏</span>`
+    : '';
+
+  // Scheduled date overrides computed
+  if (scheduledDate) {
+    const due = new Date(scheduledDate + 'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diff = Math.round((due - today) / 86400000);
+    const label = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    if (diff < 0)  return `<span class="due-overdue" title="${diff*-1} days overdue">⚠ ${label}</span>${editBtn}`;
+    if (diff <= 7) return `<span class="due-soon" title="Due in ${diff} day${diff===1?'':'s'}">📅 ${label}</span>${editBtn}`;
+    return `<span class="due-ok">📅 ${label}</span>${editBtn}`;
+  }
+
+  if (!terms) {
+    if (!IS_EDITOR || isPaid) return '<span style="color:#ccc;font-size:12px">—</span>';
+    return `<span class="due-unset" onclick="event.stopPropagation();openDatePickerLedger(${id},'')">Schedule +</span>`;
+  }
+  if (terms === 'Hold') return `<span class="due-hold">On Hold</span>${editBtn}`;
   const due = dueDateFromTerms(invoiceDate, terms);
-  if (!due) return '<span style="color:#ccc;font-size:12px">—</span>';
+  if (!due) return `<span style="color:#ccc;font-size:12px">—</span>${editBtn}`;
   const today = new Date(); today.setHours(0,0,0,0);
   const diff = Math.round((due - today) / 86400000);
   const label = due.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-  if (diff < 0)  return `<span class="due-overdue" title="${diff*-1} days overdue">⚠ ${label}</span>`;
-  if (diff <= 7) return `<span class="due-soon" title="Due in ${diff} day${diff===1?'':'s'}">${label}</span>`;
-  return `<span class="due-ok">${label}</span>`;
+  if (diff < 0)  return `<span class="due-overdue" title="${diff*-1} days overdue">⚠ ${label}</span>${editBtn}`;
+  if (diff <= 7) return `<span class="due-soon" title="Due in ${diff} day${diff===1?'':'s'}">${label}</span>${editBtn}`;
+  return `<span class="due-ok">${label}</span>${editBtn}`;
+}
+
+function openDatePickerLedger(id, current) {
+  document.querySelectorAll('.due-date-picker-wrap').forEach(el => el.remove());
+  const cell = document.getElementById(`due-${id}`);
+  if (!cell) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'due-date-picker-wrap';
+  wrap.innerHTML = `
+    <input type="date" class="due-date-input" value="${current}" />
+    <button class="due-date-save" onclick="saveScheduledDateLedger(${id}, this.previousElementSibling.value)">Set</button>
+    ${current ? `<button class="due-date-clear" onclick="saveScheduledDateLedger(${id}, '')">Clear</button>` : ''}
+  `;
+  cell.appendChild(wrap);
+  wrap.querySelector('input').focus();
+  wrap.querySelector('input').addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') saveScheduledDateLedger(id, ev.target.value);
+    if (ev.key === 'Escape') wrap.remove();
+  });
+  setTimeout(() => {
+    document.addEventListener('click', function handler(ev) {
+      if (!wrap.contains(ev.target)) { wrap.remove(); document.removeEventListener('click', handler); }
+    });
+  }, 0);
+}
+
+async function saveScheduledDateLedger(id, dateStr) {
+  document.querySelectorAll('.due-date-picker-wrap').forEach(el => el.remove());
+  const res = await fetch(`/update/${id}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({scheduled_payment_date: dateStr || null})
+  });
+  if (res.ok) {
+    const entry = allEntries.find(e => e.id === id);
+    if (entry) entry.scheduled_payment_date = dateStr;
+    const cell = document.getElementById(`due-${id}`);
+    if (cell && entry) cell.innerHTML = dueDateCell(entry.date_uploaded, entry.payment_terms, dateStr, entry.payment_status, id);
+    toast(dateStr ? `Scheduled for ${new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : 'Schedule cleared');
+  } else {
+    toast('Failed to save date', true);
+  }
 }
 
 function termsSelect(id, terms) {
@@ -1163,7 +1343,7 @@ async function saveTerms(id, sel) {
   if (res.ok) {
     pushUndo({type: 'field', id, field: 'payment_terms', oldVal: prev || ''});
     if (entry) entry.payment_terms = next;
-    document.getElementById(`due-${id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, next);
+    document.getElementById(`due-${id}`).innerHTML = dueDateCell(entry ? entry.date_uploaded : null, next, entry ? entry.scheduled_payment_date : null, entry ? entry.payment_status : null, id);
     flashRow(id); toast('Terms updated');
     renderBell(allEntries);
   } else {
@@ -1225,7 +1405,7 @@ document.addEventListener('click', () => {
 // ─── Column Visibility Toggle ────────────────────────────────────────────────
 const COLUMN_NAMES = [
   'Date', 'Payee', 'Email', 'Description', 'Category', 'Artist', 'Song', 'Inv #',
-  'Amount', 'Currency', 'Method', 'Terms', 'Due', 'Paid?', 'In QB?', 'Stem?', 'Cobrand?', 'Inv?', 'W9?', 'Proof?', 'Notes',
+  'Amount', 'Currency', 'Boom Rep', 'Method', 'Terms', 'Due', 'Paid?', 'In QB?', 'Stem?', 'Cobrand?', 'Inv?', 'W9?', 'Proof?', 'Notes',
   'Approved By', 'Uploaded', 'Date Paid', 'Files'
 ];
 
