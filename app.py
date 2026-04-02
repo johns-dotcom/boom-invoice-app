@@ -446,7 +446,10 @@ def auth_callback():
     db_user = get_db_user(email)
     if db_user:
         session["authenticated"] = True
-        session["role"] = db_user["role"]
+        # Prefer canonical role from GOOGLE_ALLOWED_EMAILS for hardcoded accounts
+        # so role changes in code take effect immediately without a DB migration
+        canonical = GOOGLE_ALLOWED_EMAILS.get(email)
+        session["role"] = canonical[1] if canonical else db_user["role"]
         session["user_name"] = db_user["name"]
         session["allowed_pages"] = db_user["allowed_pages"]
         return redirect("/ledger")
