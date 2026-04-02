@@ -710,6 +710,85 @@ def boom_rep_email(name):
     return special.get(key, f"{key}@boomrecords.co")
 
 
+def send_welcome_email(name, email, role):
+    """Send a welcome email to a newly added app user."""
+    client_id     = os.environ.get("GMAIL_CLIENT_ID", "")
+    client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
+    refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "")
+    sender        = os.environ.get("GMAIL_USER", "")
+    app_url       = os.environ.get("APP_URL", "https://boomap.com")
+    if not all([client_id, client_secret, refresh_token, sender]):
+        print("Email not configured — skipping welcome email")
+        return
+    try:
+        import base64, urllib.request, urllib.parse, json
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        token_resp = urllib.request.urlopen(urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=urllib.parse.urlencode({
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type":    "refresh_token",
+            }).encode(),
+            method="POST"
+        ))
+        access_token = json.loads(token_resp.read())["access_token"]
+
+        role_label = role.replace("_", " ").title()
+        html = f"""<div style='font-family:Arial,sans-serif;max-width:600px;background:#fff;border:1px solid #e5e7eb'>
+  <div style='padding:24px 28px 0'>
+    <div style='font-size:13px;font-weight:800;color:#111;letter-spacing:-.2px'>boom.</div>
+    <div style='height:2px;background:#e31e24;margin:10px 0 20px'></div>
+    <h1 style='margin:0 0 6px;font-size:18px;font-weight:700;color:#111'>You've been added to Boom Records</h1>
+    <p style='margin:0 0 20px;font-size:13px;color:#555'>Hi {name}, your account has been set up. You can sign in with your Google account at the link below.</p>
+    <table style='width:100%;border-collapse:collapse;font-size:13px;border-top:1px solid #e5e7eb'>
+      <tr style='border-bottom:1px solid #e5e7eb'>
+        <td style='padding:9px 12px;color:#888;width:100px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em'>Name</td>
+        <td style='padding:9px 12px;font-size:13px;color:#111'>{name}</td>
+      </tr>
+      <tr style='border-bottom:1px solid #e5e7eb'>
+        <td style='padding:9px 12px;color:#888;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em'>Email</td>
+        <td style='padding:9px 12px;font-size:13px;color:#111'>{email}</td>
+      </tr>
+      <tr>
+        <td style='padding:9px 12px;color:#888;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em'>Role</td>
+        <td style='padding:9px 12px;font-size:13px;color:#111'>{role_label}</td>
+      </tr>
+    </table>
+    <div style='margin-top:22px;padding-bottom:24px'>
+      <a href='{app_url}' style='display:inline-block;background:#e31e24;color:#fff;padding:10px 20px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.01em'>Sign In</a>
+    </div>
+  </div>
+  <div style='background:#f9fafb;border-top:1px solid #e5e7eb;padding:12px 28px'>
+    <p style='margin:0;font-size:11px;color:#9ca3af'>Boom.Records LLC — sign in with your Google account ({email})</p>
+  </div>
+</div>"""
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "You've been added to Boom Records"
+        msg["From"]    = f"Boom.Records <{sender}>"
+        msg["To"]      = email
+        msg.attach(MIMEText(html, "html"))
+
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        urllib.request.urlopen(urllib.request.Request(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            data=json.dumps({"raw": raw}).encode(),
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type":  "application/json",
+            },
+            method="POST"
+        ))
+        print(f"Welcome email sent to {email}")
+
+    except Exception as e:
+        print(f"Welcome email error: {e}")
+
+
 def send_status_email(vendor_name, vendor_email, status, invoice_info, boom_rep=None, reason=None):
     """Send an approval or rejection email directly to the vendor."""
     client_id     = os.environ.get("GMAIL_CLIENT_ID", "")
@@ -3033,6 +3112,7 @@ def settings_add_user():
                             (name, role, pages_json, email))
         conn.commit(); conn.close()
         log_action("add_user", details=f"Added user {email} ({name}) role={role}")
+        send_welcome_email(name, email, role)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
