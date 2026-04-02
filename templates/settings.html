@@ -181,11 +181,11 @@
             <td style="text-align:right;white-space:nowrap">
               {% if u.editable %}
               <button class="btn btn-ghost btn-sm"
-                onclick="openEditModal({{ u.id }}, {{ u.name|tojson }}, {{ u.email|tojson }}, {{ u.role|tojson }}, {{ u.allowed_pages|tojson }}, {{ u.active|tojson }})">
+                onclick='openEditModal({{ u.id }}, {{ u.name|tojson }}, {{ u.email|tojson }}, {{ u.role|tojson }}, {{ u.allowed_pages|tojson }}, {{ u.active|tojson }})'>
                 Edit
               </button>
               <button class="btn btn-danger btn-sm" style="margin-left:4px"
-                onclick="deleteUser({{ u.id }}, {{ u.name|tojson }})">
+                onclick='deleteUser({{ u.id }}, {{ u.name|tojson }})'>
                 Delete
               </button>
               {% else %}
