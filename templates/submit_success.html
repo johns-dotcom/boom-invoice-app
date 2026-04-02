@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Boom.Records — Submitted</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#f4f4f4; font-family:'Nunito',system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
+  .logo { font-size:32px; font-weight:900; color:#e31e24; letter-spacing:-0.5px; margin-bottom:32px; }
+  .card { background:#fff; border:1px solid #e2e2e2; border-radius:14px; padding:44px 48px; max-width:440px; width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,.07); }
+  .check { font-size:48px; margin-bottom:16px; }
+  h1 { font-size:22px; font-weight:900; color:#111; margin-bottom:10px; }
+  p { font-size:14px; color:#666; line-height:1.6; margin-bottom:6px; }
+  .name { color:#e31e24; font-weight:700; }
+  .divider { border:none; border-top:1px solid #e2e2e2; margin:24px 0; }
+  a.btn-back { display:inline-block; background:#e31e24; color:#fff; text-decoration:none; border-radius:8px; padding:11px 24px; font-size:14px; font-weight:700; margin-top:8px; transition:background .15s; }
+  a.btn-back:hover { background:#c41a1f; }
+</style>
+</head>
+<body>
+  <div class="logo">boom.</div>
+  <div class="card">
+    <div class="check">✅</div>
+    <h1>Invoice Received</h1>
+    <p>Thanks, <span class="name">{{ vendor_name }}</span>.</p>
+    <p>Your invoice and W9/W8 have been submitted to Boom.Records and are now under review.</p>
+    <hr class="divider"/>
+    <p style="font-size:12px;color:#999">We'll be in touch if we need anything else.</p>
+    <a href="/submit" class="btn-back">Submit Another</a>
+  </div>
+</body>
+</html>
