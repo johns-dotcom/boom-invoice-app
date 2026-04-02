@@ -8,9 +8,24 @@ import anthropic
 from authlib.integrations.flask_client import OAuth
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+try:
+    from flask_cors import CORS
+    _has_cors = True
+except ImportError:
+    _has_cors = False
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+
+# Allow the React dashboard (boom-combined) to make cross-origin API calls
+# in local dev (e.g. localhost:5173 → localhost:5000/5100).
+# In production this is a no-op if both apps share the same domain/proxy.
+if _has_cors:
+    _dashboard_origins = os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:3000"
+    ).split(",")
+    CORS(app, supports_credentials=True, origins=[o.strip() for o in _dashboard_origins])
 
 def _parse_json_list(s):
     """Safely parse a JSON string into a list; return None if empty or invalid."""
@@ -1086,7 +1101,8 @@ def add_expense():
            parse_date(v("qb_entry_date")), v("uploaded_to_stem","No"),
            parse_date(v("stem_upload_date")), v("notes"),
            v("invoice_filename") or None, v("invoice_b64") or None, cobrand,
-           v("w9_filename") or None, v("w9_b64") or None, currency, added_by, contact_email)
+           v("w9_filename") or None, v("w9_b64") or None, currency, added_by, contact_email,
+           v("proof_filename") or None, v("proof_b64") or None)
     try:
         conn, kind = get_db(); cur = conn.cursor(); ph = "%s" if kind=="pg" else "?"
         # Duplicate check — only if invoice_number is provided and force not set
@@ -1102,8 +1118,8 @@ def add_expense():
         cur.execute(f"""INSERT INTO expenses (invoice_date,payee,description,category,
             artist,song,invoice_number,amount,payment_method,payment_date,in_quickbooks,
             qb_entry_date,uploaded_to_stem,stem_upload_date,notes,invoice_filename,invoice_data,cobrand,
-            w9_filename,w9_data,currency,created_by,vendor_email)
-            VALUES ({','.join([ph]*23)})""", row)
+            w9_filename,w9_data,currency,created_by,vendor_email,proof_filename,proof_data)
+            VALUES ({','.join([ph]*25)})""", row)
         new_id = (cur.execute("SELECT lastval()") or cur).fetchone()[0] if kind=="pg" else cur.lastrowid
         conn.commit(); conn.close()
         log_action("invoice_added", new_id, v("payee"),
@@ -3178,6 +3194,119 @@ def settings_delete_user(uid):
 
 @app.route("/status")
 def status(): return jsonify({"ok":True})
+
+
+# ── Dashboard integration endpoints ──────────────────────────────────────────
+# Used by the boom-combined React dashboard to show a bookkeeping summary widget
+# and the approval badge count in the sidebar.
+
+@app.route('/api/dashboard-summary')
+@login_required
+def api_dashboard_summary():
+    """
+    Returns a lightweight summary for the React dashboard's bookkeeping widget.
+    """
+    conn, kind = get_db()
+    cur = conn.cursor()
+
+    if kind == "pg":
+        cur.execute("""
+            SELECT
+                COALESCE(SUM(amount), 0) AS logged_mtd,
+                COUNT(*) AS invoice_count
+            FROM expenses
+            WHERE DATE_TRUNC('month', invoice_date) = DATE_TRUNC('month', CURRENT_DATE)
+        """)
+        row = cur.fetchone()
+        logged_mtd = float(row[0])
+        invoice_count = int(row[1])
+
+        cur.execute("""
+            SELECT COALESCE(SUM(amount), 0) AS paid_mtd
+            FROM expenses
+            WHERE DATE_TRUNC('month', invoice_date) = DATE_TRUNC('month', CURRENT_DATE)
+              AND payment_status = 'Paid'
+        """)
+        paid_mtd = float(cur.fetchone()[0])
+
+        cur.execute("SELECT COUNT(*) FROM expenses WHERE qb_entry_date IS NULL")
+        pending_qb = int(cur.fetchone()[0])
+
+        cur.execute("SELECT COUNT(*) FROM expenses WHERE status = 'pending'")
+        pending_approvals = int(cur.fetchone()[0])
+
+        cur.execute("""
+            SELECT payee, amount, invoice_date, category
+            FROM expenses
+            ORDER BY invoice_date DESC, id DESC
+            LIMIT 3
+        """)
+        recent = [
+            {'payee': r[0], 'amount': float(r[1] or 0), 'date': str(r[2] or ''), 'category': r[3] or ''}
+            for r in cur.fetchall()
+        ]
+    else:
+        cur.execute("""
+            SELECT
+                COALESCE(SUM(amount), 0) AS logged_mtd,
+                COUNT(*) AS invoice_count
+            FROM expenses
+            WHERE strftime('%Y-%m', invoice_date) = strftime('%Y-%m', 'now')
+        """)
+        row = cur.fetchone()
+        logged_mtd = float(row['logged_mtd'])
+        invoice_count = int(row['invoice_count'])
+
+        cur.execute("""
+            SELECT COALESCE(SUM(amount), 0) AS paid_mtd
+            FROM expenses
+            WHERE strftime('%Y-%m', invoice_date) = strftime('%Y-%m', 'now')
+              AND payment_status = 'Paid'
+        """)
+        paid_mtd = float(cur.fetchone()['paid_mtd'])
+
+        cur.execute("SELECT COUNT(*) AS n FROM expenses WHERE qb_entry_date IS NULL")
+        pending_qb = int(cur.fetchone()['n'])
+
+        cur.execute("SELECT COUNT(*) AS n FROM expenses WHERE status = 'pending'")
+        pending_approvals = int(cur.fetchone()['n'])
+
+        cur.execute("""
+            SELECT payee, amount, invoice_date, category
+            FROM expenses
+            ORDER BY invoice_date DESC, id DESC
+            LIMIT 3
+        """)
+        recent = [
+            {'payee': r['payee'], 'amount': float(r['amount'] or 0), 'date': str(r['invoice_date'] or ''), 'category': r['category'] or ''}
+            for r in cur.fetchall()
+        ]
+
+    conn.close()
+    return jsonify({
+        'logged_mtd':        logged_mtd,
+        'invoice_count':     invoice_count,
+        'paid_mtd':          paid_mtd,
+        'pending_qb':        pending_qb,
+        'pending_approvals': pending_approvals,
+        'recent':            recent,
+    })
+
+
+@app.route('/api/pending-count')
+@login_required
+def api_pending_count():
+    """
+    Returns the number of expenses awaiting approval.
+    Used by the dashboard sidebar to show the badge on 'Bookkeeping'.
+    """
+    conn, kind = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM expenses WHERE status = 'pending'")
+    row = cur.fetchone()
+    count = int(row[0] if kind == "pg" else row['COUNT(*)'])
+    conn.close()
+    return jsonify({'count': count})
 
 # Run init_db at module load so migrations execute under gunicorn (not just `python app.py`)
 try:

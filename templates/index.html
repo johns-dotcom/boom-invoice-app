@@ -103,7 +103,7 @@
 
 <div class="layout">
   <div class="main-col">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
       <div>
         <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
           <div class="drop-icon">📄</div>
@@ -123,6 +123,16 @@
         </div>
         <input type="file" id="file-input-w9" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
         <button id="remove-w9" onclick="removeW9()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
+      </div>
+      <div>
+        <div class="drop-zone" id="drop-zone-proof" onclick="document.getElementById('file-input-proof').click()" style="border-color:#a5b4fc">
+          <div class="drop-icon">💳</div>
+          <div class="drop-title">Proof of Payment</div>
+          <div class="drop-sub">Drop or click to upload</div>
+          <div class="drop-filename" id="drop-filename-proof"></div>
+        </div>
+        <input type="file" id="file-input-proof" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none"/>
+        <button id="remove-proof" onclick="removeProof()" style="display:none;margin-top:6px;background:none;border:none;color:#b91c1c;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:0">× Remove file</button>
       </div>
     </div>
     <div class="parsing-bar" id="parsing-bar"><div class="spinner-sm"></div>Reading invoice with AI…</div>
@@ -270,6 +280,7 @@
 const API_CONFIGURED = {{ api_configured | tojson }};
 let storedFileB64 = null, storedFileMime = null, storedFileName = null;
 let storedW9B64 = null, storedW9Name = null;
+let storedProofB64 = null, storedProofName = null;
 let cobrandValue = false;
 
 function toggleCobrand() {
@@ -302,6 +313,36 @@ dzW9.addEventListener('dragover', e => { e.preventDefault(); dzW9.classList.add(
 dzW9.addEventListener('dragleave', () => dzW9.classList.remove('drag-over'));
 dzW9.addEventListener('drop', e => { e.preventDefault(); dzW9.classList.remove('drag-over'); handleW9(e.dataTransfer.files[0]); });
 fiW9.addEventListener('change', () => handleW9(fiW9.files[0]));
+
+const dzProof = document.getElementById('drop-zone-proof');
+const fiProof = document.getElementById('file-input-proof');
+dzProof.addEventListener('dragover', e => { e.preventDefault(); dzProof.classList.add('drag-over'); });
+dzProof.addEventListener('dragleave', () => dzProof.classList.remove('drag-over'));
+dzProof.addEventListener('drop', e => { e.preventDefault(); dzProof.classList.remove('drag-over'); handleProof(e.dataTransfer.files[0]); });
+fiProof.addEventListener('change', () => handleProof(fiProof.files[0]));
+
+function handleProof(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    storedProofB64 = ev.target.result.split(',')[1];
+    storedProofName = file.name;
+    dzProof.classList.add('has-file');
+    dzProof.style.borderColor = '';
+    document.getElementById('drop-filename-proof').textContent = '✓ ' + file.name;
+    document.getElementById('remove-proof').style.display = 'inline-block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeProof() {
+  storedProofB64 = null; storedProofName = null;
+  dzProof.classList.remove('has-file');
+  dzProof.style.borderColor = '#a5b4fc';
+  document.getElementById('drop-filename-proof').textContent = '';
+  document.getElementById('file-input-proof').value = '';
+  document.getElementById('remove-proof').style.display = 'none';
+}
 
 let _pendingW9File = null;
 
@@ -432,6 +473,8 @@ async function submitForm(force=false) {
     invoice_b64: storedFileB64 || null,
     w9_filename: storedW9Name || null,
     w9_b64: storedW9B64 || null,
+    proof_filename: storedProofName || null,
+    proof_b64: storedProofB64 || null,
     cobrand: cobrandValue,
     force: force
   };
@@ -488,8 +531,13 @@ function resetForm() {
   document.getElementById('drop-filename-w9').textContent='';
   dzW9.classList.remove('has-file');
   storedW9B64=null; storedW9Name=null;
+  document.getElementById('drop-filename-proof').textContent='';
+  dzProof.classList.remove('has-file');
+  dzProof.style.borderColor='#a5b4fc';
+  storedProofB64=null; storedProofName=null;
   document.getElementById('remove-invoice').style.display='none';
   document.getElementById('remove-w9').style.display='none';
+  document.getElementById('remove-proof').style.display='none';
   hideDuplicateWarning();
 }
 
