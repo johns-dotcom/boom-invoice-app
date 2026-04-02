@@ -100,6 +100,11 @@
     <div class="nav-user-wrap">
       <div class="nav-avatar">{{ current_user[0].upper() }}</div>
       <span class="nav-username">{{ current_user }}</span>
+      {% if is_admin %}
+      <a href="/settings" class="nav-gear{{ ' nav-gear-active' if p == '/settings' else '' }}" title="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </a>
+      {% endif %}
       {% if impersonator %}
         <a href="/impersonate/John" class="nav-signout" style="color:#f59e0b">← Back to John</a>
       {% else %}
@@ -151,7 +156,7 @@
   {% if is_admin or 'export' in allowed_pages %}<a href="/export" style="color:#16a34a">Export Excel</a>{% endif %}
   {% if is_admin or 'export' in allowed_pages %}<a href="/export-qbo" style="color:#16a34a">Export CSV</a>{% endif %}
   {% if is_admin %}<a href="/admin/backup" style="color:#6b7280">DB Backup</a>{% endif %}
-  {% if is_admin %}<a href="/settings" style="color:#6b7280">Settings</a>{% endif %}
+  {% if is_admin %}<a href="/settings" style="color:#6b7280">⚙ Settings</a>{% endif %}
   <a href="/logout" style="color:#dc2626">Sign out{% if current_user %} ({{ current_user }}){% endif %}</a>
 </nav>
 

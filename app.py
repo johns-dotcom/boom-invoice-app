@@ -411,9 +411,10 @@ def login():
     if request.method == "POST":
         pw = request.form.get("password","")
         if pw in ADMIN_ACCOUNTS:
+            name = ADMIN_ACCOUNTS[pw]
             session["authenticated"] = True
-            session["role"] = "admin"
-            session["user_name"] = ADMIN_ACCOUNTS[pw]
+            session["role"] = "superadmin" if name == "John" else "admin"
+            session["user_name"] = name
             return redirect("/ledger")
         elif pw in USER_ACCOUNTS:
             session["authenticated"] = True
@@ -466,7 +467,7 @@ def logout():
 
 # ─── Impersonation (John only) ───────────────────────────────────────────────
 IMPERSONATABLE_USERS = {
-    "John":   "admin",
+    "John":   "superadmin",
     "Jesse":  "admin",
     "Felipe": "admin",
     "Soli":   "admin",
@@ -481,7 +482,7 @@ def impersonate(username):
         # Return to real self
         session.pop("impersonator", None)
         session["user_name"] = "John"
-        session["role"] = "admin"
+        session["role"] = "superadmin"
         return redirect("/ledger")
     if username not in IMPERSONATABLE_USERS:
         return redirect("/ledger")
