@@ -3096,8 +3096,13 @@ def settings_delete_user(uid):
 @app.route("/status")
 def status(): return jsonify({"ok":True})
 
-if __name__ == "__main__":
+# Run init_db at module load so migrations execute under gunicorn (not just `python app.py`)
+try:
     init_db()
+except Exception as _init_err:
+    print(f"[init_db] Warning: {_init_err}")
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5100))
     print(f"\n  Boom.Records  →  http://localhost:{port}\n")
     app.run(debug=False, host="0.0.0.0", port=port)
