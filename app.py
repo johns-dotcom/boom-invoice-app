@@ -644,7 +644,7 @@ def send_vendor_email(vendor_name, vendor_email, fields, unknowns, w9_filename=N
         ))
         access_token = json.loads(token_resp.read())["access_token"]
 
-        review_url = f"{APP_URL}/approvals" if APP_URL else "https://boomap.com/approvals"
+        review_url = f"{APP_URL}/approvals" if APP_URL else "https://boominvoiceapp.up.railway.app/approvals"
         amt = fields.get("amount", 0)
         amt_str = f"${float(amt):,.2f}" if amt else "Unknown"
 
@@ -731,7 +731,7 @@ def send_welcome_email(name, email, role):
     client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
     refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN", "")
     sender        = os.environ.get("GMAIL_USER", "")
-    app_url       = os.environ.get("APP_URL", "https://boomap.com")
+    app_url       = os.environ.get("APP_URL", "https://boominvoiceapp.up.railway.app")
     if not all([client_id, client_secret, refresh_token, sender]):
         print("Email not configured — skipping welcome email")
         return

@@ -7,51 +7,32 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  :root { --red:#e31e24; --bg:#f4f4f4; --surface:#fff; --border:#e2e2e2; --text:#111; --muted:#777; --green:#16a34a; --radius:10px; }
+  :root {
+    --red:#e31e24; --bg:#f4f4f4; --surface:#fff;
+    --border:#e2e2e2; --text:#111; --muted:#777;
+    --green:#16a34a; --amber:#d97706; --radius:10px;
+  }
   *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Nunito',system-ui,sans-serif; font-size:14px; min-height:100vh; }
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
 
   .page { max-width:1100px; margin:0 auto; padding:28px 24px 60px; }
-  .page-title { font-size:22px; font-weight:900; margin-bottom:4px; }
-  .page-sub { font-size:13px; color:var(--muted); margin-bottom:20px; }
+  .page-header { margin-bottom:24px; }
+  .page-title { font-size:22px; font-weight:900; margin-bottom:3px; }
+  .page-sub { font-size:12px; color:var(--muted); }
 
-  /* Filter bar */
+  /* ── Filter bar ─────────────────────────────────────────────────────────── */
   .filter-bar {
-    background:#fff;
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    padding:14px 18px;
-    display:flex;
-    align-items:flex-end;
-    gap:12px;
-    flex-wrap:wrap;
-    margin-bottom:24px;
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 18px; display:flex; align-items:flex-end;
+    gap:12px; flex-wrap:wrap; margin-bottom:24px;
   }
   .filter-group { display:flex; flex-direction:column; gap:4px; }
   .filter-group label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
   .filter-group input[type="date"],
   .filter-group select {
-    height:34px;
-    border:1.5px solid var(--border);
-    border-radius:7px;
-    padding:0 10px;
-    font-size:13px;
-    font-family:'Nunito',system-ui,sans-serif;
-    color:var(--text);
-    background:#fff;
-    outline:none;
-    transition:border-color .15s;
-    min-width:130px;
+    height:34px; border:1.5px solid var(--border); border-radius:7px;
+    padding:0 10px; font-size:13px; font-family:'Nunito',system-ui,sans-serif;
+    color:var(--text); background:#fff; outline:none; transition:border-color .15s; min-width:130px;
   }
   .filter-group input[type="date"]:focus,
   .filter-group select:focus { border-color:var(--red); }
@@ -75,33 +56,51 @@
     align-self:flex-end; margin-bottom:2px;
   }
 
-  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:28px; }
-  .kpi { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; }
-  .kpi-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
-  .kpi-value { font-size:26px; font-weight:900; color:var(--text); line-height:1; }
-  .kpi-value.red { color:var(--red); }
+  /* ── KPI row ────────────────────────────────────────────────────────────── */
+  .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:32px; }
+  .kpi {
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px; border-top:3px solid var(--border); transition:box-shadow .15s;
+  }
+  .kpi:hover { box-shadow:0 2px 8px rgba(0,0,0,.06); }
+  .kpi.accent-red   { border-top-color:var(--red); }
+  .kpi.accent-amber { border-top-color:var(--amber); }
+  .kpi.accent-green { border-top-color:var(--green); }
+  .kpi-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:8px; }
+  .kpi-value { font-size:24px; font-weight:900; color:var(--text); line-height:1; }
+  .kpi-value.red   { color:var(--red); }
   .kpi-value.green { color:var(--green); }
-  .kpi-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:5px; }
 
-  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
-  .chart-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
-  .chart-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:16px; }
-  .chart-wrap { position:relative; height:240px; }
+  /* ── Section grouping ───────────────────────────────────────────────────── */
+  .section-block { margin-bottom:28px; }
+  .section-label {
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.07em; color:var(--muted); margin-bottom:10px;
+  }
+
+  /* ── Chart cards ────────────────────────────────────────────────────────── */
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .chart-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:20px 20px 16px; }
+  .chart-title {
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--muted); margin-bottom:14px;
+  }
+  .chart-wrap { position:relative; height:230px; }
   .chart-full { grid-column:1/-1; }
-  .chart-full .chart-wrap { height:220px; }
 
-  .donut-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:20px; }
-  .donut-wrap { position:relative; height:200px; }
+  .donut-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+  .donut-wrap { position:relative; height:210px; }
 
+  /* ── Utility ────────────────────────────────────────────────────────────── */
   .spinner { width:28px; height:28px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; margin:60px auto; }
   @keyframes spin { to { transform:rotate(360deg); } }
-  .note { font-size:11px; color:var(--muted); text-align:right; margin-top:-18px; margin-bottom:18px; }
   .no-data { text-align:center; color:var(--muted); padding:60px 0; font-size:14px; }
 
-  /* Overdue section */
-  .overdue-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:20px; overflow:hidden; }
-  .overdue-card-hdr { display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--border); }
-  .overdue-card-hdr h3 { font-size:14px; font-weight:800; margin:0; }
+  /* ── Overdue section ────────────────────────────────────────────────────── */
+  .overdue-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .overdue-card-hdr { display:flex; align-items:center; gap:10px; padding:14px 20px; border-bottom:1px solid var(--border); }
+  .overdue-card-hdr h3 { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text); margin:0; }
   .overdue-count { background:var(--red); color:#fff; font-size:10px; font-weight:900; padding:2px 8px; border-radius:20px; }
   .overdue-empty { padding:24px 20px; color:var(--muted); font-size:13px; text-align:center; }
   .overdue-table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -114,18 +113,6 @@
   .tag-net15   { background:#dbeafe; color:#1d4ed8; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; }
   .tag-net30   { background:#dcfce7; color:#15803d; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; }
 
-  /* ── Mobile nav ─────────────────────────────────────────────────────────── */
-  
-  
-  
-  
-  
-  
-  @media (max-width:700px) {
-    
-    
-  }
-
   {% include "_nav_styles.html" %}
 </style>
 </head>
@@ -133,11 +120,11 @@
 
 {% include '_nav.html' %}
 
-
-
 <div class="page">
-  <div class="page-title">Spending Analytics</div>
-  <div class="page-sub">USD expenses only. Excludes invoices with no amount.</div>
+  <div class="page-header">
+    <div class="page-title">Spending Analytics</div>
+    <div class="page-sub">Approved USD expenses only — invoices with no amount excluded.</div>
+  </div>
 
   <!-- Filter bar -->
   <div class="filter-bar">
@@ -182,17 +169,17 @@
 
     <!-- KPI row -->
     <div class="kpi-row">
-      <div class="kpi">
-        <div class="kpi-label">Total Spend (USD)</div>
+      <div class="kpi accent-red">
+        <div class="kpi-label">Total Spend</div>
         <div class="kpi-value red" id="kpi-total">—</div>
         <div class="kpi-sub" id="kpi-sub-total">all time</div>
       </div>
-      <div class="kpi">
+      <div class="kpi accent-amber">
         <div class="kpi-label">Unpaid</div>
         <div class="kpi-value" id="kpi-unpaid">—</div>
         <div class="kpi-sub">outstanding balance</div>
       </div>
-      <div class="kpi">
+      <div class="kpi accent-green">
         <div class="kpi-label">Paid</div>
         <div class="kpi-value green" id="kpi-paid">—</div>
         <div class="kpi-sub">amount settled</div>
@@ -209,52 +196,63 @@
       </div>
     </div>
 
-    <!-- Monthly trend — full width -->
-    <div class="charts-grid">
-      <div class="chart-card chart-full">
-        <div class="chart-title">Monthly Spend</div>
-        <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
+    <!-- Monthly trend -->
+    <div class="section-block">
+      <div class="section-label">Spend Over Time</div>
+      <div class="charts-grid">
+        <div class="chart-card chart-full">
+          <div class="chart-title">Monthly Spend</div>
+          <div class="chart-wrap"><canvas id="chart-month"></canvas></div>
+        </div>
       </div>
     </div>
 
-    <!-- Category + Artist side by side -->
-    <div class="charts-grid">
-      <div class="chart-card">
-        <div class="chart-title">Spend by Category</div>
-        <div class="chart-wrap"><canvas id="chart-cat"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Spend by Artist</div>
-        <div class="chart-wrap"><canvas id="chart-artist"></canvas></div>
+    <!-- Category + Artist -->
+    <div class="section-block">
+      <div class="section-label">Spend Breakdown</div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">By Category</div>
+          <div class="chart-wrap"><canvas id="chart-cat"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">By Artist</div>
+          <div class="chart-wrap"><canvas id="chart-artist"></canvas></div>
+        </div>
       </div>
     </div>
 
-    <!-- Paid status + QB status + Stem donuts -->
-    <div class="donut-row">
-      <div class="chart-card">
-        <div class="chart-title">Payment Status</div>
-        <div class="donut-wrap"><canvas id="chart-paid"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">QuickBooks Status</div>
-        <div class="donut-wrap"><canvas id="chart-qb"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Uploaded to Stem</div>
-        <div class="donut-wrap"><canvas id="chart-stem"></canvas></div>
+    <!-- Donuts -->
+    <div class="section-block">
+      <div class="section-label">Payment &amp; Accounting Status</div>
+      <div class="donut-row">
+        <div class="chart-card">
+          <div class="chart-title">Payment Status</div>
+          <div class="donut-wrap"><canvas id="chart-paid"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">QuickBooks</div>
+          <div class="donut-wrap"><canvas id="chart-qb"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Stem</div>
+          <div class="donut-wrap"><canvas id="chart-stem"></canvas></div>
+        </div>
       </div>
     </div>
 
     <!-- Overdue / due soon -->
-    <div class="overdue-card" id="overdue-card">
-      <div class="overdue-card-hdr">
-        <h3>⏰ Overdue &amp; Due Soon</h3>
-        <span class="overdue-count" id="overdue-count" style="display:none"></span>
+    <div class="section-block">
+      <div class="section-label">Upcoming Payments</div>
+      <div class="overdue-card" id="overdue-card">
+        <div class="overdue-card-hdr">
+          <h3>Overdue &amp; Due Soon</h3>
+          <span class="overdue-count" id="overdue-count" style="display:none"></span>
+        </div>
+        <div id="overdue-body"><div class="overdue-empty">Loading…</div></div>
       </div>
-      <div id="overdue-body"><div class="overdue-empty">Loading…</div></div>
     </div>
 
-    <div class="note">* Only USD amounts included in charts</div>
   </div>
   <div id="no-data" class="no-data" style="display:none">No data matches your filters.</div>
 </div>
@@ -263,7 +261,6 @@
 const RED    = '#e31e24';
 const COLORS = ['#e31e24','#6366f1','#f59e0b','#10b981','#3b82f6','#ec4899','#8b5cf6','#14b8a6','#f97316','#64748b'];
 
-// Chart instance registry so we can destroy before re-render
 const CI = {};
 
 function fmt(v) {
@@ -317,7 +314,6 @@ function makeDonut(id, labels, data, colors) {
   });
 }
 
-// Track dropdown options from the initial unfiltered load
 let _allCategories = [];
 let _allArtists    = [];
 let _filtersPopulated = false;
@@ -378,16 +374,13 @@ async function load(params) {
     return;
   }
 
-  // Populate dropdowns on first load
   if (data.all_categories) populateDropdowns(data.all_categories, data.all_artists);
 
-  // If no spend data, show "no data" message
   if (!data.total_usd && Object.keys(data.by_category).length === 0) {
     document.getElementById('no-data').style.display = 'block';
     return;
   }
 
-  // Destroy existing charts before re-render
   destroyAll();
 
   // KPIs
@@ -397,12 +390,11 @@ async function load(params) {
   document.getElementById('kpi-qb').textContent     = fmt(data.qb_summary.No        || 0);
   document.getElementById('kpi-stem').textContent   = fmt(data.stem_summary.No      || 0);
 
-  // KPI subtitle — show filter context
   const filtered = isFiltered(params || {});
   document.getElementById('kpi-sub-total').textContent = filtered ? 'filtered view' : 'all time';
   document.getElementById('filter-badge').style.display = filtered ? 'inline-block' : 'none';
 
-  // Monthly trend (line)
+  // Monthly trend
   const months    = Object.keys(data.by_month);
   const monthVals = months.map(m => data.by_month[m]);
   CI['chart-month'] = new Chart(document.getElementById('chart-month'), {
@@ -479,7 +471,6 @@ function resetFilters() {
   load({});
 }
 
-// Also allow pressing Enter in date fields to apply
 document.querySelectorAll('.filter-bar input, .filter-bar select').forEach(el => {
   el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
 });
@@ -513,7 +504,7 @@ async function loadOverdue() {
   const countEl = document.getElementById('overdue-count');
 
   if (!alerts.length) {
-    body.innerHTML = '<div class="overdue-empty">No payments overdue or due within 7 days. ✓</div>';
+    body.innerHTML = '<div class="overdue-empty">No payments overdue or due within 7 days.</div>';
     countEl.style.display = 'none';
     return;
   }
@@ -550,7 +541,7 @@ async function loadOverdue() {
   </table>`;
 }
 
-// Initial load (no filters)
+// Initial load
 load({});
 loadOverdue();
 </script>

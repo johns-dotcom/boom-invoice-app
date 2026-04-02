@@ -1,6 +1,12 @@
 {# Shared nav partial — included in every page.
    Uses request.path to highlight the active link.
-   Requires context: current_user, pending_count, is_admin (all auto-injected). #}
+   Requires context: current_user, pending_count, is_admin (all auto-injected).
+
+   EMBED MODE: when ?embed=1 is present (i.e. rendered inside the dashboard
+   iframe), the entire nav header is hidden. The dashboard sidebar takes over
+   navigation so the bookkeeping app's own nav would be redundant and confusing. #}
+
+{% if not request.args.get('embed') %}
 {% set p = request.path %}
 {% set docs_active = p in ['/invoices', '/w9s'] or p.startswith('/vendor') %}
 {% set more_active = p in ['/analytics', '/1099', '/calendar', '/history'] %}
@@ -169,3 +175,4 @@ document.addEventListener('click', function() {
   document.querySelectorAll('.nav-dropdown-menu').forEach(d => d.classList.remove('open'));
 });
 </script>
+{% endif %}{# end embed check #}

@@ -12,9 +12,12 @@ body { background: #f4f4f4; font-family: 'Nunito', system-ui, sans-serif; font-s
 :root {
   --red: #e31e24;
   --border: #e2e2e2;
-  --muted: #888;
-  --green: #15803d;
+  --muted: #777;
+  --green: #16a34a;
   --amber: #d97706;
+  --bg: #f4f4f4;
+  --surface: #fff;
+  --text: #111;
 }
 
 /* ─── Header / Nav ─── */
@@ -55,31 +58,34 @@ body { background: #f4f4f4; font-family: 'Nunito', system-ui, sans-serif; font-s
 
 /* ─── Section card ─── */
 .section { background: #fff; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+.section-header { padding: 10px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: #fff; flex-wrap: wrap; }
 .section-title { font-size: 13px; font-weight: 900; color: #111; display: flex; align-items: center; gap: 8px; }
 .count-badge { background: #f0f0f0; color: #555; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
 .filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .filter-bar select, .filter-bar input {
-  border: 1.5px solid var(--border); border-radius: 7px; padding: 6px 10px;
-  font-size: 13px; font-family: inherit; color: #333; background: #fff; outline: none;
+  background: #fafafa; border: 1.5px solid var(--border); border-radius: 7px; padding: 7px 10px;
+  font-size: 13px; font-family: inherit; color: var(--text); outline: none;
   transition: border-color .15s;
 }
-.filter-bar select:focus, .filter-bar input:focus { border-color: var(--red); }
+.filter-bar select:focus, .filter-bar input:focus { border-color: var(--red); background: #fff; }
 
 /* ─── Table ─── */
 .tbl-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th {
-  text-align: left; padding: 9px 12px;
-  font-size: 10px; font-weight: 900; text-transform: uppercase;
-  letter-spacing: .07em; color: #aaa;
+  background: #f8f9fa; text-align: left; padding: 10px 14px;
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .07em; color: #9ca3af;
   border-bottom: 1px solid var(--border); white-space: nowrap;
   cursor: pointer; user-select: none;
+  position: sticky; top: 56px; z-index: 1;
 }
 th:hover { color: var(--red); }
 th.sort-asc::after { content: ' ↑'; }
 th.sort-desc::after { content: ' ↓'; }
-td { padding: 10px 12px; border-bottom: 1px solid #f4f4f4; vertical-align: middle; }
+tr { border-bottom: 1px solid #f3f4f6; background: #fff; transition: background .1s; }
 tr:last-child td { border-bottom: none; }
+td { padding: 11px 14px; vertical-align: middle; }
 tr:hover td { background: #fafafa; }
 tr.sel td { background: #fdf4ff !important; }
 tr.split-row td { background: #faf8ff; }
